@@ -124,7 +124,7 @@ export const translations = {
     import_inventory_success_desc: 'Your inventory has been updated from the file.',
     import_error_title: 'Import Error',
     import_error_desc: 'The selected file is invalid or corrupted. Please check the file and try again.',
-    search_by_bill_no_placeholder: 'Search by Bill No...',
+    search_by_bill_no_placeholder: 'Search Bill...',
     bill_no_label: 'Bill:',
     no_sales_found_for_search_message: 'No sales found',
     try_different_bill_no_message: 'Try searching for a different bill number.',
@@ -253,7 +253,7 @@ export const translations = {
     import_inventory_success_desc: 'आपकी सूची फ़ाइल से अद्यतन की गई है।',
     import_error_title: 'आयात त्रुटि',
     import_error_desc: 'चयनित फ़ाइल अमान्य या दूषित है। कृपया फ़ाइल की जाँच करें और पुनः प्रयास करें।',
-    search_by_bill_no_placeholder: 'बिल नंबर से खोजें...',
+    search_by_bill_no_placeholder: 'बिल खोजें...',
     bill_no_label: 'बिल:',
     no_sales_found_for_search_message: 'कोई बिक्री नहीं मिली',
     try_different_bill_no_message: 'एक अलग बिल नंबर खोजने का प्रयास करें।',
@@ -382,9 +382,11 @@ export const translations = {
     import_inventory_success_desc: 'तुमचा साठा फाइलमधून अद्यतनित केला गेला आहे.',
     import_error_title: 'आयात त्रुटी',
     import_error_desc: 'निवडलेली फाइल अवैध किंवा दूषित आहे. कृपया फाइल तपासा आणि पुन्हा प्रयत्न करा.',
-    search_by_bill_no_placeholder: 'बिल नंबरने शोधा...',
+    search_by_bill_no_placeholder: 'बिल शोधा...',
     bill_no_label: 'बिल:',
     no_sales_found_for_search_message: 'कोणतीही विक्री आढळली नाही',
     try_different_bill_no_message: 'वेगळा बिल नंबर शोधण्याचा प्रयत्न करा.',
   },
 };
+
+    

@@ -52,7 +52,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
 
   const filteredSales = useMemo(() => {
     return sales
-        .filter(sale => sale.id.slice(-8).toLowerCase().includes(searchTerm.toLowerCase()))
+        .filter(sale => sale.id.toLowerCase().includes(searchTerm.toLowerCase()))
         .sort((a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime());
   }, [sales, searchTerm]);
 
@@ -198,7 +198,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                     <div className="flex flex-col text-left flex-1">
                         <span className="font-semibold">{sale.customerName}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{t('bill_no_label')} {sale.id.slice(-8).toUpperCase()}</span>
+                          <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{t('bill_no_label')} {sale.id}</span>
                           {sale.doctorName && <span className="text-xs text-muted-foreground">{t('prescribed_by_doctor', { doctorName: sale.doctorName })}</span>}
                         </div>
                     </div>
@@ -252,3 +252,5 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     </Card>
   );
 }
+
+    
