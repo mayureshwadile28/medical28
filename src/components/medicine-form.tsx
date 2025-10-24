@@ -189,7 +189,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             name="price"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>{t('price_label', { unit: selectedCategory === 'Tablet' || selectedCategory === 'Capsule' ? t('price_unit_strip') : t('price_unit_unit') })}</FormLabel>
+                <FormLabel>{selectedCategory === 'Tablet' || selectedCategory === 'Capsule' ? t('price_per_strip_label') : t('price_per_unit_label')}</FormLabel>
                 <FormControl>
                     <Input type="number" step="0.01" placeholder={t('price_placeholder')} {...field} />
                 </FormControl>
