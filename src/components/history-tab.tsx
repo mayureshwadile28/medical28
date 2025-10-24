@@ -181,11 +181,11 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                         <span className="font-semibold">{sale.customerName}</span>
                         {sale.doctorName && <span className="text-xs text-muted-foreground">{t('prescribed_by_doctor', { doctorName: sale.doctorName })}</span>}
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-4 text-sm">
                       <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
-                        <span>{new Date(sale.saleDate).toLocaleDateString()}</span>
+                        <span className="text-muted-foreground">{new Date(sale.saleDate).toLocaleDateString()}</span>
                       </ClientOnly>
-                      <span className="font-mono text-right">{formatToINR(sale.totalAmount)}</span>
+                      <span className="font-mono text-right text-foreground">{formatToINR(sale.totalAmount)}</span>
                     </div>
                   </div>
                 </AccordionTrigger>
@@ -210,8 +210,8 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                         <TableRow key={`${sale.id}-${item.medicineId}-${index}`}>
                           <TableCell>{item.name}</TableCell>
                           <TableCell className="text-right">{item.quantity}</TableCell>
-                          <TableCell className="text-right">{formatToINR(item.pricePerUnit)}</TableCell>
-                          <TableCell className="text-right">{formatToINR(item.total)}</TableCell>
+                          <TableCell className="text-right font-mono">{formatToINR(item.pricePerUnit)}</TableCell>
+                          <TableCell className="text-right font-mono">{formatToINR(item.total)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
