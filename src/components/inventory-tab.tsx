@@ -46,7 +46,7 @@ interface InventoryTabProps {
 
 const getStockString = (med: Medicine) => {
   if (med.category === 'Tablet') {
-    return `${med.stock.strips} strips, ${med.stock.tabletsPerStrip * med.stock.strips} tabs`;
+    return `${med.stock.strips} strips, ${10 * med.stock.strips} tabs`;
   }
   return `${med.stock.quantity} units`;
 };

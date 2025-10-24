@@ -1,6 +1,5 @@
 export type TabletStock = {
   strips: number;
-  tabletsPerStrip: number;
 };
 
 export type OtherStock = {

@@ -25,15 +25,11 @@ const formSchema = z.object({
   }),
   price: z.coerce.number().positive('Price must be a positive number.'),
   stock_strips: z.coerce.number().int().min(0).optional(),
-  stock_tabletsPerStrip: z.coerce.number().int().min(0).optional(),
   stock_quantity: z.coerce.number().int().min(0).optional(),
 }).superRefine((data, ctx) => {
     if (data.category === 'Tablet') {
         if (data.stock_strips === undefined || data.stock_strips < 0) {
             ctx.addIssue({ code: 'custom', message: 'Number of strips is required.', path: ['stock_strips'] });
-        }
-        if (data.stock_tabletsPerStrip === undefined || data.stock_tabletsPerStrip <= 0) {
-            ctx.addIssue({ code: 'custom', message: 'Tablets per strip is required.', path: ['stock_tabletsPerStrip'] });
         }
     } else {
          if (data.stock_quantity === undefined || data.stock_quantity < 0) {
@@ -57,7 +53,6 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
       expiry: medicineToEdit ? new Date(medicineToEdit.expiry).toISOString().split('T')[0] : '',
       price: medicineToEdit?.price || 0,
       stock_strips: medicineToEdit?.category === 'Tablet' ? medicineToEdit.stock.strips : 0,
-      stock_tabletsPerStrip: medicineToEdit?.category === 'Tablet' ? medicineToEdit.stock.tabletsPerStrip : 0,
       stock_quantity: medicineToEdit?.category !== 'Tablet' ? medicineToEdit?.stock.quantity : 0,
     },
   });
@@ -73,7 +68,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
         expiry: new Date(values.expiry).toISOString(),
         price: values.price,
         stock: selectedCategory === 'Tablet'
-            ? { strips: values.stock_strips!, tabletsPerStrip: values.stock_tabletsPerStrip! }
+            ? { strips: values.stock_strips! }
             : { quantity: values.stock_quantity! }
     } as Medicine;
     
@@ -161,7 +156,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
         </div>
 
         {selectedCategory === 'Tablet' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-md bg-muted/50">
+          <div className="grid grid-cols-1 gap-4 p-4 border rounded-md bg-muted/50">
             <FormField
               control={form.control}
               name="stock_strips"
@@ -170,19 +165,6 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
                   <FormLabel>Number of Strips</FormLabel>
                   <FormControl>
                     <Input type="number" placeholder="e.g., 10" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="stock_tabletsPerStrip"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tablets per Strip</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="e.g., 15" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
