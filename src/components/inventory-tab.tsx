@@ -49,7 +49,6 @@ interface InventoryTabProps {
   sales: SaleRecord[];
   restockId?: string | null;
   onRestockComplete?: () => void;
-  setActiveTab?: (tab: string) => void;
 }
 
 type SortOption = 'name_asc' | 'expiry_asc' | 'expiry_desc';
@@ -102,7 +101,7 @@ const getExpiryInfo = (expiry: string) => {
 };
 
 
-export default function InventoryTab({ medicines, setMedicines, sales, restockId, onRestockComplete, setActiveTab }: InventoryTabProps) {
+export default function InventoryTab({ medicines, setMedicines, sales, restockId, onRestockComplete }: InventoryTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -113,12 +112,11 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     if (restockId) {
       const medicineToRestock = medicines.find(m => m.id === restockId);
       if (medicineToRestock) {
-        if (setActiveTab) setActiveTab('inventory');
         setEditingMedicine(medicineToRestock);
         setIsFormOpen(true);
       }
     }
-  }, [restockId, medicines, setActiveTab]);
+  }, [restockId, medicines]);
 
 
   const categories = useMemo(() => {
@@ -177,6 +175,13 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     if(onRestockComplete) onRestockComplete();
   }
 
+  const handleOpenChange = (open: boolean) => {
+    setIsFormOpen(open);
+    if (!open) {
+      handleCancelForm();
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -191,7 +196,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                 </Link>
             </Button>
 
-            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
                     <Button onClick={() => setEditingMedicine(null)}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Medicine

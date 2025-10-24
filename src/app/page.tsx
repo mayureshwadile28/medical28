@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
 import { type Medicine, type SaleRecord } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Package, ShoppingCart, History, Loader2 } from 'lucide-react';
 import { initialMedicines, initialSales } from '@/lib/data';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -17,11 +16,18 @@ import HistoryTab from '@/components/history-tab';
 export default function Home() {
   const [medicines, setMedicines, medicinesLoading] = useLocalStorage<Medicine[]>('medicines', initialMedicines);
   const [sales, setSales, salesLoading] = useLocalStorage<SaleRecord[]>('sales', initialSales);
-  const [activeTab, setActiveTab] = useState('pos');
   
   const searchParams = useSearchParams();
   const router = useRouter();
   const openRestockId = searchParams.get('restock');
+
+  const [activeTab, setActiveTab] = useState(openRestockId ? 'inventory' : 'pos');
+
+  useEffect(() => {
+    if (openRestockId) {
+      setActiveTab('inventory');
+    }
+  }, [openRestockId]);
 
   const isLoading = medicinesLoading || salesLoading;
 
@@ -52,6 +58,11 @@ export default function Home() {
         </div>
       </div>
     );
+  }
+  
+  const onRestockComplete = () => {
+    // Navigating to the same path but without search params clears them
+    router.push('/', { scroll: false });
   }
 
   return (
@@ -108,8 +119,7 @@ export default function Home() {
                 setMedicines={setMedicines}
                 sales={sales}
                 restockId={openRestockId}
-                onRestockComplete={() => router.push('/', { scroll: false })}
-                setActiveTab={setActiveTab}
+                onRestockComplete={onRestockComplete}
               />
             </TabsContent>
             <TabsContent value="history" className="mt-0">
