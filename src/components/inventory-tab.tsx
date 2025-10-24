@@ -39,6 +39,7 @@ import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatToINR } from '@/lib/currency';
 
 interface InventoryTabProps {
   medicines: Medicine[];
@@ -159,7 +160,6 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
                               setEditingMedicine(null);
                               setIsFormOpen(false);
                           }}
-                          medicines={medicines}
                       />
                   </DialogContent>
               </Dialog>
@@ -258,7 +258,7 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
                               </div>
                             </ClientOnly>
                           </TableCell>
-                          <TableCell className="text-right font-mono">₹{med.price.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono">{formatToINR(med.price)}</TableCell>
                           <TableCell className={cn("text-right font-mono", isLowStock(med) && 'text-amber-500 font-semibold')}>{getStockString(med)}</TableCell>
                           <TableCell className="text-right">
                           <div className="flex justify-end gap-1">

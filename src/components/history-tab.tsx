@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ClientOnly } from './client-only';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatToINR } from '@/lib/currency';
 
 interface HistoryTabProps {
   sales: SaleRecord[];
@@ -121,7 +122,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                       <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
                         <span>{new Date(sale.saleDate).toLocaleDateString()}</span>
                       </ClientOnly>
-                      <span className="font-mono text-right">₹{sale.totalAmount.toFixed(2)}</span>
+                      <span className="font-mono text-right">{formatToINR(sale.totalAmount)}</span>
                     </div>
                   </div>
                 </AccordionTrigger>
@@ -140,8 +141,8 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                         <TableRow key={`${sale.id}-${item.medicineId}-${index}`}>
                           <TableCell>{item.name}</TableCell>
                           <TableCell className="text-right">{item.quantity}</TableCell>
-                          <TableCell className="text-right">₹{item.pricePerUnit.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">₹{item.total.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{formatToINR(item.pricePerUnit)}</TableCell>
+                          <TableCell className="text-right">{formatToINR(item.total)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

@@ -57,7 +57,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
       expiry: medicineToEdit ? new Date(medicineToEdit.expiry).toISOString().split('T')[0] : '',
       price: medicineToEdit?.price || 0,
       stock_strips: medicineToEdit?.category === 'Tablet' ? medicineToEdit.stock.tablets / 10 : 0,
-      stock_quantity: medicineToEdit?.category !== 'Tablet' ? medicineToEdit?.stock.quantity : 0,
+      stock_quantity: medicineToEdit?.category !== 'Tablet' ? (medicineToEdit?.stock as any)?.quantity || 0 : 0,
     },
   });
 
@@ -72,8 +72,8 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
         expiry: new Date(values.expiry).toISOString(),
         price: values.price,
         stock: selectedCategory === 'Tablet'
-            ? { tablets: values.stock_strips! * 10 }
-            : { quantity: values.stock_quantity! }
+            ? { tablets: (values.stock_strips || 0) * 10 }
+            : { quantity: values.stock_quantity || 0 }
     } as Medicine;
     
     onSave(medicineData);

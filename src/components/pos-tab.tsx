@@ -39,6 +39,7 @@ import {
 import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
+import { formatToINR } from '@/lib/currency';
 
 interface PosTabProps {
   medicines: Medicine[];
@@ -249,8 +250,8 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
             </div>
 
             {selectedMedicine && (
-              <div className="flex items-center gap-2 rounded-md bg-primary/10 p-3 text-primary-foreground border border-primary/20">
-                <MapPin className="h-5 w-5 text-primary" />
+              <div className="flex items-center gap-2 rounded-md bg-accent p-3 text-accent-foreground border border-accent/20">
+                <MapPin className="h-5 w-5" />
                 <p className="text-sm">
                   Location for <span className="font-semibold">{selectedMedicine.name}</span>: 
                   <span className="ml-2 inline-block rounded-md bg-primary px-2 py-1 font-bold text-primary-foreground">{selectedMedicine.location}</span>
@@ -290,8 +291,8 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                           min="0"
                         />
                       </TableCell>
-                      <TableCell className="text-right font-mono">₹{item.pricePerUnit.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-mono">₹{item.total.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">{formatToINR(item.pricePerUnit)}</TableCell>
+                      <TableCell className="text-right font-mono">{formatToINR(item.total)}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" onClick={() => removeItemFromBill(item.medicineId)}>
                           <XCircle className="h-4 w-4 text-destructive" />
@@ -315,7 +316,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                 <TableFooter>
                     <TableRow>
                         <TableCell colSpan={3} className="font-bold text-lg">Total</TableCell>
-                        <TableCell className="text-right font-bold text-lg font-mono">₹{totalAmount.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-bold text-lg font-mono">{formatToINR(totalAmount)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
                 </TableFooter>
@@ -344,11 +345,11 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
             <div className="space-y-2 rounded-lg bg-primary/10 p-4">
                 <div className="flex justify-between text-muted-foreground">
                     <span>Subtotal</span>
-                    <span className='font-mono'>₹{totalAmount.toFixed(2)}</span>
+                    <span className='font-mono'>{formatToINR(totalAmount)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold">
                     <span>Total Amount</span>
-                    <span className='font-mono'>₹{totalAmount.toFixed(2)}</span>
+                    <span className='font-mono'>{formatToINR(totalAmount)}</span>
                 </div>
             </div>
           </CardContent>
@@ -363,7 +364,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                   <AlertDialogHeader>
                     <AlertDialogTitle>Confirm Sale</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will finalize the sale for {customerName} with a total of ₹{totalAmount.toFixed(2)} and update the inventory. This action cannot be undone.
+                      This will finalize the sale for {customerName} with a total of {formatToINR(totalAmount)} and update the inventory. This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
