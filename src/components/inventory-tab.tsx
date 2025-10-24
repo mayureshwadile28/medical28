@@ -30,13 +30,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { PlusCircle, Edit, Trash2, Search, ListFilter, Sparkles, Loader2, Info, ArrowDownUp } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp } from 'lucide-react';
 import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
-import { checkExpiryAction } from '@/app/actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface InventoryTabProps {
@@ -93,52 +91,7 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [sortByExpiry, setSortByExpiry] = useState(false);
 
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiAlert, setAiAlert] = useState<string | null>(null);
   const { toast } = useToast();
-
-  const handleAiCheck = async () => {
-    setAiLoading(true);
-    setAiAlert(null);
-    
-    const preparedMedicines = medicines.map(m => {
-        if (m.category === 'Tablet') {
-            const tabletMed = m as TabletMedicine;
-            return {
-                name: tabletMed.name,
-                category: tabletMed.category,
-                location: tabletMed.location,
-                expiry: tabletMed.expiry,
-                stock: tabletMed.stock.tablets,
-                price: tabletMed.price / 10, // Price per tablet
-            };
-        }
-        // This handles GenericMedicine which includes Syrup, Ointment, etc.
-        return {
-          name: m.name,
-          category: m.category,
-          location: m.location,
-          expiry: m.expiry,
-          stock: m.stock.quantity,
-          price: m.price,
-        };
-    });
-
-
-    const result = await checkExpiryAction(preparedMedicines, sales);
-
-    if ('alertMessage' in result) {
-        setAiAlert(result.alertMessage);
-    } else {
-        toast({
-            variant: "destructive",
-            title: "AI Analysis Failed",
-            description: result.error,
-        });
-    }
-    setAiLoading(false);
-  };
-
 
   const categories = useMemo(() => {
     const cats = new Set(medicines.map(m => m.category));
@@ -179,10 +132,6 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Inventory</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
-              <Button onClick={handleAiCheck} disabled={aiLoading}>
-                  {aiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                  Check Priority
-              </Button>
               <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                   <DialogTrigger asChild>
                       <Button onClick={() => setEditingMedicine(null)}>
@@ -207,14 +156,6 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {aiAlert && (
-          <Alert>
-            <Sparkles className="h-4 w-4" />
-            <AlertTitle>AI Priority Alert!</AlertTitle>
-            <AlertDescription>{aiAlert}</AlertDescription>
-          </Alert>
-        )}
-
         <div className="flex flex-col gap-2 md:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
