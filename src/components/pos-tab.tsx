@@ -13,6 +13,8 @@ import {
   TableRow,
   TableFooter,
 } from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
+
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
@@ -34,7 +36,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-import { Check, ChevronsUpDown, XCircle, MapPin } from 'lucide-react';
+import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 
@@ -181,165 +183,191 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
       <div className="lg:col-span-2 space-y-4">
-        <h2 className="text-2xl font-bold font-headline">Point of Sale</h2>
+        <Card>
+          <CardHeader>
+            <CardTitle>Create a New Bill</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full sm:w-[300px] justify-between"
+                    >
+                    {selectedMedicine
+                        ? selectedMedicine.name
+                        : "Select medicine..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full sm:w-[300px] p-0">
+                    <Command>
+                    <CommandInput placeholder="Search medicine..." />
+                    <CommandList>
+                        <CommandEmpty>No medicine found.</CommandEmpty>
+                        <CommandGroup>
+                        {availableMedicines.map((med) => (
+                            <CommandItem
+                            key={med.id}
+                            value={med.name}
+                            onSelect={() => {
+                                setSelectedMedicineId(med.id);
+                                setOpen(false);
+                            }}
+                            >
+                            <Check
+                                className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedMedicineId === med.id ? "opacity-100" : "opacity-0"
+                                )}
+                            />
+                            <div className="flex justify-between w-full">
+                              <span>{med.name}</span>
+                              <span className="text-muted-foreground text-xs">{getStockString(med)}</span>
+                            </div>
+                            </CommandItem>
+                        ))}
+                        </CommandGroup>
+                    </CommandList>
+                    </Command>
+                </PopoverContent>
+              </Popover>
+              <Button onClick={addMedicineToBill} disabled={!selectedMedicineId}>Add to Bill</Button>
+            </div>
+
+            {selectedMedicine && (
+              <div className="flex items-center gap-2 rounded-md bg-accent/10 p-3 text-accent-foreground border border-accent/20">
+                <MapPin className="h-5 w-5 text-accent" />
+                <p className="text-sm">
+                  Location for <span className="font-semibold">{selectedMedicine.name}</span>: 
+                  <span className="ml-2 inline-block rounded-md bg-accent px-2 py-1 font-bold text-accent-foreground">{selectedMedicine.location}</span>
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
         
-        <div className="flex flex-col sm:flex-row gap-2">
-           <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={open}
-                className="w-full sm:w-[300px] justify-between"
-                >
-                {selectedMedicine
-                    ? selectedMedicine.name
-                    : "Select medicine..."}
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-full sm:w-[300px] p-0">
-                <Command>
-                <CommandInput placeholder="Search medicine..." />
-                <CommandList>
-                    <CommandEmpty>No medicine found.</CommandEmpty>
-                    <CommandGroup>
-                    {availableMedicines.map((med) => (
-                        <CommandItem
-                        key={med.id}
-                        value={med.name}
-                        onSelect={() => {
-                            setSelectedMedicineId(med.id);
-                            setOpen(false);
-                        }}
-                        >
-                        <Check
-                            className={cn(
-                            "mr-2 h-4 w-4",
-                            selectedMedicineId === med.id ? "opacity-100" : "opacity-0"
-                            )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Current Bill</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead className="w-[100px] text-center">Units</TableHead>
+                  <TableHead className="text-right">Price/Unit</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {billItems.length > 0 ? (
+                  billItems.map(item => (
+                    <TableRow key={item.medicineId}>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateItemQuantity(item.medicineId, e.target.value)}
+                          className="text-center h-8"
+                          min="0"
                         />
-                        <div className="flex justify-between w-full">
-                           <span>{med.name}</span>
-                           <span className="text-muted-foreground text-xs">{getStockString(med)}</span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono">₹{item.pricePerUnit.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">₹{item.total.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => removeItemFromBill(item.medicineId)}>
+                          <XCircle className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                       <div className="flex flex-col items-center justify-center gap-2">
+                            <ShoppingCart className="h-8 w-8 text-muted-foreground" />
+                            <p>No items in bill.</p>
+                            <p className="text-sm text-muted-foreground">Add medicines to get started.</p>
                         </div>
-                        </CommandItem>
-                    ))}
-                    </CommandGroup>
-                </CommandList>
-                </Command>
-            </PopoverContent>
-            </Popover>
-          <Button onClick={addMedicineToBill} disabled={!selectedMedicineId}>Add to Bill</Button>
-        </div>
-
-        {selectedMedicine && (
-          <div className="flex items-center gap-2 rounded-md bg-accent/10 p-3 text-accent-foreground border border-accent/20">
-            <MapPin className="h-5 w-5 text-accent" />
-            <p className="text-sm">
-              Location for <span className="font-semibold">{selectedMedicine.name}</span>: 
-              <span className="ml-2 inline-block rounded-md bg-accent px-2 py-1 font-bold text-accent-foreground">{selectedMedicine.location}</span>
-            </p>
-          </div>
-        )}
-
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead className="w-[100px] text-center">Units</TableHead>
-                <TableHead className="text-right">Price/Unit</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {billItems.length > 0 ? (
-                billItems.map(item => (
-                  <TableRow key={item.medicineId}>
-                    <TableCell>{item.name}</TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => updateItemQuantity(item.medicineId, e.target.value)}
-                        className="text-center h-8"
-                        min="0"
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">₹{item.pricePerUnit.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">₹{item.total.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => removeItemFromBill(item.medicineId)}>
-                        <XCircle className="h-4 w-4 text-destructive" />
-                      </Button>
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    No items in bill.
-                  </TableCell>
-                </TableRow>
+                )}
+              </TableBody>
+              {billItems.length > 0 && (
+                <TableFooter>
+                    <TableRow>
+                        <TableCell colSpan={3} className="font-bold text-lg">Total</TableCell>
+                        <TableCell className="text-right font-bold text-lg font-mono">₹{totalAmount.toFixed(2)}</TableCell>
+                        <TableCell></TableCell>
+                    </TableRow>
+                </TableFooter>
               )}
-            </TableBody>
-            <TableFooter>
-                <TableRow>
-                    <TableCell colSpan={3} className="font-bold text-lg">Total</TableCell>
-                    <TableCell className="text-right font-bold text-lg">₹{totalAmount.toFixed(2)}</TableCell>
-                    <TableCell></TableCell>
-                </TableRow>
-            </TableFooter>
-          </Table>
-        </div>
+            </Table>
+          </div>
+          </CardContent>
+        </Card>
       </div>
-      <div className="space-y-4 lg:col-span-1 p-4 rounded-lg border bg-card-foreground/5">
-        <h3 className="text-xl font-bold font-headline">Checkout</h3>
-        <div className="space-y-2">
-            <label htmlFor='customer-name' className='text-sm font-medium'>Customer Name</label>
-            <Input
-            id="customer-name"
-            placeholder="Enter customer name"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            />
-        </div>
-        <div className="space-y-2 rounded-lg bg-primary/10 p-4">
-            <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
-                <span>₹{totalAmount.toFixed(2)}</span>
+      <div className="lg:col-span-1">
+        <Card className="sticky top-6">
+          <CardHeader>
+            <CardTitle>Checkout</CardTitle>
+            <CardDescription>Finalize the sale here.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+                <label htmlFor='customer-name' className='text-sm font-medium'>Customer Name</label>
+                <Input
+                id="customer-name"
+                placeholder="Enter customer name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                />
             </div>
-            <div className="flex justify-between text-lg font-bold">
-                <span>Total Amount</span>
-                <span>₹{totalAmount.toFixed(2)}</span>
+            <div className="space-y-2 rounded-lg bg-primary/10 p-4">
+                <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span className='font-mono'>₹{totalAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-lg font-bold">
+                    <span>Total Amount</span>
+                    <span className='font-mono'>₹{totalAmount.toFixed(2)}</span>
+                </div>
             </div>
-        </div>
-
-        <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button className="w-full" size="lg" disabled={billItems.length === 0 || customerName.trim() === ''}>
-                    Complete Sale
-                </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Confirm Sale</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will finalize the sale for {customerName} with a total of ₹{totalAmount.toFixed(2)} and update the inventory. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={completeSale}>
-                  Confirm
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+          </CardContent>
+          <CardFooter>
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button className="w-full" size="lg" disabled={billItems.length === 0 || customerName.trim() === ''}>
+                        Complete Sale
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Sale</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will finalize the sale for {customerName} with a total of ₹{totalAmount.toFixed(2)} and update the inventory. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={completeSale}>
+                      Confirm
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );

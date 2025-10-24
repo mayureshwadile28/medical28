@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
 import { type Medicine, type SaleRecord } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Package, ShoppingCart, History, Loader2 } from 'lucide-react';
 import { initialMedicines, initialSales } from '@/lib/data';
 
@@ -49,10 +49,10 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-background p-2 sm:p-4 lg:p-6">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-4 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
+    <main className="min-h-screen bg-background text-foreground">
+      <div className="border-b">
+        <div className="container mx-auto flex h-16 items-center px-4">
+           <div className="flex items-center gap-3">
              <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="24"
@@ -71,40 +71,42 @@ export default function Home() {
             <h1 className="text-2xl font-bold font-headline text-foreground">Vicky Medical POS</h1>
           </div>
         </div>
+      </div>
+      <div className="container mx-auto p-4 sm:p-6 lg:p-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 md:w-[400px]">
-            <TabsTrigger value="pos">
-              <ShoppingCart className="mr-2 h-4 w-4" /> POS
-            </TabsTrigger>
-            <TabsTrigger value="inventory">
-              <Package className="mr-2 h-4 w-4" /> Inventory
-            </TabsTrigger>
-            <TabsTrigger value="history">
-              <History className="mr-2 h-4 w-4" /> History
-            </TabsTrigger>
-          </TabsList>
-          <Card className="mt-4">
-            <CardContent className="p-2 sm:p-4">
-              <TabsContent value="pos" className="mt-0">
-                <PosTab
-                  medicines={medicines}
-                  setMedicines={setMedicines}
-                  sales={sales}
-                  setSales={setSales}
-                />
-              </TabsContent>
-              <TabsContent value="inventory" className="mt-0">
-                <InventoryTab 
-                  medicines={medicines} 
-                  setMedicines={setMedicines}
-                  sales={sales}
-                />
-              </TabsContent>
-              <TabsContent value="history" className="mt-0">
-                <HistoryTab sales={sales} setSales={setSales} />
-              </TabsContent>
-            </CardContent>
-          </Card>
+          <div className="flex justify-center md:justify-start">
+            <TabsList>
+              <TabsTrigger value="pos">
+                <ShoppingCart className="mr-2 h-4 w-4" /> POS
+              </TabsTrigger>
+              <TabsTrigger value="inventory">
+                <Package className="mr-2 h-4 w-4" /> Inventory
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                <History className="mr-2 h-4 w-4" /> History
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          <div className="mt-6">
+            <TabsContent value="pos" className="mt-0">
+              <PosTab
+                medicines={medicines}
+                setMedicines={setMedicines}
+                sales={sales}
+                setSales={setSales}
+              />
+            </TabsContent>
+            <TabsContent value="inventory" className="mt-0">
+              <InventoryTab 
+                medicines={medicines} 
+                setMedicines={setMedicines}
+                sales={sales}
+              />
+            </TabsContent>
+            <TabsContent value="history" className="mt-0">
+              <HistoryTab sales={sales} setSales={setSales} />
+            </TabsContent>
+          </div>
         </Tabs>
       </div>
     </main>
