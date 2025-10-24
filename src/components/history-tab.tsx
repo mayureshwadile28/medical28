@@ -33,7 +33,7 @@ import {
 import { ClientOnly } from './client-only';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatToINR } from '@/lib/currency';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { PrintableBill } from './printable-bill';
 
 interface HistoryTabProps {
@@ -101,15 +101,16 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
       printWindow.document.write('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');
       printWindow.document.write('<link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Space+Grotesk:wght@300..700&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">');
       printWindow.document.write('</head><body><div id="print-root"></div></body></html>');
+      printWindow.document.close();
       
       const printRoot = printWindow.document.getElementById('print-root');
       if (printRoot) {
-          ReactDOM.render(<PrintableBill sale={sale} />, printRoot, () => {
-            setTimeout(() => { // Timeout to ensure content is rendered
-                printWindow.print();
-                printWindow.close();
-            }, 500);
-        });
+          const root = createRoot(printRoot);
+          root.render(<PrintableBill sale={sale} />);
+          setTimeout(() => { // Timeout to ensure content is rendered
+              printWindow.print();
+              printWindow.close();
+          }, 500);
       }
     }
   };
