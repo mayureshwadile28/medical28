@@ -10,15 +10,17 @@ export async function checkExpiryAction(
     if (!medicines || medicines.length === 0) {
       return { error: 'No medicine data available to analyze.' };
     }
-    // Sales data can be empty
-    if (!salesData) {
-      salesData = [];
-    }
     
-    const result = await checkExpiry({ medicines, salesData });
+    const result = await checkExpiry({ 
+        medicines: medicines || [], 
+        salesData: salesData || [] 
+    });
     return result;
   } catch (error) {
     console.error('Error in checkExpiryAction:', error);
-    return { error: 'Failed to analyze expiry data. Please try again.' };
+    if (error instanceof Error) {
+        return { error: `Failed to analyze expiry data: ${error.message}` };
+    }
+    return { error: 'Failed to analyze expiry data. An unknown error occurred.' };
   }
 }
