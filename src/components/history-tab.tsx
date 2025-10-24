@@ -37,6 +37,7 @@ import { createRoot } from 'react-dom/client';
 import { PrintableBill } from './printable-bill';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from '@/lib/i18n/use-translation';
 
 interface HistoryTabProps {
   sales: SaleRecord[];
@@ -46,6 +47,7 @@ interface HistoryTabProps {
 export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   const [isClearHistoryOpen, setIsClearHistoryOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const { t } = useTranslation();
 
   const handleExportCSV = () => {
     const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'TotalAmount', 'MedicineName', 'Quantity', 'PricePerUnit', 'ItemTotal'];
@@ -126,26 +128,26 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>Sales History</CardTitle>
+          <CardTitle>{t('sales_history_title')}</CardTitle>
           <div className="flex gap-2">
             <Button onClick={handleExportCSV} disabled={sales.length === 0}>
               <Download className="mr-2 h-4 w-4" />
-              Export CSV
+              {t('export_csv_button')}
             </Button>
             <AlertDialog open={isClearHistoryOpen} onOpenChange={(open) => { setIsClearHistoryOpen(open); if (!open) setDeleteConfirmation(''); }}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" disabled={sales.length === 0}>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Clear History
+                  {t('clear_history_button')}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogTitle>{t('clear_history_alert_title')}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete all sales history.
+                    {t('clear_history_alert_description')}
                     <br />
-                    To confirm, please type <strong>delete</strong> in the box below.
+                    <span dangerouslySetInnerHTML={{ __html: t('clear_history_confirm_prompt') }} />
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="py-2">
@@ -154,13 +156,13 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                         id="delete-confirm"
                         value={deleteConfirmation}
                         onChange={(e) => setDeleteConfirmation(e.target.value)}
-                        placeholder='Type "delete" to confirm'
+                        placeholder={t('delete_confirm_placeholder')}
                     />
                 </div>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>{t('cancel_button')}</AlertDialogCancel>
                   <AlertDialogAction onClick={handleClearHistory} disabled={deleteConfirmation !== 'delete'}>
-                    Yes, delete all
+                    {t('confirm_delete_all_button')}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -177,7 +179,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                   <div className="flex w-full items-center justify-between pr-4">
                     <div className="flex flex-col text-left">
                         <span className="font-semibold">{sale.customerName}</span>
-                        {sale.doctorName && <span className="text-xs text-muted-foreground">Prescribed by Dr. {sale.doctorName}</span>}
+                        {sale.doctorName && <span className="text-xs text-muted-foreground">{t('prescribed_by_doctor', { doctorName: sale.doctorName })}</span>}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
@@ -191,16 +193,16 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                   <div className="flex justify-end mb-2">
                     <Button variant="outline" size="sm" onClick={() => handlePrintBill(sale)}>
                       <Printer className="mr-2 h-4 w-4" />
-                      Print Bill
+                      {t('print_bill_button')}
                     </Button>
                   </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Item</TableHead>
-                        <TableHead className="text-right">Quantity</TableHead>
-                        <TableHead className="text-right">Price/Unit</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead>{t('bill_item_header')}</TableHead>
+                        <TableHead className="text-right">{t('bill_units_header')}</TableHead>
+                        <TableHead className="text-right">{t('bill_price_unit_header')}</TableHead>
+                        <TableHead className="text-right">{t('bill_total_header')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -221,8 +223,8 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
         ) : (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-10 text-center">
               <Info className="h-10 w-10 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold">No Sales Recorded Yet</h3>
-              <p className="text-muted-foreground">Completed sales will appear here.</p>
+              <h3 className="text-xl font-semibold">{t('no_sales_recorded_message')}</h3>
+              <p className="text-muted-foreground">{t('completed_sales_appear_here')}</p>
           </div>
         )}
       </CardContent>

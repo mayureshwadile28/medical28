@@ -42,6 +42,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatToINR } from '@/lib/currency';
 import { Badge } from '@/components/ui/badge';
+import { useTranslation } from '@/lib/i18n/use-translation';
 
 interface InventoryTabProps {
   medicines: Medicine[];
@@ -74,39 +75,39 @@ const isOutOfStock = (med: Medicine) => {
     return med.stock.quantity <= 0;
 }
 
-const getExpiryInfo = (expiry: string) => {
-  const now = new Date();
-  const expiryDate = new Date(expiry);
-  now.setHours(0, 0, 0, 0);
-  expiryDate.setHours(0, 0, 0, 0);
-  const diffTime = expiryDate.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  let remainderText = '';
-  if (diffDays < 0) {
-    remainderText = `Expired ${Math.abs(diffDays)} days ago`;
-  } else if (diffDays === 0) {
-    remainderText = 'Expires today';
-  } else {
-    remainderText = `Expires in ${diffDays} days`;
-  }
-
-  return {
-    text: expiryDate.toLocaleDateString(),
-    remainder: remainderText,
-    isExpired: diffDays < 0,
-    isNearExpiry: diffDays >= 0 && diffDays <= 30,
-    diffDays: diffDays,
-  };
-};
-
-
 export default function InventoryTab({ medicines, setMedicines, sales, restockId, onRestockComplete }: InventoryTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('expiry_asc');
+  const { t } = useTranslation();
+
+  const getExpiryInfo = (expiry: string) => {
+    const now = new Date();
+    const expiryDate = new Date(expiry);
+    now.setHours(0, 0, 0, 0);
+    expiryDate.setHours(0, 0, 0, 0);
+    const diffTime = expiryDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    let remainderText = '';
+    if (diffDays < 0) {
+      remainderText = t('expired_days_ago', { diffDays: Math.abs(diffDays).toString() });
+    } else if (diffDays === 0) {
+      remainderText = t('expires_today');
+    } else {
+      remainderText = t('expires_in_days', { diffDays: diffDays.toString() });
+    }
+
+    return {
+      text: expiryDate.toLocaleDateString(),
+      remainder: remainderText,
+      isExpired: diffDays < 0,
+      isNearExpiry: diffDays >= 0 && diffDays <= 30,
+      diffDays: diffDays,
+    };
+  };
 
   useEffect(() => {
     if (restockId) {
@@ -186,12 +187,12 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>Inventory</CardTitle>
+          <CardTitle>{t('inventory_title')}</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
             <Button variant="outline" asChild>
                 <Link href="/out-of-stock">
                     <Bell className="mr-2 h-4 w-4" /> 
-                    Out of Stock 
+                    {t('out_of_stock_button')}
                     {outOfStockMedicines.length > 0 && <Badge variant="destructive" className="ml-2">{outOfStockMedicines.length}</Badge>}
                 </Link>
             </Button>
@@ -199,12 +200,12 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
             <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
                     <Button onClick={() => setEditingMedicine(null)}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Medicine
+                        <PlusCircle className="mr-2 h-4 w-4" /> {t('add_medicine_button')}
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px] md:max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>{editingMedicine ? 'Edit Medicine' : 'Add New Medicine'}</DialogTitle>
+                        <DialogTitle>{editingMedicine ? t('edit_medicine_title') : t('add_new_medicine_title')}</DialogTitle>
                     </DialogHeader>
                     <MedicineForm
                         medicineToEdit={editingMedicine}
@@ -221,7 +222,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name..."
+              placeholder={t('search_by_name_placeholder')}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -232,16 +233,16 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full justify-start md:w-auto">
                   <ArrowDownUp className="mr-2 h-4 w-4" />
-                  Sort
+                  {t('sort_button')}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                <DropdownMenuLabel>{t('sort_by_label')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
-                    <DropdownMenuRadioItem value="expiry_asc">Expiry (Soonest First)</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="expiry_desc">Expiry (Latest First)</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="name_asc">Name (A-Z)</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="expiry_asc">{t('expiry_soonest_first')}</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="expiry_desc">{t('expiry_latest_first')}</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="name_asc">{t('name_az')}</DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -250,11 +251,11 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full justify-start md:w-auto">
                   <ListFilter className="mr-2 h-4 w-4" />
-                  Filter
+                  {t('filter_button')}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align='end'>
-                 <DropdownMenuLabel>Category</DropdownMenuLabel>
+                 <DropdownMenuLabel>{t('category_label')}</DropdownMenuLabel>
                  <DropdownMenuSeparator />
                 {categories.map(cat => (
                   <DropdownMenuCheckboxItem
@@ -280,13 +281,13 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead className="hidden md:table-cell">Category</TableHead>
-                <TableHead className="hidden lg:table-cell">Location</TableHead>
-                <TableHead>Expiry</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-                <TableHead className="text-right w-[100px]">Actions</TableHead>
+                <TableHead>{t('table_header_name')}</TableHead>
+                <TableHead className="hidden md:table-cell">{t('table_header_category')}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t('table_header_location')}</TableHead>
+                <TableHead>{t('table_header_expiry')}</TableHead>
+                <TableHead className="text-right">{t('table_header_price')}</TableHead>
+                <TableHead className="text-right">{t('table_header_stock')}</TableHead>
+                <TableHead className="text-right w-[100px]">{t('table_header_actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -330,15 +331,15 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                   <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete {med.name}?</AlertDialogTitle>
+                                  <AlertDialogTitle>{t('delete_medicine_title', { medicineName: med.name })}</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                      This action cannot be undone. This will permanently delete the medicine from your inventory.
+                                      {t('delete_medicine_description')}
                                   </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel>{t('cancel_button')}</AlertDialogCancel>
                                   <AlertDialogAction onClick={() => handleDeleteMedicine(med.id)}>
-                                      Delete
+                                      {t('delete_button')}
                                   </AlertDialogAction>
                                   </AlertDialogFooter>
                               </AlertDialogContent>
@@ -353,8 +354,8 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                       <TableCell colSpan={7} className="h-24 text-center">
                           <div className="flex flex-col items-center justify-center gap-2">
                               <Info className="h-8 w-8 text-muted-foreground" />
-                              <p>No medicines found.</p>
-                              <p className="text-sm text-muted-foreground">Try adjusting your search or filters.</p>
+                              <p>{t('no_medicines_found_message')}</p>
+                              <p className="text-sm text-muted-foreground">{t('adjust_filters_prompt')}</p>
                           </div>
                       </TableCell>
                   </TableRow>
