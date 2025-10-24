@@ -10,6 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslation } from '@/lib/i18n/use-translation';
+import { useState, useEffect } from 'react';
 
 interface MedicineFormProps {
   medicineToEdit?: Medicine | null;
@@ -21,6 +22,7 @@ const formSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(2, 'Name must be at least 2 characters.'),
   category: z.string().min(1, 'Category is required.'),
+  customCategory: z.string().optional(),
   location: z.string().min(1, 'Location is required.'),
   expiry: z.string().refine((val) => {
     const today = new Date();
@@ -46,6 +48,9 @@ const formSchema = z.object({
             ctx.addIssue({ code: 'custom', message: 'Quantity is required.', path: ['stock_quantity'] });
         }
     }
+    if (data.category === 'Other' && (!data.customCategory || data.customCategory.trim().length < 2)) {
+        ctx.addIssue({ code: 'custom', message: 'Please specify a category name (at least 2 characters).', path: ['customCategory'] });
+    }
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -54,32 +59,38 @@ const categories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Othe
 
 export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormProps) {
   const { t } = useTranslation();
+
+  const isCustomCategory = medicineToEdit && !categories.includes(medicineToEdit.category);
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       id: medicineToEdit?.id,
       name: medicineToEdit?.name || '',
-      category: medicineToEdit?.category || '',
+      category: isCustomCategory ? 'Other' : (medicineToEdit?.category || ''),
+      customCategory: isCustomCategory ? medicineToEdit.category : '',
       location: medicineToEdit?.location || '',
       expiry: medicineToEdit ? new Date(medicineToEdit.expiry).toISOString().split('T')[0] : '',
       price: medicineToEdit?.price || 0,
-      stock_strips: medicineToEdit?.category === 'Tablet' ? medicineToEdit.stock.tablets / (medicineToEdit.tabletsPerStrip || 10) : 0,
+      stock_strips: medicineToEdit?.category === 'Tablet' ? (medicineToEdit as any).stock.tablets / ((medicineToEdit as any).tabletsPerStrip || 10) : 0,
       stock_quantity: medicineToEdit?.category !== 'Tablet' ? (medicineToEdit?.stock as any)?.quantity || 0 : 0,
-      tablets_per_strip: medicineToEdit?.category === 'Tablet' ? medicineToEdit.tabletsPerStrip : 10,
+      tablets_per_strip: medicineToEdit?.category === 'Tablet' ? (medicineToEdit as any).tabletsPerStrip : 10,
     },
   });
 
   const selectedCategory = form.watch('category');
 
   function onSubmit(values: FormData) {
+    const finalCategory = values.category === 'Other' ? values.customCategory! : values.category;
+
     const medicineData: Medicine = {
         id: medicineToEdit?.id || new Date().toISOString() + Math.random(),
         name: values.name,
-        category: values.category as any,
+        category: finalCategory as any,
         location: values.location,
         expiry: new Date(values.expiry).toISOString(),
         price: values.price,
-        ...(selectedCategory === 'Tablet'
+        ...(finalCategory === 'Tablet'
             ? { tabletsPerStrip: values.tablets_per_strip || 10, stock: { tablets: (values.stock_strips || 0) * (values.tablets_per_strip || 10) } }
             : { stock: { quantity: values.stock_quantity || 0 } })
     } as Medicine;
@@ -124,6 +135,21 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
                 </FormItem>
             )}
             />
+             {selectedCategory === 'Other' && (
+                <FormField
+                    control={form.control}
+                    name="customCategory"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Custom Category Name</FormLabel>
+                            <FormControl>
+                                <Input placeholder="e.g., Drops, Powder" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            )}
              <FormField
                 control={form.control}
                 name="location"
@@ -198,7 +224,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
           </div>
         )}
 
-        {selectedCategory && selectedCategory !== 'Tablet' && (
+        {selectedCategory && selectedCategory !== 'Tablet' && selectedCategory !== 'Other' && (
           <div className="p-4 border rounded-md bg-muted/50">
             <FormField
               control={form.control}

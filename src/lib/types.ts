@@ -10,6 +10,7 @@ export type OtherStock = {
 interface BaseMedicine {
   id: string;
   name: string;
+  category: string;
   location: string;
   expiry: string; // ISO date string
 }
@@ -22,7 +23,7 @@ export type TabletMedicine = BaseMedicine & {
 };
 
 export type GenericMedicine = BaseMedicine & {
-  category: 'Syrup' | 'Ointment' | 'Capsule' | 'Injection' | 'Other';
+  category: string; // Allow any string for other categories
   price: number; // price per unit
   stock: OtherStock;
 };
