@@ -41,6 +41,7 @@ import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart } from 'lucide-rea
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
+import { Label } from '@/components/ui/label';
 
 interface PosTabProps {
   medicines: Medicine[];
@@ -53,6 +54,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   const [open, setOpen] = useState(false);
   const [selectedMedicineId, setSelectedMedicineId] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [doctorName, setDoctorName] = useState('');
   const [billItems, setBillItems] = useState<SaleItem[]>([]);
   const { toast } = useToast();
 
@@ -176,6 +178,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     const newSale: SaleRecord = {
       id: new Date().toISOString() + Math.random(),
       customerName: customerName.trim(),
+      doctorName: doctorName.trim(),
       saleDate: new Date().toISOString(),
       items: billItems.map(item => ({...item, quantity: Number(item.quantity)})),
       totalAmount: totalAmount,
@@ -183,6 +186,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     setSales([...sales, newSale]);
     
     setCustomerName('');
+    setDoctorName('');
     setBillItems([]);
     toast({ title: "Sale Completed!", description: `Bill for ${newSale.customerName} saved successfully.`});
   };
@@ -337,12 +341,21 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-                <label htmlFor='customer-name' className='text-sm font-medium'>Customer Name</label>
+                <Label htmlFor='customer-name'>Customer Name</Label>
                 <Input
                 id="customer-name"
                 placeholder="Enter customer name"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
+                />
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor='doctor-name'>Doctor's Name (Optional)</Label>
+                <Input
+                id="doctor-name"
+                placeholder="Enter doctor's name"
+                value={doctorName}
+                onChange={(e) => setDoctorName(e.target.value)}
                 />
             </div>
             <div className="space-y-2 rounded-lg bg-primary/10 p-4">

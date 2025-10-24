@@ -40,6 +40,7 @@ export interface SaleItem {
 export interface SaleRecord {
   id: string;
   customerName: string;
+  doctorName?: string;
   saleDate: string; // ISO date string
   items: {
     medicineId: string;
