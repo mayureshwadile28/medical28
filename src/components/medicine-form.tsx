@@ -16,6 +16,7 @@ interface MedicineFormProps {
   medicineToEdit?: Medicine | null;
   onSave: (medicine: Medicine) => void;
   onCancel: () => void;
+  categories: string[];
 }
 
 const formSchema = z.object({
@@ -55,12 +56,10 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-const categories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
-
-export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormProps) {
+export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: MedicineFormProps) {
   const { t } = useTranslation();
 
-  const isCustomCategory = medicineToEdit && !categories.includes(medicineToEdit.category);
+  const isCustomCategory = medicineToEdit && !['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'].includes(medicineToEdit.category);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),

@@ -128,8 +128,9 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
 
 
   const categories = useMemo(() => {
-    const cats = new Set(medicines.map(m => m.category));
-    return Array.from(cats);
+    const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
+    const customCategories = medicines.map(m => m.category);
+    return Array.from(new Set([...baseCategories, ...customCategories]));
   }, [medicines]);
 
   const outOfStockMedicines = useMemo(() => {
@@ -262,6 +263,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                         medicineToEdit={editingMedicine}
                         onSave={handleSaveMedicine}
                         onCancel={handleCancelForm}
+                        categories={categories}
                     />
                 </DialogContent>
             </Dialog>
