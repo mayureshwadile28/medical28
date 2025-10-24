@@ -1,0 +1,21 @@
+{
+  "name": "Vicky Medical POS",
+  "short_name": "Vicky Medical",
+  "description": "A complete inventory and Point of Sale (POS) application for a medical store.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ECEFF1",
+  "theme_color": "#64B5F6",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
