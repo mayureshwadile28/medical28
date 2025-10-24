@@ -123,7 +123,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   };
 
   const totalAmount = useMemo(() => {
-    return billItems.reduce((sum, item => sum + (isNaN(item.total) ? 0 : item.total)), 0);
+    return billItems.reduce((sum, item) => sum + (isNaN(item.total) ? 0 : item.total), 0);
   }, [billItems]);
 
   const completeSale = () => {
