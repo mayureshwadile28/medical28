@@ -168,7 +168,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
                 <FormItem>
                   <FormLabel>Number of Strips</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="e.g., 10" {...field} />
+                    <Input type="number" placeholder="e.g., 10" {...field} value={field.value || ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -186,7 +186,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
                 <FormItem>
                   <FormLabel>Quantity (units)</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="e.g., 25" {...field} />
+                    <Input type="number" placeholder="e.g., 25" {...field} value={field.value || ''}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
