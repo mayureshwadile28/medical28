@@ -81,10 +81,16 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
 
   function onSubmit(values: FormData) {
     const finalCategory = values.category === 'Other' ? values.customCategory! : values.category;
+    
+    const formattedName = values.name.trim()
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join('-')
+        .replace(/--+/g, '-');
 
     const medicineData: Medicine = {
         id: medicineToEdit?.id || new Date().toISOString() + Math.random(),
-        name: values.name,
+        name: formattedName,
         category: finalCategory as any,
         location: values.location,
         expiry: new Date(values.expiry).toISOString(),
