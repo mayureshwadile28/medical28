@@ -31,7 +31,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { PlusCircle, Edit, Trash2, Search, ListFilter, Sparkles, Loader2, Info } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, ListFilter, Sparkles, Loader2, Info, ArrowDownUp } from 'lucide-react';
 import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
@@ -66,10 +66,22 @@ const getExpiryInfo = (expiry: string) => {
   const diffTime = expiryDate.getTime() - now.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
-  if (diffDays < 0) return { text: `Expired ${Math.abs(diffDays)}d ago`, isExpired: true, isNearExpiry: false };
-  if (diffDays === 0) return { text: 'Expires today', isExpired: false, isNearExpiry: true };
-  if (diffDays <= 30) return { text: `Expires in ${diffDays}d`, isExpired: false, isNearExpiry: true };
-  return { text: new Date(expiry).toLocaleDateString(), isExpired: false, isNearExpiry: false };
+  let remainderText = '';
+  if (diffDays < 0) {
+    remainderText = `Expired ${Math.abs(diffDays)} days ago`;
+  } else if (diffDays === 0) {
+    remainderText = 'Expires today';
+  } else {
+    remainderText = `Expires in ${diffDays} days`;
+  }
+
+  return {
+    text: expiryDate.toLocaleDateString(),
+    remainder: remainderText,
+    isExpired: diffDays < 0,
+    isNearExpiry: diffDays >= 0 && diffDays <= 30,
+    diffDays: diffDays,
+  };
 };
 
 
@@ -78,6 +90,7 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
+  const [sortByExpiry, setSortByExpiry] = useState(false);
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAlert, setAiAlert] = useState<string | null>(null);
@@ -120,10 +133,18 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
   }, [medicines]);
 
   const filteredMedicines = useMemo(() => {
-    return medicines
+    let sortedMeds = [...medicines];
+
+    if (sortByExpiry) {
+      sortedMeds.sort((a, b) => new Date(a.expiry).getTime() - new Date(b.expiry).getTime());
+    } else {
+      sortedMeds.sort((a,b) => a.name.localeCompare(b.name));
+    }
+
+    return sortedMeds
       .filter(med => med.name.toLowerCase().includes(searchTerm.toLowerCase()))
       .filter(med => categoryFilters.length === 0 || categoryFilters.includes(med.category));
-  }, [medicines, searchTerm, categoryFilters]);
+  }, [medicines, searchTerm, categoryFilters, sortByExpiry]);
 
   const handleSaveMedicine = (medicine: Medicine) => {
     if (editingMedicine) {
@@ -190,6 +211,14 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
             className="pl-10"
           />
         </div>
+        <Button 
+          variant={sortByExpiry ? 'secondary' : 'outline'}
+          className="w-full md:w-auto"
+          onClick={() => setSortByExpiry(!sortByExpiry)}
+        >
+            <ArrowDownUp className="mr-2 h-4 w-4" />
+            Sort by Expiry
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="w-full md:w-auto">
@@ -232,19 +261,22 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
           </TableHeader>
           <TableBody>
             {filteredMedicines.length > 0 ? (
-                filteredMedicines.sort((a,b) => a.name.localeCompare(b.name)).map(med => {
+                filteredMedicines.map(med => {
                 const expiry = getExpiryInfo(med.expiry);
                 return (
                     <TableRow key={med.id} className={cn(expiry.isExpired && "bg-destructive/20 hover:bg-destructive/30")}>
                         <TableCell className="font-medium">{med.name}</TableCell>
                         <TableCell className="hidden md:table-cell">{med.category}</TableCell>
                         <TableCell className="hidden lg:table-cell">{med.location}</TableCell>
-                        <TableCell className={cn(
-                            (expiry.isExpired || expiry.isNearExpiry) && "font-semibold text-destructive",
-                        )}>
-                            <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
-                                {expiry.text}
-                            </ClientOnly>
+                        <TableCell>
+                          <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
+                            <div className='flex flex-col'>
+                                <span className={cn((expiry.isExpired || expiry.isNearExpiry) && "font-semibold text-destructive")}>{expiry.text}</span>
+                                <span className={cn("text-xs", expiry.isExpired ? 'text-destructive/80' : 'text-muted-foreground')}>
+                                  {expiry.remainder}
+                                </span>
+                            </div>
+                          </ClientOnly>
                         </TableCell>
                         <TableCell className="text-right">₹{med.price.toFixed(2)}</TableCell>
                         <TableCell className={cn("text-right", isLowStock(med) && 'text-amber-500 font-semibold')}>{getStockString(med)}</TableCell>
