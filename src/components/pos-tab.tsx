@@ -34,7 +34,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-import { Check, ChevronsUpDown, Trash2, XCircle } from 'lucide-react';
+import { Check, ChevronsUpDown, Trash2, XCircle, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 
@@ -64,22 +64,25 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     });
   }, [medicines]);
 
+  const selectedMedicine = useMemo(() => {
+    return medicines.find(m => m.id === selectedMedicineId);
+  }, [medicines, selectedMedicineId]);
+
   const addMedicineToBill = () => {
-    const med = medicines.find(m => m.id === selectedMedicineId);
-    if (!med) return;
+    if (!selectedMedicine) return;
 
     // Check if already in bill
-    if (billItems.some(item => item.medicineId === med.id)) {
+    if (billItems.some(item => item.medicineId === selectedMedicine.id)) {
         toast({ title: "Item already in bill", description: "You can change the quantity in the table.", variant: "default" });
         return;
     }
 
     const newItem: SaleItem = {
-      medicineId: med.id,
-      name: med.name,
+      medicineId: selectedMedicine.id,
+      name: selectedMedicine.name,
       quantity: 1,
-      pricePerUnit: med.price,
-      total: med.price,
+      pricePerUnit: selectedMedicine.price,
+      total: selectedMedicine.price,
     };
     setBillItems([...billItems, newItem]);
     setSelectedMedicineId('');
@@ -120,7 +123,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   };
 
   const totalAmount = useMemo(() => {
-    return billItems.reduce((sum, item) => sum + item.total, 0);
+    return billItems.reduce((sum, item => sum + (isNaN(item.total) ? 0 : item.total)), 0);
   }, [billItems]);
 
   const completeSale = () => {
@@ -189,8 +192,8 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                 aria-expanded={open}
                 className="w-full sm:w-[300px] justify-between"
                 >
-                {selectedMedicineId
-                    ? availableMedicines.find((med) => med.id === selectedMedicineId)?.name
+                {selectedMedicine
+                    ? selectedMedicine.name
                     : "Select medicine..."}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -229,6 +232,16 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
             </Popover>
           <Button onClick={addMedicineToBill} disabled={!selectedMedicineId}>Add to Bill</Button>
         </div>
+
+        {selectedMedicine && (
+          <div className="flex items-center gap-2 rounded-md bg-accent/10 p-3 text-accent-foreground border border-accent/20">
+            <MapPin className="h-5 w-5 text-accent" />
+            <p className="text-sm">
+              Location for <span className="font-semibold">{selectedMedicine.name}</span>: 
+              <span className="ml-2 inline-block rounded-md bg-accent px-2 py-1 font-bold text-accent-foreground">{selectedMedicine.location}</span>
+            </p>
+          </div>
+        )}
 
         <div className="rounded-lg border">
           <Table>
