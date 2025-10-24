@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { type Medicine, type SaleRecord, TabletMedicine } from '@/lib/types';
+import { type Medicine, type SaleRecord, type TabletMedicine } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -47,14 +47,14 @@ interface InventoryTabProps {
 
 const getStockString = (med: Medicine) => {
   if (med.category === 'Tablet') {
-    return `${Math.floor(med.stock.tablets / 10)} strips, ${med.stock.tablets % 10} tabs`;
+    return `${med.stock.tablets} tabs`;
   }
   return `${med.stock.quantity} units`;
 };
 
 const isLowStock = (med: Medicine) => {
     if (med.category === 'Tablet') {
-        return med.stock.tablets < 50; // Low stock if less than 5 strips
+        return med.stock.tablets < 50; // Low stock if less than 50 tabs (5 strips)
     }
     return med.stock.quantity < 10;
 }
@@ -105,17 +105,24 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
         if (m.category === 'Tablet') {
             const tabletMed = m as TabletMedicine;
             return {
-                id: tabletMed.id,
                 name: tabletMed.name,
                 category: tabletMed.category,
                 location: tabletMed.location,
                 expiry: tabletMed.expiry,
                 stock: tabletMed.stock.tablets,
-                price: tabletMed.price / 10,
+                price: tabletMed.price / 10, // Price per tablet
             };
         }
-        return { ...m, stock: m.stock.quantity };
-    }) as any[]; // Type assertion to match Genkit expectation
+        // This handles GenericMedicine which includes Syrup, Ointment, etc.
+        return {
+          name: m.name,
+          category: m.category,
+          location: m.location,
+          expiry: m.expiry,
+          stock: m.stock.quantity,
+          price: m.price,
+        };
+    });
 
 
     const result = await checkExpiryAction(preparedMedicines, sales);
