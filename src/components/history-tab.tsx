@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { type SaleRecord } from '@/lib/types';
 import {
   Accordion,
@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Download, Trash2, Info, Printer } from 'lucide-react';
+import { Download, Trash2, Info, Printer, Search } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,7 +47,14 @@ interface HistoryTabProps {
 export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   const [isClearHistoryOpen, setIsClearHistoryOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const { t } = useTranslation();
+
+  const filteredSales = useMemo(() => {
+    return sales
+        .filter(sale => sale.id.slice(-8).toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime());
+  }, [sales, searchTerm]);
 
   const handleExportCSV = () => {
     const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'TotalAmount', 'MedicineName', 'Quantity', 'PricePerUnit', 'ItemTotal'];
@@ -151,7 +158,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="py-2">
-                    <Label htmlFor="delete-confirm" className="sr-only">Confirm Deletion</Label>
+                    <Label htmlFor="delete-confirm" className="sr-only">{t('delete_confirm_placeholder')}</Label>
                     <Input 
                         id="delete-confirm"
                         value={deleteConfirmation}
@@ -161,7 +168,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                 </div>
                 <AlertDialogFooter>
                   <AlertDialogCancel>{t('cancel_button')}</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleClearHistory} disabled={deleteConfirmation !== 'delete'}>
+                  <AlertDialogAction onClick={handleClearHistory} disabled={deleteConfirmation.toLowerCase() !== 'delete'}>
                     {t('confirm_delete_all_button')}
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -171,17 +178,31 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
         </div>
       </CardHeader>
       <CardContent>
-        {sales.length > 0 ? (
+        <div className="mb-4">
+            <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder={t('search_by_bill_no_placeholder')}
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                />
+            </div>
+        </div>
+        {filteredSales.length > 0 ? (
           <Accordion type="single" collapsible className="w-full">
-            {sales.sort((a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime()).map(sale => (
+            {filteredSales.map(sale => (
               <AccordionItem value={sale.id} key={sale.id}>
                 <AccordionTrigger>
-                  <div className="flex w-full items-center justify-between pr-4">
-                    <div className="flex flex-col text-left">
+                  <div className="flex flex-col sm:flex-row w-full items-start sm:items-center justify-between pr-4 gap-2">
+                    <div className="flex flex-col text-left flex-1">
                         <span className="font-semibold">{sale.customerName}</span>
-                        {sale.doctorName && <span className="text-xs text-muted-foreground">{t('prescribed_by_doctor', { doctorName: sale.doctorName })}</span>}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{t('bill_no_label')} {sale.id.slice(-8).toUpperCase()}</span>
+                          {sale.doctorName && <span className="text-xs text-muted-foreground">{t('prescribed_by_doctor', { doctorName: sale.doctorName })}</span>}
+                        </div>
                     </div>
-                    <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
                       <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
                         <span className="text-muted-foreground">{new Date(sale.saleDate).toLocaleDateString()}</span>
                       </ClientOnly>
@@ -223,8 +244,8 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
         ) : (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-10 text-center">
               <Info className="h-10 w-10 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold">{t('no_sales_recorded_message')}</h3>
-              <p className="text-muted-foreground">{t('completed_sales_appear_here')}</p>
+              <h3 className="text-xl font-semibold">{searchTerm ? t('no_sales_found_for_search_message') : t('no_sales_recorded_message')}</h3>
+              <p className="text-muted-foreground">{searchTerm ? t('try_different_bill_no_message') : t('completed_sales_appear_here')}</p>
           </div>
         )}
       </CardContent>

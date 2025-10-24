@@ -22,7 +22,7 @@ export function PrintableBill({ sale }: PrintableBillProps) {
       <section style={{ marginBottom: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Bill No:</span>
-            <span>{sale.id.slice(-6)}</span>
+            <span style={{fontWeight: 'bold'}}>{sale.id.slice(-8).toUpperCase()}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Date:</span>

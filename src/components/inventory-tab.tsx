@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { type Medicine, type SaleRecord } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download } from 'lucide-react';
 import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
@@ -43,6 +43,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatToINR } from '@/lib/currency';
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from '@/lib/i18n/use-translation';
+import { useToast } from '@/hooks/use-toast';
 
 interface InventoryTabProps {
   medicines: Medicine[];
@@ -82,6 +83,8 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('expiry_asc');
   const { t } = useTranslation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const getExpiryInfo = (expiry: string) => {
     const now = new Date();
@@ -182,6 +185,48 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
       handleCancelForm();
     }
   }
+
+  const handleExportInventory = () => {
+    const dataStr = JSON.stringify(medicines, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = 'medicines-backup.json';
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast({ title: t('export_success_title'), description: t('export_inventory_success_desc') });
+  };
+
+  const handleImportInventory = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const text = e.target?.result;
+          if (typeof text === 'string') {
+            const importedMedicines = JSON.parse(text);
+            // Basic validation
+            if (Array.isArray(importedMedicines) && (importedMedicines.length === 0 || importedMedicines[0].id)) {
+              setMedicines(importedMedicines);
+              toast({ title: t('import_success_title'), description: t('import_inventory_success_desc') });
+            } else {
+              throw new Error("Invalid file format");
+            }
+          }
+        } catch (error) {
+          toast({ variant: 'destructive', title: t('import_error_title'), description: t('import_error_desc') });
+        } finally {
+            // Reset file input to allow importing the same file again
+            if(fileInputRef.current) fileInputRef.current.value = "";
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
 
   return (
     <Card>
@@ -362,6 +407,61 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
               )}
             </TableBody>
           </Table>
+        </div>
+         <div className="flex flex-col sm:flex-row gap-2 justify-end pt-4">
+            <Button variant="outline" onClick={handleExportInventory}>
+                <Download className="mr-2 h-4 w-4" />
+                {t('export_inventory_button')}
+            </Button>
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        {t('import_inventory_button')}
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{t('import_confirm_title')}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {t('import_confirm_desc')}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => { if (fileInputRef.current) fileInputRef.current.value = ""; }}>{t('cancel_button')}</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            const input = fileInputRef.current;
+                            if (input && input.files && input.files.length > 0) {
+                                // The file is already selected, just process it.
+                                const event = { target: input } as unknown as React.ChangeEvent<HTMLInputElement>;
+                                handleImportInventory(event);
+                            }
+                        }}>
+                            {t('confirm_import_button')}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="application/json"
+                onChange={(e) => {
+                    // Trigger the dialog automatically when a file is selected.
+                    if (e.target.files && e.target.files.length > 0) {
+                        const dialogTrigger = document.querySelector('[aria-haspopup="dialog"]') as HTMLElement | null;
+                        if (dialogTrigger) {
+                            // This is a bit of a hack to re-open the dialog after file selection
+                            // In a real app, a more robust state management would be better.
+                            const currentOpenState = dialogTrigger.getAttribute('aria-expanded');
+                            if (currentOpenState !== 'true') {
+                                dialogTrigger.click();
+                            }
+                        }
+                    }
+                }}
+            />
         </div>
       </CardContent>
     </Card>
