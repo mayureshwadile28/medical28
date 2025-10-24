@@ -52,19 +52,16 @@ interface PosTabProps {
 }
 
 const generateNewBillNumber = (sales: SaleRecord[]): string => {
-  if (sales.length === 0) {
-    return 'VM-00001';
-  }
-  const lastSale = sales.sort((a, b) => {
-    const aNum = parseInt(a.id.split('-')[1], 10);
-    const bNum = parseInt(b.id.split('-')[1], 10);
-    return aNum - bNum;
-  })[sales.length - 1];
+  const existingIds = new Set(sales.map(s => s.id));
+  let newBillNum;
+  let newBillId;
+  do {
+    newBillNum = Math.floor(Math.random() * 99999) + 1;
+    newBillId = `VM-${newBillNum.toString().padStart(5, '0')}`;
+  } while (existingIds.has(newBillId));
 
-  const lastBillNum = parseInt(lastSale.id.split('-')[1], 10);
-  const newBillNum = lastBillNum + 1;
-  return `VM-${newBillNum.toString().padStart(5, '0')}`;
-}
+  return newBillId;
+};
 
 export default function PosTab({ medicines, setMedicines, sales, setSales }: PosTabProps) {
   const [open, setOpen] = useState(false);
@@ -419,5 +416,3 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     </div>
   );
 }
-
-    
