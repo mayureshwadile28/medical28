@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import { type Medicine, type SaleRecord } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +23,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +47,9 @@ interface InventoryTabProps {
   medicines: Medicine[];
   setMedicines: (medicines: Medicine[]) => void;
   sales: SaleRecord[];
+  restockId?: string | null;
+  onRestockComplete?: () => void;
+  setActiveTab?: (tab: string) => void;
 }
 
 type SortOption = 'name_asc' | 'expiry_asc' | 'expiry_desc';
@@ -98,13 +102,24 @@ const getExpiryInfo = (expiry: string) => {
 };
 
 
-export default function InventoryTab({ medicines, setMedicines, sales }: InventoryTabProps) {
+export default function InventoryTab({ medicines, setMedicines, sales, restockId, onRestockComplete, setActiveTab }: InventoryTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('expiry_asc');
-  const [isOutOfStockDialogOpen, setIsOutOfStockDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (restockId) {
+      const medicineToRestock = medicines.find(m => m.id === restockId);
+      if (medicineToRestock) {
+        if (setActiveTab) setActiveTab('inventory');
+        setEditingMedicine(medicineToRestock);
+        setIsFormOpen(true);
+      }
+    }
+  }, [restockId, medicines, setActiveTab]);
+
 
   const categories = useMemo(() => {
     const cats = new Set(medicines.map(m => m.category));
@@ -149,11 +164,18 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
     }
     setEditingMedicine(null);
     setIsFormOpen(false);
+    if(onRestockComplete) onRestockComplete();
   };
 
   const handleDeleteMedicine = (id: string) => {
     setMedicines(medicines.filter(m => m.id !== id));
   };
+  
+  const handleCancelForm = () => {
+    setEditingMedicine(null);
+    setIsFormOpen(false);
+    if(onRestockComplete) onRestockComplete();
+  }
 
   return (
     <Card>
@@ -161,50 +183,13 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Inventory</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
-            <Dialog open={isOutOfStockDialogOpen} onOpenChange={setIsOutOfStockDialogOpen}>
-                <DialogTrigger asChild>
-                    <Button variant="outline" disabled={outOfStockMedicines.length === 0}>
-                        <Bell className="mr-2 h-4 w-4" /> 
-                        Out of Stock 
-                        <Badge variant="destructive" className="ml-2">{outOfStockMedicines.length}</Badge>
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Out of Stock Items</DialogTitle>
-                        <DialogDescription>
-                            These items need to be restocked. Editing an item to add stock will remove it from this list.
-                        </DialogDescription>
-                    </DialogHeader>
-                    {outOfStockMedicines.length > 0 ? (
-                        <div className="mt-4 max-h-[60vh] overflow-y-auto">
-                            <ul className="space-y-2">
-                                {outOfStockMedicines.map(med => (
-                                    <li key={med.id} className="flex items-center justify-between rounded-md border p-3">
-                                        <div>
-                                            <p className="font-semibold">{med.name}</p>
-                                            <p className="text-sm text-muted-foreground">{med.category}</p>
-                                        </div>
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={() => {
-                                                setEditingMedicine(med);
-                                                setIsOutOfStockDialogOpen(false);
-                                                setIsFormOpen(true);
-                                            }}
-                                        >
-                                            <Edit className="mr-2 h-3 w-3" /> Restock
-                                        </Button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ) : (
-                        <p className="py-4 text-center text-muted-foreground">No items are out of stock.</p>
-                    )}
-                </DialogContent>
-            </Dialog>
+            <Button variant="outline" asChild>
+                <Link href="/out-of-stock">
+                    <Bell className="mr-2 h-4 w-4" /> 
+                    Out of Stock 
+                    {outOfStockMedicines.length > 0 && <Badge variant="destructive" className="ml-2">{outOfStockMedicines.length}</Badge>}
+                </Link>
+            </Button>
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                 <DialogTrigger asChild>
@@ -219,10 +204,7 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
                     <MedicineForm
                         medicineToEdit={editingMedicine}
                         onSave={handleSaveMedicine}
-                        onCancel={() => {
-                            setEditingMedicine(null);
-                            setIsFormOpen(false);
-                        }}
+                        onCancel={handleCancelForm}
                     />
                 </DialogContent>
             </Dialog>

@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Package, ShoppingCart, History, Loader2 } from 'lucide-react';
 import { initialMedicines, initialSales } from '@/lib/data';
+import { useSearchParams, useRouter } from 'next/navigation';
+
 
 import InventoryTab from '@/components/inventory-tab';
 import PosTab from '@/components/pos-tab';
@@ -16,6 +18,10 @@ export default function Home() {
   const [medicines, setMedicines, medicinesLoading] = useLocalStorage<Medicine[]>('medicines', initialMedicines);
   const [sales, setSales, salesLoading] = useLocalStorage<SaleRecord[]>('sales', initialSales);
   const [activeTab, setActiveTab] = useState('pos');
+  
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const openRestockId = searchParams.get('restock');
 
   const isLoading = medicinesLoading || salesLoading;
 
@@ -101,6 +107,9 @@ export default function Home() {
                 medicines={medicines} 
                 setMedicines={setMedicines}
                 sales={sales}
+                restockId={openRestockId}
+                onRestockComplete={() => router.push('/', { scroll: false })}
+                setActiveTab={setActiveTab}
               />
             </TabsContent>
             <TabsContent value="history" className="mt-0">
