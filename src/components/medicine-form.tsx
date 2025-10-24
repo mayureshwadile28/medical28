@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useTranslation } from '@/lib/i18n/use-translation';
 import { useState, useEffect } from 'react';
 
 interface MedicineFormProps {
@@ -57,7 +56,6 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: MedicineFormProps) {
-  const { t } = useTranslation();
 
   const isCustomCategory = medicineToEdit && !['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'].includes(medicineToEdit.category);
 
@@ -108,9 +106,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t('medicine_name_label')}</FormLabel>
+              <FormLabel>Medicine Name</FormLabel>
               <FormControl>
-                <Input placeholder={t('medicine_name_placeholder')} {...field} />
+                <Input placeholder={'e.g., Paracetamol 500mg'} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -122,11 +120,11 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             name="category"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>{t('category_label')}</FormLabel>
+                <FormLabel>Category</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                     <SelectTrigger>
-                        <SelectValue placeholder={t('category_label')} />
+                        <SelectValue placeholder={'Category'} />
                     </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -157,9 +155,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                 name="location"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>{t('location_label')}</FormLabel>
+                    <FormLabel>Location</FormLabel>
                     <FormControl>
-                        <Input placeholder={t('location_placeholder')} {...field} />
+                        <Input placeholder={'e.g., Rack A1'} {...field} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -172,7 +170,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             name="expiry"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>{t('expiry_date_label')}</FormLabel>
+                <FormLabel>Expiry Date</FormLabel>
                 <FormControl>
                     <Input type="date" {...field} />
                 </FormControl>
@@ -185,9 +183,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             name="price"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>{selectedCategory === 'Tablet' || selectedCategory === 'Capsule' ? t('price_per_strip_label') : t('price_per_unit_label')}</FormLabel>
+                <FormLabel>{selectedCategory === 'Tablet' || selectedCategory === 'Capsule' ? 'Price (per strip)' : 'Price (per unit)'}</FormLabel>
                 <FormControl>
-                    <Input type="number" step="0.01" placeholder={t('price_placeholder')} {...field} />
+                    <Input type="number" step="0.01" placeholder={'e.g., 30.50'} {...field} />
                 </FormControl>
                 <FormMessage />
                 </FormItem>
@@ -202,9 +200,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
               name="stock_strips"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('number_of_strips_label')}</FormLabel>
+                  <FormLabel>Number of Strips</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder={t('strips_placeholder')} {...field} value={field.value || ''} />
+                    <Input type="number" placeholder={'e.g., 10'} {...field} value={field.value || ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -215,9 +213,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
               name="tablets_per_strip"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('tablets_per_strip_label')}</FormLabel>
+                  <FormLabel>Tablets per Strip</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder={t('tablets_per_strip_placeholder')} {...field} value={field.value || ''}/>
+                    <Input type="number" placeholder={'e.g., 10'} {...field} value={field.value || ''}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -233,9 +231,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
               name="stock_quantity"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('quantity_units_label')}</FormLabel>
+                  <FormLabel>Quantity (units)</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder={t('quantity_placeholder')} {...field} value={field.value || ''}/>
+                    <Input type="number" placeholder={'e.g., 25'} {...field} value={field.value || ''}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -246,9 +244,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
 
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>
-            {t('cancel_button')}
+            Cancel
           </Button>
-          <Button type="submit">{t('save_medicine_button')}</Button>
+          <Button type="submit">Save Medicine</Button>
         </div>
       </form>
     </Form>

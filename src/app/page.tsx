@@ -7,9 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, ShoppingCart, History, Loader2 } from 'lucide-react';
 import { initialMedicines, initialSales } from '@/lib/data';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useTranslation } from '@/lib/i18n/use-translation';
-import { LanguageSwitcher } from '@/components/language-switcher';
-
 
 import InventoryTab from '@/components/inventory-tab';
 import PosTab from '@/components/pos-tab';
@@ -18,7 +15,6 @@ import HistoryTab from '@/components/history-tab';
 export default function Home() {
   const [medicines, setMedicines, medicinesLoading] = useLocalStorage<Medicine[]>('medicines', initialMedicines);
   const [sales, setSales, salesLoading] = useLocalStorage<SaleRecord[]>('sales', initialSales);
-  const { t } = useTranslation();
   
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -57,7 +53,7 @@ export default function Home() {
             <h1 className="text-3xl font-bold font-headline text-foreground">Vicky Medical</h1>
           </div>
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">{t('loading_pharmacy_data')}</p>
+          <p className="text-muted-foreground">Loading your pharmacy data...</p>
         </div>
       </div>
     );
@@ -90,7 +86,6 @@ export default function Home() {
               </svg>
             <h1 className="text-2xl font-bold font-headline text-foreground">Vicky Medical POS</h1>
           </div>
-          <LanguageSwitcher />
         </div>
       </div>
       <div className="container mx-auto p-4 sm:p-6 lg:p-8">
@@ -98,13 +93,13 @@ export default function Home() {
           <div className="flex justify-center md:justify-start">
             <TabsList>
               <TabsTrigger value="pos">
-                <ShoppingCart className="mr-2 h-4 w-4" /> {t('pos_tab')}
+                <ShoppingCart className="mr-2 h-4 w-4" /> POS
               </TabsTrigger>
               <TabsTrigger value="inventory">
-                <Package className="mr-2 h-4 w-4" /> {t('inventory_tab')}
+                <Package className="mr-2 h-4 w-4" /> Inventory
               </TabsTrigger>
               <TabsTrigger value="history">
-                <History className="mr-2 h-4 w-4" /> {t('history_tab')}
+                <History className="mr-2 h-4 w-4" /> History
               </TabsTrigger>
             </TabsList>
           </div>

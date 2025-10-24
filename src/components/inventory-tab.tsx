@@ -43,7 +43,6 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatToINR } from '@/lib/currency';
 import { Badge } from '@/components/ui/badge';
-import { useTranslation } from '@/lib/i18n/use-translation';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 
@@ -84,7 +83,6 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('expiry_asc');
-  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
@@ -102,11 +100,11 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     const absDiffDays = Math.abs(diffDays);
 
     if (diffDays < 0) {
-      remainderText = t(absDiffDays === 1 ? 'expired_day_ago' : 'expired_days_ago', { diffDays: absDiffDays.toString() });
+      remainderText = `Expired ${absDiffDays} ${absDiffDays === 1 ? 'day' : 'days'} ago`;
     } else if (diffDays === 0) {
-      remainderText = t('expires_today');
+      remainderText = 'Expires today';
     } else {
-      remainderText = t(diffDays === 1 ? 'expires_in_day' : 'expires_in_days', { diffDays: diffDays.toString() });
+      remainderText = `Expires in ${diffDays} ${diffDays === 1 ? 'day' : 'days'}`;
     }
 
     return {
@@ -206,7 +204,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    toast({ title: t('export_success_title'), description: t('export_inventory_success_desc') });
+    toast({ title: 'Export Successful', description: 'Your inventory data has been successfully exported.' });
   };
 
   const handleImportInventory = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -221,13 +219,13 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
             // Basic validation
             if (Array.isArray(importedMedicines) && (importedMedicines.length === 0 || importedMedicines[0].id)) {
               setMedicines(importedMedicines);
-              toast({ title: t('import_success_title'), description: t('import_inventory_success_desc') });
+              toast({ title: 'Import Successful', description: 'Your inventory has been updated from the file.' });
             } else {
               throw new Error("Invalid file format");
             }
           }
         } catch (error) {
-          toast({ variant: 'destructive', title: t('import_error_title'), description: t('import_error_desc') });
+          toast({ variant: 'destructive', title: 'Import Error', description: 'The selected file is invalid or corrupted. Please check the file and try again.' });
         } finally {
             // Reset file input to allow importing the same file again
             if(fileInputRef.current) fileInputRef.current.value = "";
@@ -241,12 +239,12 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>{t('inventory_title')}</CardTitle>
+          <CardTitle>Inventory</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
             <Button variant="outline" asChild>
                 <Link href="/out-of-stock">
                     <Bell className="mr-2 h-4 w-4" /> 
-                    {t('out_of_stock_button')}
+                    Out of Stock
                     {outOfStockMedicines.length > 0 && <Badge variant="destructive" className="ml-2">{outOfStockMedicines.length}</Badge>}
                 </Link>
             </Button>
@@ -254,12 +252,12 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
             <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
                     <Button onClick={() => setEditingMedicine(null)}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> {t('add_medicine_button')}
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Medicine
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px] md:max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>{editingMedicine ? t('edit_medicine_title') : t('add_new_medicine_title')}</DialogTitle>
+                        <DialogTitle>{editingMedicine ? 'Edit Medicine' : 'Add New Medicine'}</DialogTitle>
                     </DialogHeader>
                     <MedicineForm
                         medicineToEdit={editingMedicine}
@@ -277,7 +275,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={t('search_by_name_placeholder')}
+              placeholder={'Search by name...'}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -288,16 +286,16 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full justify-start md:w-auto">
                   <ArrowDownUp className="mr-2 h-4 w-4" />
-                  {t('sort_button')}
+                  Sort
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{t('sort_by_label')}</DropdownMenuLabel>
+                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
-                    <DropdownMenuRadioItem value="expiry_asc">{t('expiry_soonest_first')}</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="expiry_desc">{t('expiry_latest_first')}</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="name_asc">{t('name_az')}</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="expiry_asc">Expiry (Soonest First)</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="expiry_desc">Expiry (Latest First)</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="name_asc">Name (A-Z)</DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -306,11 +304,11 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full justify-start md:w-auto">
                   <ListFilter className="mr-2 h-4 w-4" />
-                  {t('filter_button')}
+                  Filter
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align='end'>
-                 <DropdownMenuLabel>{t('category_label')}</DropdownMenuLabel>
+                 <DropdownMenuLabel>Category</DropdownMenuLabel>
                  <DropdownMenuSeparator />
                 {categories.map(cat => (
                   <DropdownMenuCheckboxItem
@@ -336,13 +334,13 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t('table_header_name')}</TableHead>
-                <TableHead className="hidden md:table-cell">{t('table_header_category')}</TableHead>
-                <TableHead className="hidden lg:table-cell">{t('table_header_location')}</TableHead>
-                <TableHead>{t('table_header_expiry')}</TableHead>
-                <TableHead className="text-right">{t('table_header_price')}</TableHead>
-                <TableHead className="text-right">{t('table_header_stock')}</TableHead>
-                <TableHead className="text-right w-[100px]">{t('table_header_actions')}</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead className="hidden md:table-cell">Category</TableHead>
+                <TableHead className="hidden lg:table-cell">Location</TableHead>
+                <TableHead>Expiry</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">Stock</TableHead>
+                <TableHead className="text-right w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -386,29 +384,29 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                    <AlertDialogTitle>{t('delete_medicine_title', { medicineName: med.name })}</AlertDialogTitle>
+                                    <AlertDialogTitle>Delete {med.name}?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        {t('delete_medicine_description')}
+                                        This action cannot be undone. This will permanently delete the medicine from your inventory.
                                         <br />
-                                        <span dangerouslySetInnerHTML={{ __html: t('clear_history_confirm_prompt') }} />
+                                        To confirm, please type <strong>delete</strong> in the box below.
                                     </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <div className="py-2">
-                                        <Label htmlFor="delete-confirm-medicine" className="sr-only">{t('delete_confirm_placeholder')}</Label>
+                                        <Label htmlFor="delete-confirm-medicine" className="sr-only">Type "delete" to confirm</Label>
                                         <Input 
                                             id="delete-confirm-medicine"
                                             value={deleteConfirmation}
                                             onChange={(e) => setDeleteConfirmation(e.target.value)}
-                                            placeholder={t('delete_confirm_placeholder')}
+                                            placeholder={'Type "delete" to confirm'}
                                         />
                                     </div>
                                     <AlertDialogFooter>
-                                    <AlertDialogCancel>{t('cancel_button')}</AlertDialogCancel>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                                     <AlertDialogAction 
                                       onClick={() => handleDeleteMedicine(med.id)}
                                       disabled={deleteConfirmation.toLowerCase() !== 'delete'}
                                     >
-                                        {t('delete_button')}
+                                        Delete
                                     </AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
@@ -423,8 +421,8 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                       <TableCell colSpan={7} className="h-24 text-center">
                           <div className="flex flex-col items-center justify-center gap-2">
                               <Info className="h-8 w-8 text-muted-foreground" />
-                              <p>{t('no_medicines_found_message')}</p>
-                              <p className="text-sm text-muted-foreground">{t('adjust_filters_prompt')}</p>
+                              <p>No medicines found.</p>
+                              <p className="text-sm text-muted-foreground">Try adjusting your search or filters.</p>
                           </div>
                       </TableCell>
                   </TableRow>
@@ -435,20 +433,20 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
          <div className="flex flex-col sm:flex-row gap-2 justify-end pt-4">
             <Button variant="outline" onClick={handleExportInventory}>
                 <Download className="mr-2 h-4 w-4" />
-                {t('export_inventory_button')}
+                Export Inventory
             </Button>
             <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button variant="outline">
                         <Upload className="mr-2 h-4 w-4" />
-                        {t('import_inventory_button')}
+                        Import Inventory
                     </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>{t('import_confirm_title')}</AlertDialogTitle>
+                        <AlertDialogTitle>Confirm Inventory Import</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {t('import_confirm_desc')}
+                            This will replace your current inventory with the data from the selected file. This action cannot be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                      <div className="py-2">
@@ -462,15 +460,15 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                         />
                     </div>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => { if (fileInputRef.current) fileInputRef.current.value = ""; }}>{t('cancel_button')}</AlertDialogCancel>
+                        <AlertDialogCancel onClick={() => { if (fileInputRef.current) fileInputRef.current.value = ""; }}>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={() => {
                             if (!fileInputRef.current?.files?.length) {
-                                toast({ variant: 'destructive', title: t('import_error_title'), description: "Please select a file to import." });
+                                toast({ variant: 'destructive', title: 'Import Error', description: "Please select a file to import." });
                                 return;
                             }
                             // The file is already selected and handled by onChange, just close the dialog.
                         }}>
-                            {t('confirm_import_button')}
+                            Confirm Import
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

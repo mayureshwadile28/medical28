@@ -37,7 +37,6 @@ import { createRoot } from 'react-dom/client';
 import { PrintableBill } from './printable-bill';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useTranslation } from '@/lib/i18n/use-translation';
 
 interface HistoryTabProps {
   sales: SaleRecord[];
@@ -48,7 +47,6 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
   const [searchTerm, setSearchTerm] = React.useState('');
-  const { t } = useTranslation();
 
   const filteredSales = React.useMemo(() => {
     return sales
@@ -135,41 +133,41 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>{t('sales_history_title')}</CardTitle>
+          <CardTitle>Sales History</CardTitle>
           <div className="flex gap-2">
             <Button onClick={handleExportCSV} disabled={sales.length === 0}>
               <Download className="mr-2 h-4 w-4" />
-              {t('export_csv_button')}
+              Export CSV
             </Button>
             <AlertDialog open={isClearHistoryOpen} onOpenChange={(open) => { setIsClearHistoryOpen(open); if (!open) setDeleteConfirmation(''); }}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" disabled={sales.length === 0}>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  {t('clear_history_button')}
+                  Clear History
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>{t('clear_history_alert_title')}</AlertDialogTitle>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {t('clear_history_alert_description')}
+                    This action cannot be undone. This will permanently delete all sales history.
                     <br />
-                    <span dangerouslySetInnerHTML={{ __html: t('clear_history_confirm_prompt') }} />
+                    To confirm, please type <strong>delete</strong> in the box below.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="py-2">
-                    <Label htmlFor="delete-confirm" className="sr-only">{t('delete_confirm_placeholder')}</Label>
+                    <Label htmlFor="delete-confirm" className="sr-only">Type "delete" to confirm</Label>
                     <Input 
                         id="delete-confirm"
                         value={deleteConfirmation}
                         onChange={(e) => setDeleteConfirmation(e.target.value)}
-                        placeholder={t('delete_confirm_placeholder')}
+                        placeholder={'Type "delete" to confirm'}
                     />
                 </div>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>{t('cancel_button')}</AlertDialogCancel>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={handleClearHistory} disabled={deleteConfirmation.toLowerCase() !== 'delete'}>
-                    {t('confirm_delete_all_button')}
+                    Yes, delete all
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -182,7 +180,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
             <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                    placeholder={t('search_by_bill_no_placeholder')}
+                    placeholder={'Search Bill...'}
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -198,8 +196,8 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                     <div className="flex flex-col text-left flex-1">
                         <span className="font-semibold">{sale.customerName}</span>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{t('bill_no_label')} {sale.id}</span>
-                          {sale.doctorName && <span className="text-xs text-muted-foreground">{t('prescribed_by_doctor', { doctorName: sale.doctorName })}</span>}
+                          <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">Bill: {sale.id}</span>
+                          {sale.doctorName && <span className="text-xs text-muted-foreground">Prescribed by Dr. {sale.doctorName}</span>}
                         </div>
                     </div>
                     <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
@@ -214,16 +212,16 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                   <div className="flex justify-end mb-2">
                     <Button variant="outline" size="sm" onClick={() => handlePrintBill(sale)}>
                       <Printer className="mr-2 h-4 w-4" />
-                      {t('print_bill_button')}
+                      Print Bill
                     </Button>
                   </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{t('bill_item_header')}</TableHead>
-                        <TableHead className="text-right">{t('bill_units_header')}</TableHead>
-                        <TableHead className="text-right">{t('bill_price_unit_header')}</TableHead>
-                        <TableHead className="text-right">{t('bill_total_header')}</TableHead>
+                        <TableHead>Item</TableHead>
+                        <TableHead className="text-right">Units</TableHead>
+                        <TableHead className="text-right">Price/Unit</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -244,8 +242,8 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
         ) : (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-10 text-center">
               <Info className="h-10 w-10 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold">{searchTerm ? t('no_sales_found_for_search_message') : t('no_sales_recorded_message')}</h3>
-              <p className="text-muted-foreground">{searchTerm ? t('try_different_bill_no_message') : t('completed_sales_appear_here')}</p>
+              <h3 className="text-xl font-semibold">{searchTerm ? 'No sales found' : 'No Sales Recorded Yet'}</h3>
+              <p className="text-muted-foreground">{searchTerm ? 'Try searching for a different bill number.' : 'Completed sales will appear here.'}</p>
           </div>
         )}
       </CardContent>

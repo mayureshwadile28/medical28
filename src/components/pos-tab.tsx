@@ -42,7 +42,6 @@ import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
 import { Label } from '@/components/ui/label';
-import { useTranslation } from '@/lib/i18n/use-translation';
 
 interface PosTabProps {
   medicines: Medicine[];
@@ -70,7 +69,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   const [doctorName, setDoctorName] = useState('');
   const [billItems, setBillItems] = useState<SaleItem[]>([]);
   const { toast } = useToast();
-  const { t } = useTranslation();
 
   const availableMedicines = useMemo(() => {
     const now = new Date();
@@ -95,16 +93,16 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     if (!selectedMedicine) return;
     
     if ((selectedMedicine.category === 'Tablet' || selectedMedicine.category === 'Capsule') && selectedMedicine.stock.tablets === 0) {
-      toast({ title: t('out_of_stock_title'), description: `${selectedMedicine.name} is out of stock.`, variant: "destructive" });
+      toast({ title: 'Out of Stock', description: `${selectedMedicine.name} is out of stock.`, variant: "destructive" });
       return;
     }
     if (selectedMedicine.category !== 'Tablet' && selectedMedicine.category !== 'Capsule' && selectedMedicine.stock.quantity === 0) {
-      toast({ title: t('out_of_stock_title'), description: `${selectedMedicine.name} is out of stock.`, variant: "destructive" });
+      toast({ title: 'Out of Stock', description: `${selectedMedicine.name} is out of stock.`, variant: "destructive" });
       return;
     }
 
     if (billItems.some(item => item.medicineId === selectedMedicine.id)) {
-        toast({ title: t('item_already_in_bill_title'), description: t('item_already_in_bill_description'), variant: "default" });
+        toast({ title: 'Item already in bill', description: 'You can change the quantity in the table.', variant: "default" });
         return;
     }
     
@@ -146,7 +144,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
           }
 
           if (validQuantity > stockLimit) {
-              toast({ title: t('stock_limit_exceeded_title'), description: t('stock_limit_exceeded_description', { stockLimit: stockLimit.toString(), medicineName: med.name }), variant: "destructive" });
+              toast({ title: 'Stock limit exceeded', description: `Only ${stockLimit} units available for ${med.name}.`, variant: "destructive" });
               validQuantity = stockLimit;
           }
           
@@ -167,15 +165,15 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
 
   const completeSale = () => {
     if (!customerName.trim()) {
-        toast({ title: t('customer_name_required_title'), description: t('customer_name_required_description'), variant: "destructive" });
+        toast({ title: 'Customer Name Required', description: 'Please enter a name for the customer.', variant: "destructive" });
         return;
     }
     if (billItems.length === 0) {
-        toast({ title: t('empty_bill_title'), description: t('empty_bill_description'), variant: "destructive" });
+        toast({ title: 'Empty Bill', description: 'Please add items to the bill.', variant: "destructive" });
         return;
     }
     if(billItems.some(item => item.quantity === '' || item.quantity === 0 || isNaN(Number(item.quantity)))) {
-        toast({ title: t('invalid_quantity_title'), description: t('invalid_quantity_description'), variant: "destructive" });
+        toast({ title: 'Invalid Quantity', description: 'Please ensure all item quantities are valid numbers greater than 0.', variant: "destructive" });
         return;
     }
 
@@ -206,7 +204,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     setCustomerName('');
     setDoctorName('');
     setBillItems([]);
-    toast({ title: t('sale_completed_title'), description: t('sale_completed_description', {customerName: newSale.customerName})});
+    toast({ title: 'Sale Completed!', description: `Bill for ${newSale.customerName} saved successfully.`});
   };
   
   const getStockString = (med: Medicine) => {
@@ -221,7 +219,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       <div className="lg:col-span-2 space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle>{t('create_bill_title')}</CardTitle>
+            <CardTitle>Create a New Bill</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-2">
@@ -235,15 +233,15 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                     >
                     {selectedMedicineId && medicines.find(m => m.id === selectedMedicineId)
                         ? medicines.find(m => m.id === selectedMedicineId)?.name
-                        : t('select_medicine_placeholder')}
+                        : 'Select medicine...'}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-full sm:w-[300px] p-0">
                     <Command>
-                    <CommandInput placeholder={t('search_medicine_placeholder')} />
+                    <CommandInput placeholder={'Search medicine...'} />
                     <CommandList>
-                        <CommandEmpty>{t('no_medicine_found')}</CommandEmpty>
+                        <CommandEmpty>No medicine found.</CommandEmpty>
                         <CommandGroup>
                         {availableMedicines.map((med) => (
                             <CommandItem
@@ -271,14 +269,14 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                     </Command>
                 </PopoverContent>
               </Popover>
-              <Button onClick={addMedicineToBill} disabled={!selectedMedicineId}>{t('add_to_bill_button')}</Button>
+              <Button onClick={addMedicineToBill} disabled={!selectedMedicineId}>Add to Bill</Button>
             </div>
 
             {selectedMedicine && (
               <div className="flex items-center gap-2 rounded-md bg-primary/10 p-3 text-primary border border-primary/20">
                 <MapPin className="h-5 w-5" />
                 <p className="text-sm font-medium">
-                  {t('location_for_medicine')}{' '}
+                  Location for{' '}
                   <span className="font-semibold">{selectedMedicine.name}</span>: 
                   <span className="ml-2 inline-block rounded-md bg-primary px-2 py-1 font-bold text-primary-foreground">{selectedMedicine.location}</span>
                 </p>
@@ -289,17 +287,17 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
         
         <Card>
           <CardHeader>
-            <CardTitle>{t('current_bill_title')}</CardTitle>
+            <CardTitle>Current Bill</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('bill_item_header')}</TableHead>
-                  <TableHead className="w-[100px] text-center">{t('bill_units_header')}</TableHead>
-                  <TableHead className="text-right">{t('bill_price_unit_header')}</TableHead>
-                  <TableHead className="text-right">{t('bill_total_header')}</TableHead>
+                  <TableHead>Item</TableHead>
+                  <TableHead className="w-[100px] text-center">Units</TableHead>
+                  <TableHead className="text-right">Price/Unit</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -331,8 +329,8 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                     <TableCell colSpan={5} className="h-24 text-center">
                        <div className="flex flex-col items-center justify-center gap-2">
                             <ShoppingCart className="h-8 w-8 text-muted-foreground" />
-                            <p>{t('no_items_in_bill_message')}</p>
-                            <p className="text-sm text-muted-foreground">{t('add_medicines_prompt')}</p>
+                            <p>No items in bill.</p>
+                            <p className="text-sm text-muted-foreground">Add medicines to get started.</p>
                         </div>
                     </TableCell>
                   </TableRow>
@@ -341,7 +339,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
               {billItems.length > 0 && (
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={3} className="font-bold text-lg">{t('bill_total_label')}</TableCell>
+                        <TableCell colSpan={3} className="font-bold text-lg">Total</TableCell>
                         <TableCell className="text-right font-bold text-lg font-mono">{formatToINR(totalAmount)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
@@ -355,35 +353,35 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       <div className="lg:col-span-1">
         <Card className="sticky top-6">
           <CardHeader>
-            <CardTitle>{t('checkout_title')}</CardTitle>
-            <CardDescription>{t('checkout_description')}</CardDescription>
+            <CardTitle>Checkout</CardTitle>
+            <CardDescription>Finalize the sale here.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-                <Label htmlFor='customer-name'>{t('customer_name_label')}</Label>
+                <Label htmlFor='customer-name'>Customer Name</Label>
                 <Input
                 id="customer-name"
-                placeholder={t('customer_name_placeholder')}
+                placeholder={'Enter customer name'}
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 />
             </div>
              <div className="space-y-2">
-                <Label htmlFor='doctor-name'>{t('doctor_name_label')}</Label>
+                <Label htmlFor='doctor-name'>Doctor's Name (Optional)</Label>
                 <Input
                 id="doctor-name"
-                placeholder={t('doctor_name_placeholder')}
+                placeholder={"Enter doctor's name"}
                 value={doctorName}
                 onChange={(e) => setDoctorName(e.target.value)}
                 />
             </div>
             <div className="space-y-2 rounded-lg bg-primary/10 p-4">
                 <div className="flex justify-between text-muted-foreground">
-                    <span>{t('subtotal_label')}</span>
+                    <span>Subtotal</span>
                     <span className='font-mono'>{formatToINR(totalAmount)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold">
-                    <span>{t('total_amount_label')}</span>
+                    <span>Total Amount</span>
                     <span className='font-mono'>{formatToINR(totalAmount)}</span>
                 </div>
             </div>
@@ -392,20 +390,20 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
             <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button className="w-full" size="lg" disabled={billItems.length === 0 || customerName.trim() === ''}>
-                        {t('complete_sale_button')}
+                        Complete Sale
                     </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>{t('confirm_sale_title')}</AlertDialogTitle>
+                    <AlertDialogTitle>Confirm Sale</AlertDialogTitle>
                     <AlertDialogDescription>
-                      {t('confirm_sale_description', { customerName: customerName, totalAmount: formatToINR(totalAmount) })}
+                      This will finalize the sale for {customerName} with a total of {formatToINR(totalAmount)} and update the inventory. This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>{t('cancel_button')}</AlertDialogCancel>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={completeSale}>
-                      {t('confirm_button')}
+                      Confirm
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
