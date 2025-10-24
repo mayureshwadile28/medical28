@@ -58,21 +58,21 @@ interface InventoryTabProps {
 type SortOption = 'name_asc' | 'expiry_asc' | 'expiry_desc';
 
 const getStockString = (med: Medicine) => {
-  if (med.category === 'Tablet') {
+  if (med.category === 'Tablet' || med.category === 'Capsule') {
     return `${med.stock.tablets} tabs`;
   }
   return `${med.stock.quantity} units`;
 };
 
 const isLowStock = (med: Medicine) => {
-    if (med.category === 'Tablet') {
+    if (med.category === 'Tablet' || med.category === 'Capsule') {
         return med.stock.tablets > 0 && med.stock.tablets < 50; // Low stock if less than 50 tabs (5 strips)
     }
     return med.stock.quantity > 0 && med.stock.quantity < 10;
 }
 
 const isOutOfStock = (med: Medicine) => {
-    if (med.category === 'Tablet') {
+    if (med.category === 'Tablet' || med.category === 'Capsule') {
         return med.stock.tablets <= 0;
     }
     return med.stock.quantity <= 0;
@@ -137,7 +137,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
 
   const outOfStockMedicines = useMemo(() => {
     return medicines.filter(med => {
-        if (med.category === 'Tablet') {
+        if (med.category === 'Tablet' || med.category === 'Capsule') {
             return med.stock.tablets <= 0;
         }
         return med.stock.quantity <= 0;

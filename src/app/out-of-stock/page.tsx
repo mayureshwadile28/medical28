@@ -1,3 +1,4 @@
+
 'use client';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
@@ -17,7 +18,7 @@ export default function OutOfStockPage() {
   const outOfStockMedicines = useMemo(() => {
     if (loading) return [];
     return medicines.filter(med => {
-      if (med.category === 'Tablet') {
+      if (med.category === 'Tablet' || med.category === 'Capsule') {
         return med.stock.tablets <= 0;
       }
       return med.stock.quantity <= 0;

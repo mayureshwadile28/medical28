@@ -37,7 +37,7 @@ const formSchema = z.object({
   stock_quantity: z.coerce.number().int().min(0).optional(),
   tablets_per_strip: z.coerce.number().int().min(1).optional(),
 }).superRefine((data, ctx) => {
-    if (data.category === 'Tablet') {
+    if (data.category === 'Tablet' || data.category === 'Capsule') {
         if (data.stock_strips === undefined || data.stock_strips < 0) {
             ctx.addIssue({ code: 'custom', message: 'Number of strips is required.', path: ['stock_strips'] });
         }
@@ -71,9 +71,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
       location: medicineToEdit?.location || '',
       expiry: medicineToEdit ? new Date(medicineToEdit.expiry).toISOString().split('T')[0] : '',
       price: medicineToEdit?.price || 0,
-      stock_strips: medicineToEdit?.category === 'Tablet' ? (medicineToEdit as any).stock.tablets / ((medicineToEdit as any).tabletsPerStrip || 10) : 0,
-      stock_quantity: medicineToEdit?.category !== 'Tablet' ? (medicineToEdit?.stock as any)?.quantity || 0 : 0,
-      tablets_per_strip: medicineToEdit?.category === 'Tablet' ? (medicineToEdit as any).tabletsPerStrip : 10,
+      stock_strips: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).stock.tablets / ((medicineToEdit as any).tabletsPerStrip || 10) : 0,
+      stock_quantity: (medicineToEdit?.category !== 'Tablet' && medicineToEdit?.category !== 'Capsule') ? (medicineToEdit?.stock as any)?.quantity || 0 : 0,
+      tablets_per_strip: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).tabletsPerStrip : 10,
     },
   });
 
@@ -83,10 +83,11 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     const finalCategory = values.category === 'Other' ? values.customCategory! : values.category;
     
     const formattedName = values.name.trim()
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join('-')
-        .replace(/--+/g, '-');
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+      .replace(/\s+/g, '-');
+
 
     const medicineData: Medicine = {
         id: medicineToEdit?.id || new Date().toISOString() + Math.random(),
@@ -95,7 +96,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
         location: values.location,
         expiry: new Date(values.expiry).toISOString(),
         price: values.price,
-        ...(finalCategory === 'Tablet'
+        ...(finalCategory === 'Tablet' || finalCategory === 'Capsule'
             ? { tabletsPerStrip: values.tablets_per_strip || 10, stock: { tablets: (values.stock_strips || 0) * (values.tablets_per_strip || 10) } }
             : { stock: { quantity: values.stock_quantity || 0 } })
     } as Medicine;
@@ -188,7 +189,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             name="price"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>{t('price_label', { unit: selectedCategory === 'Tablet' ? t('price_unit_strip') : t('price_unit_unit') })}</FormLabel>
+                <FormLabel>{t('price_label', { unit: selectedCategory === 'Tablet' || selectedCategory === 'Capsule' ? t('price_unit_strip') : t('price_unit_unit') })}</FormLabel>
                 <FormControl>
                     <Input type="number" step="0.01" placeholder={t('price_placeholder')} {...field} />
                 </FormControl>
@@ -198,7 +199,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             />
         </div>
 
-        {selectedCategory === 'Tablet' && (
+        {(selectedCategory === 'Tablet' || selectedCategory === 'Capsule') && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-md bg-muted/50">
             <FormField
               control={form.control}
@@ -229,7 +230,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
           </div>
         )}
 
-        {selectedCategory && selectedCategory !== 'Tablet' && (
+        {selectedCategory && selectedCategory !== 'Tablet' && selectedCategory !== 'Capsule' && (
           <div className="p-4 border rounded-md bg-muted/50">
             <FormField
               control={form.control}

@@ -1,6 +1,6 @@
 
 export type TabletStock = {
-  tablets: number; // Total number of tablets
+  tablets: number; // Total number of tablets/capsules
 };
 
 export type OtherStock = {
@@ -16,9 +16,9 @@ interface BaseMedicine {
 }
 
 export type TabletMedicine = BaseMedicine & {
-  category: 'Tablet';
+  category: 'Tablet' | 'Capsule';
   price: number; // price per strip
-  tabletsPerStrip: number; // number of tablets in one strip
+  tabletsPerStrip: number; // number of tablets/capsules in one strip
   stock: TabletStock;
 };
 

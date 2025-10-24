@@ -68,7 +68,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       expiryDate.setHours(0, 0, 0, 0);
       if (expiryDate < now) return false;
       
-      if (med.category === 'Tablet') {
+      if (med.category === 'Tablet' || med.category === 'Capsule') {
         return med.stock.tablets > 0;
       }
       return med.stock.quantity > 0;
@@ -82,11 +82,11 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   const addMedicineToBill = () => {
     if (!selectedMedicine) return;
     
-    if (selectedMedicine.category === 'Tablet' && selectedMedicine.stock.tablets === 0) {
+    if ((selectedMedicine.category === 'Tablet' || selectedMedicine.category === 'Capsule') && selectedMedicine.stock.tablets === 0) {
       toast({ title: t('out_of_stock_title'), description: `${selectedMedicine.name} is out of stock.`, variant: "destructive" });
       return;
     }
-    if (selectedMedicine.category !== 'Tablet' && selectedMedicine.stock.quantity === 0) {
+    if (selectedMedicine.category !== 'Tablet' && selectedMedicine.category !== 'Capsule' && selectedMedicine.stock.quantity === 0) {
       toast({ title: t('out_of_stock_title'), description: `${selectedMedicine.name} is out of stock.`, variant: "destructive" });
       return;
     }
@@ -96,7 +96,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
         return;
     }
     
-    const pricePerUnit = selectedMedicine.category === 'Tablet' 
+    const pricePerUnit = (selectedMedicine.category === 'Tablet' || selectedMedicine.category === 'Capsule')
       ? selectedMedicine.price / selectedMedicine.tabletsPerStrip 
       : selectedMedicine.price;
 
@@ -127,7 +127,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
 
           let stockLimit = Infinity;
 
-          if (med.category === 'Tablet') {
+          if (med.category === 'Tablet' || med.category === 'Capsule') {
               stockLimit = med.stock.tablets;
           } else {
               stockLimit = med.stock.quantity;
@@ -172,7 +172,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       const medIndex = newMedicines.findIndex(m => m.id === item.medicineId);
       if (medIndex !== -1) {
         const med = newMedicines[medIndex];
-        if (med.category === 'Tablet') {
+        if (med.category === 'Tablet' || med.category === 'Capsule') {
           (med.stock as any).tablets -= Number(item.quantity);
         } else {
           (med.stock as any).quantity -= Number(item.quantity);
@@ -198,7 +198,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   };
   
   const getStockString = (med: Medicine) => {
-    if (med.category === 'Tablet') {
+    if (med.category === 'Tablet' || med.category === 'Capsule') {
         return `${med.stock.tablets} tabs`;
     }
     return `${med.stock.quantity} units`;
