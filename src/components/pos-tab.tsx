@@ -121,6 +121,10 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
           if (!med) return item;
 
           let validQuantity = isNaN(Number(quantity)) ? 0 : Number(quantity);
+          if (quantity === '') {
+             validQuantity = 0;
+          }
+
           let stockLimit = Infinity;
 
           if (med.category === 'Tablet') {
@@ -262,7 +266,8 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
               <div className="flex items-center gap-2 rounded-md bg-primary/10 p-3 text-primary border border-primary/20">
                 <MapPin className="h-5 w-5" />
                 <p className="text-sm font-medium">
-                  {t('location_for_medicine')} <span className="font-semibold">{selectedMedicine.name}</span>: 
+                  {t('location_for_medicine')}{' '}
+                  <span className="font-semibold">{selectedMedicine.name}</span>: 
                   <span className="ml-2 inline-block rounded-md bg-primary px-2 py-1 font-bold text-primary-foreground">{selectedMedicine.location}</span>
                 </p>
               </div>
