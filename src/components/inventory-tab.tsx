@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { type Medicine, type SaleRecord } from '@/lib/types';
+import { type Medicine, type SaleRecord, TabletMedicine } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -46,14 +46,14 @@ interface InventoryTabProps {
 
 const getStockString = (med: Medicine) => {
   if (med.category === 'Tablet') {
-    return `${med.stock.strips} strips, ${10 * med.stock.strips} tabs`;
+    return `${Math.floor(med.stock.tablets / 10)} strips, ${med.stock.tablets % 10} tabs`;
   }
   return `${med.stock.quantity} units`;
 };
 
 const isLowStock = (med: Medicine) => {
     if (med.category === 'Tablet') {
-        return med.stock.strips < 5;
+        return med.stock.tablets < 50; // Low stock if less than 5 strips
     }
     return med.stock.quantity < 10;
 }
@@ -86,7 +86,21 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
   const handleAiCheck = async () => {
     setAiLoading(true);
     setAiAlert(null);
-    const result = await checkExpiryAction(medicines, sales);
+    
+    const preparedMedicines = medicines.map(m => {
+        if (m.category === 'Tablet') {
+            return {
+                ...m,
+                stock: m.stock.tablets, // Provide total tablets as stock number
+                price: m.price / 10, // Provide price per tablet
+            };
+        }
+        return { ...m, stock: m.stock.quantity };
+    }) as any[]; // Type assertion to match Genkit expectation
+
+
+    const result = await checkExpiryAction(preparedMedicines, sales);
+
     if ('alertMessage' in result) {
         setAiAlert(result.alertMessage);
     } else {

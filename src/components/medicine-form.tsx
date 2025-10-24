@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { type Medicine } from '@/lib/types';
+import { type Medicine, TabletMedicine } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -24,12 +24,12 @@ const formSchema = z.object({
     message: 'Expiry date must be in the future.',
   }),
   price: z.coerce.number().positive('Price must be a positive number.'),
-  stock_strips: z.coerce.number().int().min(0).optional(),
+  stock_tablets: z.coerce.number().int().min(0).optional(),
   stock_quantity: z.coerce.number().int().min(0).optional(),
 }).superRefine((data, ctx) => {
     if (data.category === 'Tablet') {
-        if (data.stock_strips === undefined || data.stock_strips < 0) {
-            ctx.addIssue({ code: 'custom', message: 'Number of strips is required.', path: ['stock_strips'] });
+        if (data.stock_tablets === undefined || data.stock_tablets < 0) {
+            ctx.addIssue({ code: 'custom', message: 'Total number of tablets is required.', path: ['stock_tablets'] });
         }
     } else {
          if (data.stock_quantity === undefined || data.stock_quantity < 0) {
@@ -52,7 +52,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
       location: medicineToEdit?.location || '',
       expiry: medicineToEdit ? new Date(medicineToEdit.expiry).toISOString().split('T')[0] : '',
       price: medicineToEdit?.price || 0,
-      stock_strips: medicineToEdit?.category === 'Tablet' ? medicineToEdit.stock.strips : 0,
+      stock_tablets: medicineToEdit?.category === 'Tablet' ? medicineToEdit.stock.tablets : 0,
       stock_quantity: medicineToEdit?.category !== 'Tablet' ? medicineToEdit?.stock.quantity : 0,
     },
   });
@@ -68,7 +68,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
         expiry: new Date(values.expiry).toISOString(),
         price: values.price,
         stock: selectedCategory === 'Tablet'
-            ? { strips: values.stock_strips! }
+            ? { tablets: values.stock_tablets! }
             : { quantity: values.stock_quantity! }
     } as Medicine;
     
@@ -145,7 +145,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
             name="price"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Price (per {selectedCategory === 'Tablet' ? 'strip' : 'unit'})</FormLabel>
+                <FormLabel>Price (per {selectedCategory === 'Tablet' ? 'strip of 10' : 'unit'})</FormLabel>
                 <FormControl>
                     <Input type="number" step="0.01" placeholder="e.g., 30.50" {...field} />
                 </FormControl>
@@ -159,12 +159,12 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
           <div className="grid grid-cols-1 gap-4 p-4 border rounded-md bg-muted/50">
             <FormField
               control={form.control}
-              name="stock_strips"
+              name="stock_tablets"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Number of Strips</FormLabel>
+                  <FormLabel>Total Number of Tablets</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="e.g., 10" {...field} />
+                    <Input type="number" placeholder="e.g., 100" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -1,5 +1,5 @@
 export type TabletStock = {
-  strips: number;
+  tablets: number; // Total number of tablets
 };
 
 export type OtherStock = {
@@ -15,7 +15,7 @@ interface BaseMedicine {
 
 export type TabletMedicine = BaseMedicine & {
   category: 'Tablet';
-  price: number; // price per strip
+  price: number; // price per strip of 10
   stock: TabletStock;
 };
 
@@ -30,8 +30,8 @@ export type Medicine = TabletMedicine | GenericMedicine;
 export interface SaleItem {
   medicineId: string;
   name: string;
-  quantity: number | ''; // Allow empty string for controlled input
-  pricePerUnit: number; // Price for the unit sold (e.g., price per strip, price per bottle)
+  quantity: number | ''; // Allow empty string for controlled input, represents tablets for Tablet category
+  pricePerUnit: number; // Price for the unit sold (e.g., price per tablet, price per bottle)
   total: number;
 }
 

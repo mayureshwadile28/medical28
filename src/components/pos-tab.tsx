@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { type Medicine, type SaleRecord, type SaleItem } from '@/lib/types';
+import { type Medicine, type SaleRecord, type SaleItem, TabletMedicine } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -34,7 +34,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-import { Check, ChevronsUpDown, Trash2, XCircle, MapPin } from 'lucide-react';
+import { Check, ChevronsUpDown, XCircle, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 
@@ -58,7 +58,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       const expiryDate = new Date(med.expiry);
       if (expiryDate <= now) return false;
       if (med.category === 'Tablet') {
-        return med.stock.strips > 0;
+        return med.stock.tablets > 0;
       }
       return med.stock.quantity > 0;
     });
@@ -77,12 +77,14 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
         return;
     }
 
+    const pricePerUnit = selectedMedicine.category === 'Tablet' ? selectedMedicine.price / 10 : selectedMedicine.price;
+
     const newItem: SaleItem = {
       medicineId: selectedMedicine.id,
       name: selectedMedicine.name,
       quantity: 1,
-      pricePerUnit: selectedMedicine.price,
-      total: selectedMedicine.price,
+      pricePerUnit: pricePerUnit,
+      total: pricePerUnit,
     };
     setBillItems([...billItems, newItem]);
     setSelectedMedicineId('');
@@ -94,14 +96,14 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     setBillItems(
       billItems.map(item => {
         if (item.medicineId === medicineId) {
-          const med = medicines.find(m => m.id === medicineId);
+          const med = medicines.find(m => m.id === medicineId) as Medicine | undefined;
           if (!med) return item;
 
           let validQuantity = isNaN(Number(quantity)) ? 0 : Number(quantity);
           let stockLimit = Infinity;
 
           if (med.category === 'Tablet') {
-              stockLimit = med.stock.strips;
+              stockLimit = med.stock.tablets;
           } else {
               stockLimit = med.stock.quantity;
           }
@@ -147,7 +149,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       if (medIndex !== -1) {
         const med = newMedicines[medIndex];
         if (med.category === 'Tablet') {
-          (med.stock as any).strips -= Number(item.quantity);
+          (med.stock as any).tablets -= Number(item.quantity);
         } else {
           (med.stock as any).quantity -= Number(item.quantity);
         }
@@ -173,7 +175,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   
   const getStockString = (med: Medicine) => {
     if (med.category === 'Tablet') {
-        return `${med.stock.strips} strips`;
+        return `${med.stock.tablets} tabs`;
     }
     return `${med.stock.quantity} units`;
   };
