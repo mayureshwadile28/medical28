@@ -75,6 +75,15 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
 
   const addMedicineToBill = () => {
     if (!selectedMedicine) return;
+    
+    if (selectedMedicine.category === 'Tablet' && selectedMedicine.stock.tablets === 0) {
+      toast({ title: "Out of Stock", description: `${selectedMedicine.name} is out of stock.`, variant: "destructive" });
+      return;
+    }
+    if (selectedMedicine.category !== 'Tablet' && selectedMedicine.stock.quantity === 0) {
+      toast({ title: "Out of Stock", description: `${selectedMedicine.name} is out of stock.`, variant: "destructive" });
+      return;
+    }
 
     if (billItems.some(item => item.medicineId === selectedMedicine.id)) {
         toast({ title: "Item already in bill", description: "You can change the quantity in the table.", variant: "default" });
@@ -240,11 +249,11 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
             </div>
 
             {selectedMedicine && (
-              <div className="flex items-center gap-2 rounded-md bg-accent/10 p-3 text-accent-foreground border border-accent/20">
-                <MapPin className="h-5 w-5 text-accent" />
+              <div className="flex items-center gap-2 rounded-md bg-primary/10 p-3 text-primary-foreground border border-primary/20">
+                <MapPin className="h-5 w-5 text-primary" />
                 <p className="text-sm">
                   Location for <span className="font-semibold">{selectedMedicine.name}</span>: 
-                  <span className="ml-2 inline-block rounded-md bg-accent px-2 py-1 font-bold text-accent-foreground">{selectedMedicine.location}</span>
+                  <span className="ml-2 inline-block rounded-md bg-primary px-2 py-1 font-bold text-primary-foreground">{selectedMedicine.location}</span>
                 </p>
               </div>
             )}
