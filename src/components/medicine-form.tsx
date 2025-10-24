@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -30,10 +31,14 @@ const formSchema = z.object({
   price: z.coerce.number().positive('Price must be a positive number.'),
   stock_strips: z.coerce.number().int().min(0).optional(),
   stock_quantity: z.coerce.number().int().min(0).optional(),
+  tablets_per_strip: z.coerce.number().int().min(1).optional(),
 }).superRefine((data, ctx) => {
     if (data.category === 'Tablet') {
         if (data.stock_strips === undefined || data.stock_strips < 0) {
             ctx.addIssue({ code: 'custom', message: 'Number of strips is required.', path: ['stock_strips'] });
+        }
+        if (data.tablets_per_strip === undefined || data.tablets_per_strip < 1) {
+            ctx.addIssue({ code: 'custom', message: 'Tablets per strip is required and must be at least 1.', path: ['tablets_per_strip'] });
         }
     } else {
          if (data.stock_quantity === undefined || data.stock_quantity < 0) {
@@ -56,8 +61,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
       location: medicineToEdit?.location || '',
       expiry: medicineToEdit ? new Date(medicineToEdit.expiry).toISOString().split('T')[0] : '',
       price: medicineToEdit?.price || 0,
-      stock_strips: medicineToEdit?.category === 'Tablet' ? medicineToEdit.stock.tablets / 10 : 0,
+      stock_strips: medicineToEdit?.category === 'Tablet' ? medicineToEdit.stock.tablets / (medicineToEdit.tabletsPerStrip || 10) : 0,
       stock_quantity: medicineToEdit?.category !== 'Tablet' ? (medicineToEdit?.stock as any)?.quantity || 0 : 0,
+      tablets_per_strip: medicineToEdit?.category === 'Tablet' ? medicineToEdit.tabletsPerStrip : 10,
     },
   });
 
@@ -71,9 +77,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
         location: values.location,
         expiry: new Date(values.expiry).toISOString(),
         price: values.price,
-        stock: selectedCategory === 'Tablet'
-            ? { tablets: (values.stock_strips || 0) * 10 }
-            : { quantity: values.stock_quantity || 0 }
+        ...(selectedCategory === 'Tablet'
+            ? { tabletsPerStrip: values.tablets_per_strip || 10, stock: { tablets: (values.stock_strips || 0) * (values.tablets_per_strip || 10) } }
+            : { stock: { quantity: values.stock_quantity || 0 } })
     } as Medicine;
     
     onSave(medicineData);
@@ -149,7 +155,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
             name="price"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Price (per {selectedCategory === 'Tablet' ? 'strip of 10' : 'unit'})</FormLabel>
+                <FormLabel>Price (per {selectedCategory === 'Tablet' ? 'strip' : 'unit'})</FormLabel>
                 <FormControl>
                     <Input type="number" step="0.01" placeholder="e.g., 30.50" {...field} />
                 </FormControl>
@@ -160,7 +166,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
         </div>
 
         {selectedCategory === 'Tablet' && (
-          <div className="grid grid-cols-1 gap-4 p-4 border rounded-md bg-muted/50">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-md bg-muted/50">
             <FormField
               control={form.control}
               name="stock_strips"
@@ -169,6 +175,19 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
                   <FormLabel>Number of Strips</FormLabel>
                   <FormControl>
                     <Input type="number" placeholder="e.g., 10" {...field} value={field.value || ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="tablets_per_strip"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tablets per Strip</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="e.g., 10" {...field} value={field.value || ''}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

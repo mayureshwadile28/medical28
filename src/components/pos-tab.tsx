@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -91,7 +92,9 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
         return;
     }
     
-    const pricePerUnit = selectedMedicine.category === 'Tablet' ? selectedMedicine.price / 10 : selectedMedicine.price;
+    const pricePerUnit = selectedMedicine.category === 'Tablet' 
+      ? selectedMedicine.price / selectedMedicine.tabletsPerStrip 
+      : selectedMedicine.price;
 
     const newItem: SaleItem = {
       medicineId: selectedMedicine.id,
@@ -250,9 +253,9 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
             </div>
 
             {selectedMedicine && (
-              <div className="flex items-center gap-2 rounded-md bg-accent p-3 text-accent-foreground border border-accent/20">
+              <div className="flex items-center gap-2 rounded-md bg-primary/10 p-3 text-primary border border-primary/20">
                 <MapPin className="h-5 w-5" />
-                <p className="text-sm">
+                <p className="text-sm font-medium">
                   Location for <span className="font-semibold">{selectedMedicine.name}</span>: 
                   <span className="ml-2 inline-block rounded-md bg-primary px-2 py-1 font-bold text-primary-foreground">{selectedMedicine.location}</span>
                 </p>
