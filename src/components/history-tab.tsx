@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, from 'react';
 import { type SaleRecord } from '@/lib/types';
 import {
   Accordion,
@@ -45,12 +45,12 @@ interface HistoryTabProps {
 }
 
 export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
-  const [isClearHistoryOpen, setIsClearHistoryOpen] = useState(false);
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
+  const [searchTerm, setSearchTerm] = React.useState('');
   const { t } = useTranslation();
 
-  const filteredSales = useMemo(() => {
+  const filteredSales = React.useMemo(() => {
     return sales
         .filter(sale => sale.id.toLowerCase().includes(searchTerm.toLowerCase()))
         .sort((a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime());
