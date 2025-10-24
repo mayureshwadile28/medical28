@@ -56,9 +56,12 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
 
   const availableMedicines = useMemo(() => {
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
     return medicines.filter(med => {
       const expiryDate = new Date(med.expiry);
-      if (expiryDate <= now) return false;
+      expiryDate.setHours(0, 0, 0, 0);
+      if (expiryDate < now) return false;
+      
       if (med.category === 'Tablet') {
         return med.stock.tablets > 0;
       }
@@ -73,12 +76,11 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   const addMedicineToBill = () => {
     if (!selectedMedicine) return;
 
-    // Check if already in bill
     if (billItems.some(item => item.medicineId === selectedMedicine.id)) {
         toast({ title: "Item already in bill", description: "You can change the quantity in the table.", variant: "default" });
         return;
     }
-
+    
     const pricePerUnit = selectedMedicine.category === 'Tablet' ? selectedMedicine.price / 10 : selectedMedicine.price;
 
     const newItem: SaleItem = {
@@ -144,7 +146,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
         return;
     }
 
-    // Update stock
     const newMedicines = [...medicines];
     billItems.forEach(item => {
       const medIndex = newMedicines.findIndex(m => m.id === item.medicineId);
@@ -159,7 +160,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     });
     setMedicines(newMedicines);
 
-    // Create sale record
     const newSale: SaleRecord = {
       id: new Date().toISOString() + Math.random(),
       customerName: customerName.trim(),
@@ -169,7 +169,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     };
     setSales([...sales, newSale]);
     
-    // Reset
     setCustomerName('');
     setBillItems([]);
     toast({ title: "Sale Completed!", description: `Bill for ${newSale.customerName} saved successfully.`});
@@ -199,8 +198,8 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                     aria-expanded={open}
                     className="w-full sm:w-[300px] justify-between"
                     >
-                    {selectedMedicine
-                        ? selectedMedicine.name
+                    {selectedMedicineId && medicines.find(m => m.id === selectedMedicineId)
+                        ? medicines.find(m => m.id === selectedMedicineId)?.name
                         : "Select medicine..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
