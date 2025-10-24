@@ -197,7 +197,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                   <div className="flex flex-col sm:flex-row w-full items-start sm:items-center justify-between pr-4 gap-2">
                     <div className="flex flex-col text-left flex-1">
                         <span className="font-semibold">{sale.customerName}</span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{t('bill_no_label')} {sale.id}</span>
                           {sale.doctorName && <span className="text-xs text-muted-foreground">{t('prescribed_by_doctor', { doctorName: sale.doctorName })}</span>}
                         </div>
