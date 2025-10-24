@@ -1,7 +1,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { type SaleRecord } from '@/lib/types';
 import {
   Accordion,
@@ -35,6 +35,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatToINR } from '@/lib/currency';
 import { createRoot } from 'react-dom/client';
 import { PrintableBill } from './printable-bill';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface HistoryTabProps {
   sales: SaleRecord[];
@@ -42,6 +44,9 @@ interface HistoryTabProps {
 }
 
 export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
+  const [isClearHistoryOpen, setIsClearHistoryOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+
   const handleExportCSV = () => {
     const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'TotalAmount', 'MedicineName', 'Quantity', 'PricePerUnit', 'ItemTotal'];
     const csvRows = [headers.join(',')];
@@ -77,6 +82,8 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
 
   const handleClearHistory = () => {
     setSales([]);
+    setIsClearHistoryOpen(false);
+    setDeleteConfirmation('');
   };
 
   const handlePrintBill = (sale: SaleRecord) => {
@@ -125,7 +132,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
               <Download className="mr-2 h-4 w-4" />
               Export CSV
             </Button>
-            <AlertDialog>
+            <AlertDialog open={isClearHistoryOpen} onOpenChange={(open) => { setIsClearHistoryOpen(open); if (!open) setDeleteConfirmation(''); }}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" disabled={sales.length === 0}>
                   <Trash2 className="mr-2 h-4 w-4" />
@@ -137,11 +144,22 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This action cannot be undone. This will permanently delete all sales history.
+                    <br />
+                    To confirm, please type <strong>delete</strong> in the box below.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                <div className="py-2">
+                    <Label htmlFor="delete-confirm" className="sr-only">Confirm Deletion</Label>
+                    <Input 
+                        id="delete-confirm"
+                        value={deleteConfirmation}
+                        onChange={(e) => setDeleteConfirmation(e.target.value)}
+                        placeholder='Type "delete" to confirm'
+                    />
+                </div>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleClearHistory}>
+                  <AlertDialogAction onClick={handleClearHistory} disabled={deleteConfirmation !== 'delete'}>
                     Yes, delete all
                   </AlertDialogAction>
                 </AlertDialogFooter>
