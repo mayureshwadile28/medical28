@@ -224,7 +224,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel }: MedicineFormP
           </div>
         )}
 
-        {selectedCategory && selectedCategory !== 'Tablet' && selectedCategory !== 'Other' && (
+        {selectedCategory && selectedCategory !== 'Tablet' && (
           <div className="p-4 border rounded-md bg-muted/50">
             <FormField
               control={form.control}
