@@ -252,5 +252,3 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     </Card>
   );
 }
-
-    
