@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -44,6 +45,7 @@ import { formatToINR } from '@/lib/currency';
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from '@/lib/i18n/use-translation';
 import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
 
 interface InventoryTabProps {
   medicines: Medicine[];
@@ -85,6 +87,8 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deletingMedicineId, setDeletingMedicineId] = useState<string | null>(null);
 
   const getExpiryInfo = (expiry: string) => {
     const now = new Date();
@@ -171,6 +175,8 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
 
   const handleDeleteMedicine = (id: string) => {
     setMedicines(medicines.filter(m => m.id !== id));
+    setDeletingMedicineId(null);
+    setDeleteConfirmation('');
   };
   
   const handleCancelForm = () => {
@@ -368,26 +374,40 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                               >
                                   <Edit className="h-4 w-4" />
                               </Button>
-                              <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                      <Trash2 className="h-4 w-4" />
-                                  </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                  <AlertDialogTitle>{t('delete_medicine_title', { medicineName: med.name })}</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                      {t('delete_medicine_description')}
-                                  </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                  <AlertDialogCancel>{t('cancel_button')}</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteMedicine(med.id)}>
-                                      {t('delete_button')}
-                                  </AlertDialogAction>
-                                  </AlertDialogFooter>
-                              </AlertDialogContent>
+                              <AlertDialog open={deletingMedicineId === med.id} onOpenChange={(open) => { if (!open) { setDeletingMedicineId(null); setDeleteConfirmation(''); }}}>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeletingMedicineId(med.id)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                    <AlertDialogTitle>{t('delete_medicine_title', { medicineName: med.name })}</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        {t('delete_medicine_description')}
+                                        <br />
+                                        <span dangerouslySetInnerHTML={{ __html: t('clear_history_confirm_prompt') }} />
+                                    </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <div className="py-2">
+                                        <Label htmlFor="delete-confirm-medicine" className="sr-only">{t('delete_confirm_placeholder')}</Label>
+                                        <Input 
+                                            id="delete-confirm-medicine"
+                                            value={deleteConfirmation}
+                                            onChange={(e) => setDeleteConfirmation(e.target.value)}
+                                            placeholder={t('delete_confirm_placeholder')}
+                                        />
+                                    </div>
+                                    <AlertDialogFooter>
+                                    <AlertDialogCancel>{t('cancel_button')}</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => handleDeleteMedicine(med.id)}
+                                      disabled={deleteConfirmation.toLowerCase() !== 'delete'}
+                                    >
+                                        {t('delete_button')}
+                                    </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
                               </AlertDialog>
                               </div>
                           </TableCell>
@@ -415,7 +435,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
             </Button>
             <AlertDialog>
                 <AlertDialogTrigger asChild>
-                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                    <Button variant="outline">
                         <Upload className="mr-2 h-4 w-4" />
                         {t('import_inventory_button')}
                     </Button>
@@ -427,41 +447,30 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                             {t('import_confirm_desc')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
+                     <div className="py-2">
+                         <Label htmlFor="import-file-confirm" className="sr-only">Import File</Label>
+                        <Input
+                            id="import-file-confirm"
+                            type="file"
+                            ref={fileInputRef}
+                            accept="application/json"
+                            onChange={handleImportInventory}
+                        />
+                    </div>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => { if (fileInputRef.current) fileInputRef.current.value = ""; }}>{t('cancel_button')}</AlertDialogCancel>
                         <AlertDialogAction onClick={() => {
-                            const input = fileInputRef.current;
-                            if (input && input.files && input.files.length > 0) {
-                                // The file is already selected, just process it.
-                                const event = { target: input } as unknown as React.ChangeEvent<HTMLInputElement>;
-                                handleImportInventory(event);
+                            if (!fileInputRef.current?.files?.length) {
+                                toast({ variant: 'destructive', title: t('import_error_title'), description: "Please select a file to import." });
+                                return;
                             }
+                            // The file is already selected and handled by onChange, just close the dialog.
                         }}>
                             {t('confirm_import_button')}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-            <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="application/json"
-                onChange={(e) => {
-                    // Trigger the dialog automatically when a file is selected.
-                    if (e.target.files && e.target.files.length > 0) {
-                        const dialogTrigger = document.querySelector('[aria-haspopup="dialog"]') as HTMLElement | null;
-                        if (dialogTrigger) {
-                            // This is a bit of a hack to re-open the dialog after file selection
-                            // In a real app, a more robust state management would be better.
-                            const currentOpenState = dialogTrigger.getAttribute('aria-expanded');
-                            if (currentOpenState !== 'true') {
-                                dialogTrigger.click();
-                            }
-                        }
-                    }
-                }}
-            />
         </div>
       </CardContent>
     </Card>
