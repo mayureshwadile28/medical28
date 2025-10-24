@@ -99,12 +99,14 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     let remainderText = '';
+    const absDiffDays = Math.abs(diffDays);
+
     if (diffDays < 0) {
-      remainderText = t('expired_days_ago', { diffDays: Math.abs(diffDays).toString() });
+      remainderText = t(absDiffDays === 1 ? 'expired_day_ago' : 'expired_days_ago', { diffDays: absDiffDays.toString() });
     } else if (diffDays === 0) {
       remainderText = t('expires_today');
     } else {
-      remainderText = t('expires_in_days', { diffDays: diffDays.toString() });
+      remainderText = t(diffDays === 1 ? 'expires_in_day' : 'expires_in_days', { diffDays: diffDays.toString() });
     }
 
     return {
@@ -130,7 +132,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const categories = useMemo(() => {
     const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
     const customCategories = medicines.map(m => m.category);
-    return Array.from(new Set([...baseCategories, ...customCategories]));
+    return Array.from(new Set([...baseCategories, ...customCategories])).sort();
   }, [medicines]);
 
   const outOfStockMedicines = useMemo(() => {
@@ -150,7 +152,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
             case 'name_asc':
                 return a.name.localeCompare(b.name);
             case 'expiry_asc':
-                return new Date(a.expiry).getTime() - new Date(b.expiry).getTime();
+                return new Date(a.expiry).getTime() - new Date(a.expiry).getTime();
             case 'expiry_desc':
                 return new Date(b.expiry).getTime() - new Date(a.expiry).getTime();
             default:
