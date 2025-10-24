@@ -22,7 +22,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,12 +34,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell } from 'lucide-react';
 import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatToINR } from '@/lib/currency';
+import { Badge } from '@/components/ui/badge';
 
 interface InventoryTabProps {
   medicines: Medicine[];
@@ -58,9 +59,16 @@ const getStockString = (med: Medicine) => {
 
 const isLowStock = (med: Medicine) => {
     if (med.category === 'Tablet') {
-        return med.stock.tablets < 50; // Low stock if less than 50 tabs (5 strips)
+        return med.stock.tablets > 0 && med.stock.tablets < 50; // Low stock if less than 50 tabs (5 strips)
     }
-    return med.stock.quantity < 10;
+    return med.stock.quantity > 0 && med.stock.quantity < 10;
+}
+
+const isOutOfStock = (med: Medicine) => {
+    if (med.category === 'Tablet') {
+        return med.stock.tablets <= 0;
+    }
+    return med.stock.quantity <= 0;
 }
 
 const getExpiryInfo = (expiry: string) => {
@@ -96,10 +104,20 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('expiry_asc');
+  const [isOutOfStockDialogOpen, setIsOutOfStockDialogOpen] = useState(false);
 
   const categories = useMemo(() => {
     const cats = new Set(medicines.map(m => m.category));
     return Array.from(cats);
+  }, [medicines]);
+
+  const outOfStockMedicines = useMemo(() => {
+    return medicines.filter(med => {
+        if (med.category === 'Tablet') {
+            return med.stock.tablets <= 0;
+        }
+        return med.stock.quantity <= 0;
+    });
   }, [medicines]);
 
   const filteredMedicines = useMemo(() => {
@@ -143,26 +161,71 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Inventory</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
-              <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                  <DialogTrigger asChild>
-                      <Button onClick={() => setEditingMedicine(null)}>
-                          <PlusCircle className="mr-2 h-4 w-4" /> Add Medicine
-                      </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px] md:max-w-lg max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                          <DialogTitle>{editingMedicine ? 'Edit Medicine' : 'Add New Medicine'}</DialogTitle>
-                      </DialogHeader>
-                      <MedicineForm
-                          medicineToEdit={editingMedicine}
-                          onSave={handleSaveMedicine}
-                          onCancel={() => {
-                              setEditingMedicine(null);
-                              setIsFormOpen(false);
-                          }}
-                      />
-                  </DialogContent>
-              </Dialog>
+            <Dialog open={isOutOfStockDialogOpen} onOpenChange={setIsOutOfStockDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline" disabled={outOfStockMedicines.length === 0}>
+                        <Bell className="mr-2 h-4 w-4" /> 
+                        Out of Stock 
+                        <Badge variant="destructive" className="ml-2">{outOfStockMedicines.length}</Badge>
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Out of Stock Items</DialogTitle>
+                        <DialogDescription>
+                            These items need to be restocked. Editing an item to add stock will remove it from this list.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {outOfStockMedicines.length > 0 ? (
+                        <div className="mt-4 max-h-[60vh] overflow-y-auto">
+                            <ul className="space-y-2">
+                                {outOfStockMedicines.map(med => (
+                                    <li key={med.id} className="flex items-center justify-between rounded-md border p-3">
+                                        <div>
+                                            <p className="font-semibold">{med.name}</p>
+                                            <p className="text-sm text-muted-foreground">{med.category}</p>
+                                        </div>
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => {
+                                                setEditingMedicine(med);
+                                                setIsOutOfStockDialogOpen(false);
+                                                setIsFormOpen(true);
+                                            }}
+                                        >
+                                            <Edit className="mr-2 h-3 w-3" /> Restock
+                                        </Button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : (
+                        <p className="py-4 text-center text-muted-foreground">No items are out of stock.</p>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                <DialogTrigger asChild>
+                    <Button onClick={() => setEditingMedicine(null)}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Medicine
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px] md:max-w-lg max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>{editingMedicine ? 'Edit Medicine' : 'Add New Medicine'}</DialogTitle>
+                    </DialogHeader>
+                    <MedicineForm
+                        medicineToEdit={editingMedicine}
+                        onSave={handleSaveMedicine}
+                        onCancel={() => {
+                            setEditingMedicine(null);
+                            setIsFormOpen(false);
+                        }}
+                    />
+                </DialogContent>
+            </Dialog>
           </div>
         </div>
       </CardHeader>
@@ -244,7 +307,7 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
                   filteredMedicines.map(med => {
                   const expiry = getExpiryInfo(med.expiry);
                   return (
-                      <TableRow key={med.id} className={cn(expiry.isExpired && "bg-destructive/20 hover:bg-destructive/30 text-destructive-foreground")}>
+                      <TableRow key={med.id} className={cn(expiry.isExpired && "bg-destructive/20 hover:bg-destructive/30 text-destructive-foreground", isOutOfStock(med) && "bg-muted/50")}>
                           <TableCell className="font-medium">{med.name}</TableCell>
                           <TableCell className="hidden md:table-cell">{med.category}</TableCell>
                           <TableCell className="hidden lg:table-cell">{med.location}</TableCell>
@@ -259,7 +322,7 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
                             </ClientOnly>
                           </TableCell>
                           <TableCell className="text-right font-mono">{formatToINR(med.price)}</TableCell>
-                          <TableCell className={cn("text-right font-mono", isLowStock(med) && 'text-amber-500 font-semibold')}>{getStockString(med)}</TableCell>
+                          <TableCell className={cn("text-right font-mono", isLowStock(med) && 'text-amber-500 font-semibold', isOutOfStock(med) && "text-destructive font-semibold")}>{getStockString(med)}</TableCell>
                           <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
                               <Button
