@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { type Medicine, type SaleRecord, type TabletMedicine } from '@/lib/types';
+import { type Medicine, type SaleRecord } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,6 +17,10 @@ import {
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
@@ -34,7 +38,6 @@ import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp } from 
 import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
-import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface InventoryTabProps {
@@ -42,6 +45,8 @@ interface InventoryTabProps {
   setMedicines: (medicines: Medicine[]) => void;
   sales: SaleRecord[];
 }
+
+type SortOption = 'name_asc' | 'expiry_asc' | 'expiry_desc';
 
 const getStockString = (med: Medicine) => {
   if (med.category === 'Tablet') {
@@ -89,9 +94,7 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
-  const [sortByExpiry, setSortByExpiry] = useState(false);
-
-  const { toast } = useToast();
+  const [sortOption, setSortOption] = useState<SortOption>('expiry_asc');
 
   const categories = useMemo(() => {
     const cats = new Set(medicines.map(m => m.category));
@@ -101,16 +104,23 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
   const filteredMedicines = useMemo(() => {
     let sortedMeds = [...medicines];
 
-    if (sortByExpiry) {
-      sortedMeds.sort((a, b) => new Date(a.expiry).getTime() - new Date(b.expiry).getTime());
-    } else {
-      sortedMeds.sort((a,b) => a.name.localeCompare(b.name));
-    }
+    sortedMeds.sort((a, b) => {
+        switch (sortOption) {
+            case 'name_asc':
+                return a.name.localeCompare(b.name);
+            case 'expiry_asc':
+                return new Date(a.expiry).getTime() - new Date(b.expiry).getTime();
+            case 'expiry_desc':
+                return new Date(b.expiry).getTime() - new Date(a.expiry).getTime();
+            default:
+                return 0;
+        }
+    });
 
     return sortedMeds
       .filter(med => med.name.toLowerCase().includes(searchTerm.toLowerCase()))
       .filter(med => categoryFilters.length === 0 || categoryFilters.includes(med.category));
-  }, [medicines, searchTerm, categoryFilters, sortByExpiry]);
+  }, [medicines, searchTerm, categoryFilters, sortOption]);
 
   const handleSaveMedicine = (medicine: Medicine) => {
     if (editingMedicine) {
@@ -149,6 +159,7 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
                               setEditingMedicine(null);
                               setIsFormOpen(false);
                           }}
+                          medicines={medicines}
                       />
                   </DialogContent>
               </Dialog>
@@ -156,8 +167,8 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-col gap-2 md:flex-row">
-          <div className="relative flex-1">
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name..."
@@ -167,22 +178,34 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
             />
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant={sortByExpiry ? 'secondary' : 'outline'}
-              className="w-full md:w-auto"
-              onClick={() => setSortByExpiry(!sortByExpiry)}
-            >
-                <ArrowDownUp className="mr-2 h-4 w-4" />
-                Sort by Expiry
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full md:w-auto">
+                <Button variant="outline" className="w-full justify-start md:w-auto">
+                  <ArrowDownUp className="mr-2 h-4 w-4" />
+                  Sort
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
+                    <DropdownMenuRadioItem value="expiry_asc">Expiry (Soonest First)</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="expiry_desc">Expiry (Latest First)</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="name_asc">Name (A-Z)</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-start md:w-auto">
                   <ListFilter className="mr-2 h-4 w-4" />
                   Filter
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align='end'>
+                 <DropdownMenuLabel>Category</DropdownMenuLabel>
+                 <DropdownMenuSeparator />
                 {categories.map(cat => (
                   <DropdownMenuCheckboxItem
                     key={cat}
@@ -221,22 +244,22 @@ export default function InventoryTab({ medicines, setMedicines, sales }: Invento
                   filteredMedicines.map(med => {
                   const expiry = getExpiryInfo(med.expiry);
                   return (
-                      <TableRow key={med.id} className={cn(expiry.isExpired && "bg-destructive/20 hover:bg-destructive/30")}>
+                      <TableRow key={med.id} className={cn(expiry.isExpired && "bg-destructive/20 hover:bg-destructive/30 text-destructive-foreground")}>
                           <TableCell className="font-medium">{med.name}</TableCell>
                           <TableCell className="hidden md:table-cell">{med.category}</TableCell>
                           <TableCell className="hidden lg:table-cell">{med.location}</TableCell>
                           <TableCell>
                             <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
                               <div className='flex flex-col'>
-                                  <span className={cn((expiry.isExpired || expiry.isNearExpiry) && "font-semibold text-destructive")}>{expiry.text}</span>
-                                  <span className={cn("text-xs", expiry.isExpired ? 'text-destructive/80' : 'text-muted-foreground')}>
+                                  <span className={cn((expiry.isExpired || expiry.isNearExpiry) && !expiry.isExpired && "font-semibold text-amber-500", expiry.isExpired && "font-semibold")}>{expiry.text}</span>
+                                  <span className={cn("text-xs", expiry.isExpired ? 'text-destructive-foreground/80' : 'text-muted-foreground')}>
                                     {expiry.remainder}
                                   </span>
                               </div>
                             </ClientOnly>
                           </TableCell>
-                          <TableCell className="text-right">₹{med.price.toFixed(2)}</TableCell>
-                          <TableCell className={cn("text-right", isLowStock(med) && 'text-amber-500 font-semibold')}>{getStockString(med)}</TableCell>
+                          <TableCell className="text-right font-mono">₹{med.price.toFixed(2)}</TableCell>
+                          <TableCell className={cn("text-right font-mono", isLowStock(med) && 'text-amber-500 font-semibold')}>{getStockString(med)}</TableCell>
                           <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
                               <Button
