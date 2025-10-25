@@ -248,6 +248,10 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     }
   };
 
+  const triggerFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <>
     <Card>
@@ -445,6 +449,13 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
           </Table>
         </div>
          <div className="flex flex-col sm:flex-row gap-2 justify-end pt-4">
+             <input
+              type="file"
+              ref={fileInputRef}
+              accept="application/json"
+              onChange={handleImportInventory}
+              className="hidden"
+            />
             <Button variant="outline" onClick={handleExportInventory}>
                 <Download className="mr-2 h-4 w-4" />
                 Export Inventory
@@ -460,28 +471,12 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                     <AlertDialogHeader>
                         <AlertDialogTitle>Confirm Inventory Import</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will replace your current inventory with the data from the selected file. This action cannot be undone.
+                            This will replace your current inventory with the data from the selected file. This action cannot be undone. Are you sure you want to proceed?
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                     <div className="py-2">
-                         <Label htmlFor="import-file-confirm" className="sr-only">Import File</Label>
-                        <Input
-                            id="import-file-confirm"
-                            type="file"
-                            ref={fileInputRef}
-                            accept="application/json"
-                            onChange={handleImportInventory}
-                        />
-                    </div>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => { if (fileInputRef.current) fileInputRef.current.value = ""; }}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => {
-                            if (!fileInputRef.current?.files?.length) {
-                                toast({ variant: 'destructive', title: 'Import Error', description: "Please select a file to import." });
-                                return;
-                            }
-                            // The file is already selected and handled by onChange, just close the dialog.
-                        }}>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={triggerFileSelect}>
                             Confirm Import
                         </AlertDialogAction>
                     </AlertDialogFooter>
@@ -510,5 +505,3 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     </>
   );
 }
-
-    
