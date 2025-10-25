@@ -13,7 +13,7 @@ export function PrintableBill({ sale }: PrintableBillProps) {
       <header style={{ textAlign: 'center', marginBottom: '16px' }}>
         <h1 style={{ fontSize: '20px', margin: '0', fontWeight: 'bold' }}>Vicky Medical</h1>
         <p style={{ margin: '4px 0' }}>Your Trusted Pharmacy</p>
-        <p style={{ margin: '4px 0' }}>123 Health St, Wellness City</p>
+        <p style={{ margin: '4px 0' }}>Shivaji nagar , sangvi road , Boradi</p>
         <p style={{ margin: '4px 0' }}>GSTIN: ABCDE12345FGHIJ</p>
       </header>
       
