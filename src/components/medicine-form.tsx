@@ -302,7 +302,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                 <FormItem>
                 <FormLabel>{selectedCategory === 'Tablet' || selectedCategory === 'Capsule' ? 'Price (per strip)' : 'Price (per unit)'}</FormLabel>
                 <FormControl>
-                    <Input type="number" step="0.01" placeholder={'e.g., 30.50'} {...field} />
+                    <Input type="number" step="0.01" placeholder={'e.g., 30.50'} {...field} value={field.value ?? ''} />
                 </FormControl>
                 <FormMessage />
                 </FormItem>
@@ -319,7 +319,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                 <FormItem>
                   <FormLabel>Number of Strips</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder={'e.g., 10'} {...field} value={field.value || ''} />
+                    <Input type="number" placeholder={'e.g., 10'} {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -332,7 +332,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                 <FormItem>
                   <FormLabel>Tablets per Strip</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder={'e.g., 10'} {...field} value={field.value || ''}/>
+                    <Input type="number" placeholder={'e.g., 10'} {...field} value={field.value ?? ''}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -350,7 +350,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                 <FormItem>
                   <FormLabel>Quantity (units)</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder={'e.g., 25'} {...field} value={field.value || ''}/>
+                    <Input type="number" placeholder={'e.g., 25'} {...field} value={field.value ?? ''}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
