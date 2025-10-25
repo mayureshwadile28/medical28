@@ -310,7 +310,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                     </div>
                     <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
                       <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
-                        <span className="text-muted-foreground">{new Date(sale.saleDate).toLocaleDateString()}</span>
+                        <span className="text-muted-foreground">{new Date(sale.saleDate).toLocaleDateString(undefined, { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })}</span>
                       </ClientOnly>
                       <Badge variant="secondary">{sale.paymentMode}</Badge>
                       <span className="font-mono text-right text-foreground">{formatToINR(sale.totalAmount)}</span>

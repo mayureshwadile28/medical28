@@ -150,7 +150,7 @@ export default function ExpiryReportPage() {
                                         <Badge variant="secondary">{med.category}</Badge>
                                     </TableCell>
                                     <TableCell>
-                                        {new Date(med.expiry).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })}
+                                        {new Date(med.expiry).toLocaleDateString(undefined, { month: '2-digit', year: 'numeric', timeZone: 'UTC' })}
                                     </TableCell>
                                     <TableCell>{getExpiryDisplay(med.diffDays)}</TableCell>
                                     <TableCell className="text-right font-mono">{getStockString(med)}</TableCell>
