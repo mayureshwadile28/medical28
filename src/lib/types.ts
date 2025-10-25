@@ -89,5 +89,3 @@ export const SuggestMedicinesOutputSchema = z.object({
   ),
 });
 export type SuggestMedicinesOutput = z.infer<typeof SuggestMedicinesOutputSchema>;
-
-    

@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronsUpDown, PlusCircle } from 'lucide-react';
+import { ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useState } from 'react';
 
@@ -125,22 +125,28 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
       
       const allValues = form.getValues();
       const descriptionFields = [allValues.description_illness, allValues.description_minAge, allValues.description_maxAge, allValues.description_gender];
-      const allFilled = descriptionFields.every(f => f !== undefined && f !== null && f !== '');
+      const anyFieldFilled = descriptionFields.some(f => f !== undefined && f !== null && f !== '' && f.toString().length > 0);
 
-      if (!allFilled) {
-        if (!allValues.description_illness?.trim()) {
-           form.setError('description_illness', { type: 'manual', message: 'Illness is required when description is open.' });
-        }
-        if (allValues.description_minAge === undefined) {
-           form.setError('description_minAge', { type: 'manual', message: 'Min age is required when description is open.' });
-        }
-        if (allValues.description_maxAge === undefined) {
-           form.setError('description_maxAge', { type: 'manual', message: 'Max age is required when description is open.' });
-        }
-        if (!allValues.description_gender) {
-             form.setError('description_gender', { type: 'manual', message: 'Gender is required when description is open.' });
-        }
-        return; // Stop submission if validation fails
+      if (anyFieldFilled) {
+          const allFilled = descriptionFields.every(f => f !== undefined && f !== null && f !== '' && f.toString().length > 0);
+          if (!allFilled) {
+            if (!allValues.description_illness?.trim()) {
+               form.setError('description_illness', { type: 'manual', message: 'Illness is required if providing a description.' });
+            }
+            if (allValues.description_minAge === undefined) {
+               form.setError('description_minAge', { type: 'manual', message: 'Min age is required if providing a description.' });
+            }
+            if (allValues.description_maxAge === undefined) {
+               form.setError('description_maxAge', { type: 'manual', message: 'Max age is required if providing a description.' });
+            }
+            if (!allValues.description_gender) {
+                 form.setError('description_gender', { type: 'manual', message: 'Gender is required if providing a description.' });
+            }
+             if (allValues.description_minAge !== undefined && allValues.description_maxAge !== undefined && allValues.description_maxAge < allValues.description_minAge) {
+                form.setError('description_maxAge', { type: 'custom', message: 'Max age cannot be less than min age.'});
+            }
+            return; // Stop submission if validation fails
+          }
       }
     }
      // Trigger validation for all other fields
@@ -148,6 +154,14 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     if(isValid) {
         onSubmit(form.getValues());
     }
+  };
+
+  const handleClearDescription = () => {
+    form.setValue('description_illness', '');
+    form.setValue('description_minAge', undefined);
+    form.setValue('description_maxAge', undefined);
+    form.setValue('description_gender', undefined);
+    form.clearErrors(['description_illness', 'description_minAge', 'description_maxAge', 'description_gender']);
   };
 
   function onSubmit(values: FormData) {
@@ -169,7 +183,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
 
     let medicineData: Medicine;
     
-    const baseData = {
+    const baseData: Omit<BaseMedicine, 'description'> & { description?: any } = {
         id: medicineToEdit?.id || new Date().toISOString() + Math.random(),
         name: formattedName,
         category: finalCategory,
@@ -179,12 +193,14 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     };
     
     if (hasFullDescription) {
-        (baseData as any).description = {
+        baseData.description = {
             illness: formattedIllness,
             minAge: values.description_minAge!,
             maxAge: values.description_maxAge!,
             gender: values.description_gender!,
         };
+    } else {
+       delete baseData.description;
     }
 
     if (finalCategory === 'Tablet' || finalCategory === 'Capsule') {
@@ -358,6 +374,12 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                 </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-4 space-y-4 p-4 border rounded-lg bg-muted/30">
+                 <div className="flex justify-between items-center mb-4">
+                    <FormLabel>Provide usage details for smart suggestions.</FormLabel>
+                    <Button type="button" variant="ghost" size="sm" onClick={handleClearDescription}>
+                        <Trash2 className="mr-2 h-4 w-4 text-destructive" /> Clear
+                    </Button>
+                 </div>
                  <FormField
                     control={form.control}
                     name="description_illness"
@@ -455,5 +477,3 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     </Form>
   );
 }
-
-    
