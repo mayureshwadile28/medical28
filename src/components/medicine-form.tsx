@@ -209,10 +209,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
         hasFullDescription = true;
     }
 
-    const [year, month] = values.expiry.split('-').map(Number);
-    // Create a date for the first day of the NEXT month, then subtract one day to get the last day of the selected month.
-    const expiryDate = new Date(year, month, 1);
-    expiryDate.setDate(expiryDate.getDate() - 1);
+    const expiryDate = new Date(values.expiry + '-01');
 
 
     let medicineData: Medicine;
@@ -538,3 +535,5 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     </Form>
   );
 }
+
+    
