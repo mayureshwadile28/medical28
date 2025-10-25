@@ -86,6 +86,13 @@ const formSchema = z.object({
     }
 });
 
+interface MedicineFormProps {
+  medicineToEdit: Medicine | null;
+  onSave: (medicine: Medicine) => void;
+  onCancel: () => void;
+  categories: string[];
+}
+
 type FormData = z.infer<typeof formSchema>;
 
 export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: MedicineFormProps) {
@@ -203,8 +210,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     }
 
     const [year, month] = values.expiry.split('-').map(Number);
-    // Get the last day of the selected month
-    const expiryDate = new Date(year, month, 0);
+    // Create a date for the first day of the NEXT month, then subtract one day to get the last day of the selected month.
+    const expiryDate = new Date(year, month, 1);
+    expiryDate.setDate(expiryDate.getDate() - 1);
 
 
     let medicineData: Medicine;
