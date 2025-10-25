@@ -25,17 +25,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
-    ignoreDuringBuilds: true,
+  experimental: {
+    allowedDevOrigins: [
+      'https://9000-firebase-studio-1761305052657.cluster-cz5nqyh5nreq6ua6gaqd7okl7o.cloudworkstations.dev',
+    ],
   },
 };
 
