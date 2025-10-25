@@ -64,16 +64,20 @@ const formSchema = z.object({
     const descriptionFields = [data.description_illness, data.description_minAge, data.description_maxAge, data.description_gender];
     const filledDescriptionFields = descriptionFields.filter(f => f !== undefined && f !== null && f !== '').length;
 
+    // Only validate description fields if at least one of them has a value.
     if (filledDescriptionFields > 0 && filledDescriptionFields < 4) {
-        if (!data.description_illness) {
-            ctx.addIssue({ code: 'custom', message: 'Illness is required if providing a description.', path: ['description_illness']});
-        }
-        if (data.description_minAge === undefined) {
-            ctx.addIssue({ code: 'custom', message: 'Min age is required if providing a description.', path: ['description_minAge']});
-        }
-        if (data.description_maxAge === undefined) {
-            ctx.addIssue({ code: 'custom', message: 'Max age is required if providing a description.', path: ['description_maxAge']});
-        }
+      if (!data.description_illness?.trim()) {
+        ctx.addIssue({ code: 'custom', message: 'Illness is required if providing a description.', path: ['description_illness']});
+      }
+      if (data.description_minAge === undefined) {
+        ctx.addIssue({ code: 'custom', message: 'Min age is required if providing a description.', path: ['description_minAge']});
+      }
+      if (data.description_maxAge === undefined) {
+        ctx.addIssue({ code: 'custom', message: 'Max age is required if providing a description.', path: ['description_maxAge']});
+      }
+      if (!data.description_gender) {
+          ctx.addIssue({ code: 'custom', message: 'Gender is required if providing a description.', path: ['description_gender']});
+      }
     }
     
     if (data.description_minAge !== undefined && data.description_maxAge !== undefined && data.description_maxAge < data.description_minAge) {
@@ -103,7 +107,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
       description_illness: medicineToEdit?.description?.illness || '',
       description_minAge: medicineToEdit?.description?.minAge,
       description_maxAge: medicineToEdit?.description?.maxAge,
-      description_gender: medicineToEdit?.description?.gender || 'Both',
+      description_gender: medicineToEdit?.description?.gender,
     },
   });
 
