@@ -141,7 +141,6 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     }
   }, [restockId, medicines]);
 
-
   const categories = useMemo(() => {
     const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
     const customCategories = medicines.map(m => m.category);
@@ -236,47 +235,50 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   
   // ----- NEW IMPORT LOGIC -----
   useEffect(() => {
-    if (importQueue.length > 0 && newInventoryState) {
+    if (newInventoryState && !currentDuplicate) {
         processImportQueue();
-    } else if (importQueue.length === 0 && newInventoryState) {
-        // Finished processing
-        setMedicines(newInventoryState);
-        const { added, updated, skipped } = importStats.current;
-        toast({
-            title: 'Import Complete',
-            description: `${added} new item(s) added, ${updated} item(s) updated, ${skipped} item(s) skipped.`
-        });
-        // Reset state
-        setNewInventoryState(null);
-        setCurrentDuplicate(null);
-        importStats.current = { added: 0, updated: 0, skipped: 0 };
     }
-  }, [importQueue, newInventoryState]);
+  }, [newInventoryState, currentDuplicate, importQueue]);
 
   const processImportQueue = () => {
-    const queue = [...importQueue];
-    const inventory = [...newInventoryState!];
-    
-    while(queue.length > 0) {
-        const importedMed = queue.shift()!;
-        
-        const existingMedIndex = inventory.findIndex(
-            m => m.name.toLowerCase() === importedMed.name.toLowerCase() && m.category.toLowerCase() === importedMed.category.toLowerCase()
-        );
-
-        if (existingMedIndex > -1) {
-            // Found a duplicate, pause and ask user
-            setImportQueue(queue);
-            setCurrentDuplicate({ imported: importedMed, existing: inventory[existingMedIndex] });
-            return; 
-        } else {
-            // Not a duplicate, add it directly
-            inventory.push({ ...importedMed, id: importedMed.id || new Date().toISOString() + Math.random() });
-            importStats.current.added++;
+    if (!newInventoryState || importQueue.length === 0) {
+        if (newInventoryState) {
+            // Finished processing
+            setMedicines(newInventoryState);
+            const { added, updated, skipped } = importStats.current;
+            if (added > 0 || updated > 0 || skipped > 0) {
+                toast({
+                    title: 'Import Complete',
+                    description: `${added} new item(s) added, ${updated} item(s) updated, ${skipped} item(s) skipped.`
+                });
+            }
+            // Reset state
+            setNewInventoryState(null);
+            setImportQueue([]);
+            setCurrentDuplicate(null);
+            importStats.current = { added: 0, updated: 0, skipped: 0 };
         }
+        return;
     }
-    setImportQueue(queue);
-    setNewInventoryState(inventory);
+
+    const queue = [...importQueue];
+    const importedMed = queue.shift()!;
+    
+    const existingMedIndex = newInventoryState.findIndex(
+        m => m.name.toLowerCase() === importedMed.name.toLowerCase() && m.category.toLowerCase() === importedMed.category.toLowerCase()
+    );
+
+    if (existingMedIndex > -1) {
+        // Found a duplicate, pause and ask user
+        setImportQueue(queue);
+        setCurrentDuplicate({ imported: importedMed, existing: newInventoryState[existingMedIndex] });
+    } else {
+        // Not a duplicate, add it directly
+        const updatedInventory = [...newInventoryState, { ...importedMed, id: importedMed.id || new Date().toISOString() + Math.random() }];
+        importStats.current.added++;
+        setImportQueue(queue);
+        setNewInventoryState(updatedInventory);
+    }
   };
   
   const handleDuplicateDecision = (decision: 'update' | 'add' | 'skip') => {
@@ -289,15 +291,14 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
         const existingMedIndex = inventory.findIndex(m => m.id === existing.id);
         if (existingMedIndex > -1) {
             const updatedMed: Medicine = {
-                ...inventory[existingMedIndex], // Start with existing data
-                ...imported, // Overwrite with imported data (e.g., price, expiry)
-                id: existing.id, // IMPORTANT: Keep original ID
+                ...inventory[existingMedIndex],
+                ...imported,
+                id: existing.id,
             };
             
-            // Smart stock merging
-            if ((updatedMed.category === 'Tablet' || updatedMed.category === 'Capsule') && (existing.category === 'Tablet' || existing.category === 'Capsule')) {
+            if ('tablets' in (updatedMed as TabletMedicine).stock && 'tablets' in (existing as TabletMedicine).stock) {
                (updatedMed as TabletMedicine).stock.tablets = ((existing as TabletMedicine).stock.tablets || 0) + ((imported as TabletMedicine).stock?.tablets || 0);
-            } else if (updatedMed.category !== 'Tablet' && updatedMed.category !== 'Capsule' && existing.category !== 'Tablet' && existing.category !== 'Capsule') {
+            } else if ('quantity' in (updatedMed as GenericMedicine).stock && 'quantity' in (existing as GenericMedicine).stock) {
                (updatedMed as GenericMedicine).stock.quantity = ((existing as GenericMedicine).stock.quantity || 0) + ((imported as GenericMedicine).stock?.quantity || 0);
             }
             
@@ -312,7 +313,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     }
 
     setCurrentDuplicate(null);
-    setNewInventoryState(inventory); // This triggers the useEffect to continue the queue
+    setNewInventoryState(inventory);
   };
 
   const handleImportInventory = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -621,17 +622,16 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
       </AlertDialogContent>
     </AlertDialog>
     
-    <AlertDialog open={!!currentDuplicate}>
+    <AlertDialog open={!!currentDuplicate} onOpenChange={open => !open && setCurrentDuplicate(null)}>
         <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Duplicate Item Found</AlertDialogTitle>
                 <AlertDialogDescription>
-                    Your inventory already contains <span className="font-bold">{currentDuplicate?.existing.name}</span> in the <span className="font-bold">{currentDuplicate?.existing.category}</span> category.
-                    What would you like to do?
+                    Your inventory already has '{currentDuplicate?.existing.name}' (Category: {currentDuplicate?.existing.category}). What would you like to do?
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Button variant="outline" onClick={() => handleDuplicateDecision('skip')}>Skip</Button>
+                <Button variant="destructive" onClick={() => handleDuplicateDecision('skip')}>Skip</Button>
                 <Button variant="secondary" onClick={() => handleDuplicateDecision('add')}>Add as New</Button>
                 <Button onClick={() => handleDuplicateDecision('update')}>Update Existing</Button>
             </AlertDialogFooter>
