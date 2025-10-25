@@ -360,7 +360,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>Inventory</CardTitle>
+          <CardTitle>Inventory ({filteredMedicines.length} / {medicines.length})</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
             <Button variant="outline" asChild>
                 <Link href="/out-of-stock">
