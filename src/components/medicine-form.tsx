@@ -443,10 +443,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                                 <FormItem>
                                     <FormLabel>Min Age</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} onChange={e => {
-                                            const value = e.target.value;
-                                            field.onChange(value === '' ? undefined : parseInt(value, 10));
-                                        }} />
+                                        <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -459,10 +456,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                                 <FormItem>
                                     <FormLabel>Max Age</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} onChange={e => {
-                                            const value = e.target.value;
-                                            field.onChange(value === '' ? undefined : parseInt(value, 10));
-                                        }}/>
+                                        <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}/>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -527,3 +521,5 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     </Form>
   );
 }
+
+    
