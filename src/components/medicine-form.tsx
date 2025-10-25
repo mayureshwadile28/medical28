@@ -40,6 +40,7 @@ const formSchema = z.object({
   stock_quantity: z.coerce.number().int().min(0).optional(),
   tablets_per_strip: z.coerce.number().int().min(1).optional(),
   // Description fields
+  description_patientType: z.enum(['Human', 'Animal']).optional(),
   description_illness: z.string().optional(),
   description_minAge: z.coerce.number().min(0, "Age cannot be negative.").optional(),
   description_maxAge: z.coerce.number().min(0, "Age cannot be negative.").optional(),
@@ -62,27 +63,30 @@ const formSchema = z.object({
     }
     
     // Description fields validation
-    const descriptionFields = [data.description_illness, data.description_minAge, data.description_maxAge, data.description_gender];
+    const descriptionFields = [data.description_patientType, data.description_illness, data.description_minAge, data.description_maxAge, data.description_gender];
     const filledDescriptionFields = descriptionFields.filter(f => f !== undefined && f !== null && f !== '' && f !== 0).length;
 
-    // Only validate description fields if at least one of them has a value.
     if (filledDescriptionFields > 0) {
+        if (!data.description_patientType) {
+            ctx.addIssue({ code: 'custom', message: 'Patient type is required if providing a description.', path: ['description_patientType']});
+        }
         if (!data.description_illness?.trim()) {
             ctx.addIssue({ code: 'custom', message: 'Illness is required if providing a description.', path: ['description_illness']});
         }
-        if (data.description_minAge === undefined || data.description_minAge <= 0) {
-            ctx.addIssue({ code: 'custom', message: 'Min age is required and must be greater than 0.', path: ['description_minAge']});
+        if (data.description_patientType === 'Human') {
+            if (data.description_minAge === undefined || data.description_minAge <= 0) {
+                ctx.addIssue({ code: 'custom', message: 'Min age is required and must be greater than 0.', path: ['description_minAge']});
+            }
+            if (data.description_maxAge === undefined || data.description_maxAge <= 0) {
+                ctx.addIssue({ code: 'custom', message: 'Max age is required and must be greater than 0.', path: ['description_maxAge']});
+            }
+            if (!data.description_gender) {
+                ctx.addIssue({ code: 'custom', message: 'Gender is required if providing a description.', path: ['description_gender']});
+            }
+            if (data.description_minAge !== undefined && data.description_maxAge !== undefined && data.description_maxAge < data.description_minAge) {
+                ctx.addIssue({ code: 'custom', message: 'Max age cannot be less than min age.', path: ['description_maxAge']});
+            }
         }
-        if (data.description_maxAge === undefined || data.description_maxAge <= 0) {
-            ctx.addIssue({ code: 'custom', message: 'Max age is required and must be greater than 0.', path: ['description_maxAge']});
-        }
-        if (!data.description_gender) {
-            ctx.addIssue({ code: 'custom', message: 'Gender is required if providing a description.', path: ['description_gender']});
-        }
-    }
-    
-    if (data.description_minAge !== undefined && data.description_maxAge !== undefined && data.description_maxAge < data.description_minAge) {
-        ctx.addIssue({ code: 'custom', message: 'Max age cannot be less than min age.', path: ['description_maxAge']});
     }
 });
 
@@ -106,6 +110,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
       stock_strips: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).stock.tablets / ((medicineToEdit as any).tabletsPerStrip || 10) : undefined,
       stock_quantity: (medicineToEdit?.category !== 'Tablet' && medicineToEdit?.category !== 'Capsule') ? (medicineToEdit?.stock as any)?.quantity || undefined : undefined,
       tablets_per_strip: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).tabletsPerStrip : 10,
+      description_patientType: medicineToEdit?.description?.patientType,
       description_illness: medicineToEdit?.description?.illness || '',
       description_minAge: medicineToEdit?.description?.minAge ?? 0,
       description_maxAge: medicineToEdit?.description?.maxAge ?? 0,
@@ -114,34 +119,44 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
   });
 
   const selectedCategory = form.watch('category');
+  const patientType = form.watch('description_patientType');
 
   const handleSubmit = async () => {
     // Manually trigger validation for description fields if the collapsible is open
     if (isDescriptionOpen) {
       const allValues = form.getValues();
-      const descriptionFields = [allValues.description_illness, allValues.description_minAge, allValues.description_maxAge, allValues.description_gender];
+      const descriptionFields = [allValues.description_patientType, allValues.description_illness, allValues.description_minAge, allValues.description_maxAge, allValues.description_gender];
       const anyFieldFilled = descriptionFields.some(f => f !== undefined && f !== null && f !== '' && (typeof f !== 'number' || !isNaN(f) && f !== 0));
 
       if (anyFieldFilled) {
-          const allFilled = allValues.description_illness?.trim() && allValues.description_minAge && allValues.description_maxAge && allValues.description_gender;
-          if (!allFilled) {
-            if (!allValues.description_illness?.trim()) {
-               form.setError('description_illness', { type: 'manual', message: 'Illness is required if providing a description.' });
-            }
-            if (!allValues.description_minAge || allValues.description_minAge <= 0) {
-               form.setError('description_minAge', { type: 'manual', message: 'Min age must be greater than 0.' });
-            }
-            if (!allValues.description_maxAge || allValues.description_maxAge <= 0) {
-               form.setError('description_maxAge', { type: 'manual', message: 'Max age must be greater than 0.' });
-            }
-            if (!allValues.description_gender) {
-                 form.setError('description_gender', { type: 'manual', message: 'Gender is required if providing a description.' });
-            }
-             if (allValues.description_minAge !== undefined && allValues.description_maxAge !== undefined && allValues.description_maxAge < allValues.description_minAge) {
-                form.setError('description_maxAge', { type: 'custom', message: 'Max age cannot be less than min age.'});
-            }
-            return; // Stop submission if validation fails
+          let hasErrors = false;
+          if (!allValues.description_patientType) {
+              form.setError('description_patientType', { type: 'manual', message: 'Patient type is required.' });
+              hasErrors = true;
           }
+          if (!allValues.description_illness?.trim()) {
+              form.setError('description_illness', { type: 'manual', message: 'Illness is required.' });
+              hasErrors = true;
+          }
+          if (allValues.description_patientType === 'Human') {
+              if (!allValues.description_minAge || allValues.description_minAge <= 0) {
+                  form.setError('description_minAge', { type: 'manual', message: 'Min age must be > 0.' });
+                  hasErrors = true;
+              }
+              if (!allValues.description_maxAge || allValues.description_maxAge <= 0) {
+                  form.setError('description_maxAge', { type: 'manual', message: 'Max age must be > 0.' });
+                  hasErrors = true;
+              }
+              if (allValues.description_minAge && allValues.description_maxAge && allValues.description_maxAge < allValues.description_minAge) {
+                  form.setError('description_maxAge', { type: 'manual', message: 'Max age cannot be less than min age.' });
+                  hasErrors = true;
+              }
+              if (!allValues.description_gender) {
+                  form.setError('description_gender', { type: 'manual', message: 'Gender is required.' });
+                  hasErrors = true;
+              }
+          }
+          if (hasErrors) return;
       }
     }
      // Trigger validation for all other fields
@@ -152,12 +167,13 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
   };
 
   const handleClearDescription = () => {
+    form.setValue('description_patientType', undefined);
     form.setValue('description_illness', '');
     form.setValue('description_minAge', 0);
     form.setValue('description_maxAge', 0);
     form.setValue('description_gender', undefined);
     // Clear errors after resetting the fields
-    form.clearErrors(['description_illness', 'description_minAge', 'description_maxAge', 'description_gender']);
+    form.clearErrors(['description_patientType', 'description_illness', 'description_minAge', 'description_maxAge', 'description_gender']);
   };
 
   function onSubmit(values: FormData) {
@@ -165,7 +181,6 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     
     const formattedName = values.name.trim();
 
-    // Capitalize each symptom
     const formattedIllness = values.description_illness
       ? values.description_illness
           .split(',')
@@ -175,7 +190,13 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
           .join(', ')
       : undefined;
 
-    const hasFullDescription = formattedIllness && values.description_minAge && values.description_maxAge && values.description_gender && values.description_minAge > 0 && values.description_maxAge > 0;
+    let hasFullDescription = false;
+    if(values.description_patientType === 'Human' && formattedIllness && values.description_minAge && values.description_maxAge && values.description_gender && values.description_minAge > 0 && values.description_maxAge > 0) {
+        hasFullDescription = true;
+    } else if (values.description_patientType === 'Animal' && formattedIllness) {
+        hasFullDescription = true;
+    }
+
 
     let medicineData: Medicine;
     
@@ -190,10 +211,11 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     
     if (hasFullDescription) {
         baseData.description = {
+            patientType: values.description_patientType!,
             illness: formattedIllness,
-            minAge: values.description_minAge!,
-            maxAge: values.description_maxAge!,
-            gender: values.description_gender!,
+            minAge: values.description_patientType === 'Human' ? values.description_minAge : undefined,
+            maxAge: values.description_patientType === 'Human' ? values.description_maxAge : undefined,
+            gender: values.description_patientType === 'Human' ? values.description_gender : undefined,
         };
     } else {
         baseData.description = undefined;
@@ -206,13 +228,13 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             category: finalCategory,
             tabletsPerStrip: values.tablets_per_strip || 10,
             stock: { tablets: (values.stock_strips || 0) * (values.tablets_per_strip || 10) }
-        } as TabletMedicine;
+        } as any;
     } else {
         medicineData = {
             ...baseData,
             category: finalCategory,
             stock: { quantity: values.stock_quantity || 0 }
-        } as GenericMedicine;
+        } as any;
     }
     
     onSave(medicineData);
@@ -377,6 +399,27 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                         <Trash2 className="mr-2 h-4 w-4 text-destructive" /> Clear
                     </Button>
                  </div>
+                  <FormField
+                      control={form.control}
+                      name="description_patientType"
+                      render={({ field }) => (
+                          <FormItem>
+                          <FormLabel>Patient Type</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Select patient type" />
+                              </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                  <SelectItem value="Human">Human</SelectItem>
+                                  <SelectItem value="Animal">Animal</SelectItem>
+                              </SelectContent>
+                          </Select>
+                          <FormMessage />
+                          </FormItem>
+                      )}
+                  />
                  <FormField
                     control={form.control}
                     name="description_illness"
@@ -384,82 +427,86 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                         <FormItem>
                             <FormLabel>Illness / Symptom</FormLabel>
                             <FormControl>
-                                <Textarea placeholder="e.g., Fever, headache, body pain" {...field} />
+                                <Textarea placeholder="e.g., Fever, headache, skin problem" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
                     )}
                 />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {patientType === 'Human' && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="description_minAge"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Min Age</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="description_maxAge"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Max Age</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
                     <FormField
                         control={form.control}
-                        name="description_minAge"
+                        name="description_gender"
                         render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Min Age</FormLabel>
-                                <FormControl>
-                                    <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
-                                </FormControl>
-                                <FormMessage />
+                            <FormItem className="space-y-3">
+                            <FormLabel>Recommended For</FormLabel>
+                            <FormControl>
+                                <RadioGroup
+                                onValueChange={field.onChange}
+                                value={field.value}
+                                className="flex flex-col space-y-1"
+                                >
+                                <FormItem className="flex items-center space-x-3 space-y-0">
+                                    <FormControl>
+                                    <RadioGroupItem value="Both" />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">
+                                    Both
+                                    </FormLabel>
+                                </FormItem>
+                                <FormItem className="flex items-center space-x-3 space-y-0">
+                                    <FormControl>
+                                    <RadioGroupItem value="Male" />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">
+                                    Male
+                                    </FormLabel>
+                                </FormItem>
+                                <FormItem className="flex items-center space-x-3 space-y-0">
+                                    <FormControl>
+                                    <RadioGroupItem value="Female" />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">
+                                    Female
+                                    </FormLabel>
+                                </FormItem>
+                                </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
                             </FormItem>
                         )}
                     />
-                    <FormField
-                        control={form.control}
-                        name="description_maxAge"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Max Age</FormLabel>
-                                <FormControl>
-                                    <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/>
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
-                <FormField
-                    control={form.control}
-                    name="description_gender"
-                    render={({ field }) => (
-                        <FormItem className="space-y-3">
-                        <FormLabel>Recommended For</FormLabel>
-                        <FormControl>
-                            <RadioGroup
-                            onValueChange={field.onChange}
-                            value={field.value}
-                            className="flex flex-col space-y-1"
-                            >
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl>
-                                <RadioGroupItem value="Both" />
-                                </FormControl>
-                                <FormLabel className="font-normal">
-                                Both
-                                </FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl>
-                                <RadioGroupItem value="Male" />
-                                </FormControl>
-                                <FormLabel className="font-normal">
-                                Male
-                                </FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl>
-                                <RadioGroupItem value="Female" />
-                                </FormControl>
-                                <FormLabel className="font-normal">
-                                Female
-                                </FormLabel>
-                            </FormItem>
-                            </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
+                  </>
+                )}
             </CollapsibleContent>
         </Collapsible>
 

@@ -29,29 +29,47 @@ export async function suggestMedicines(input: SuggestMedicinesInput): Promise<Su
 
     const matchingMedicines = availableInventory.filter((med: Medicine) => {
         // Only consider medicines that have a valid description
-        if (!med.description || med.description.minAge === 0 || med.description.maxAge === 0) return false;
+        if (!med.description) return false;
         
         const desc = med.description;
-        
-        // Check age: patient's age must be within the medicine's min/max age range.
-        const ageMatch = patient.age >= desc.minAge && patient.age <= desc.maxAge;
-        
-        // Check gender: medicine's gender must be 'Both' or match the patient's gender.
-        const genderMatch = desc.gender === 'Both' || desc.gender === patient.gender;
+
+        // Match patient type
+        if (desc.patientType !== patient.patientType) return false;
         
         // Basic keyword match for illness: check if the medicine's illness description includes any of the patient's symptoms.
         const illnessMatch = patient.illnesses.some(symptom => 
             desc.illness.toLowerCase().includes(symptom.toLowerCase())
         );
-        
-        return ageMatch && genderMatch && illnessMatch;
+
+        if (!illnessMatch) return false;
+
+        if (desc.patientType === 'Human') {
+            if (!patient.age || !patient.gender) return false;
+            if (!desc.minAge || !desc.maxAge || desc.minAge === 0 || desc.maxAge === 0) return false;
+            // Check age: patient's age must be within the medicine's min/max age range.
+            const ageMatch = patient.age >= desc.minAge && patient.age <= desc.maxAge;
+            
+            // Check gender: medicine's gender must be 'Both' or match the patient's gender.
+            const genderMatch = desc.gender === 'Both' || desc.gender === patient.gender;
+
+            return ageMatch && genderMatch;
+        }
+
+        // For animal, we only match on illness
+        return true;
     });
     
-    const suggestions = matchingMedicines.map(med => ({
-        medicineId: med.id,
-        name: med.name,
-        reason: `Suitable for ${med.description?.illness.toLowerCase()} in patients aged ${med.description?.minAge}-${med.description?.maxAge}.`,
-    }));
+    const suggestions = matchingMedicines.map(med => {
+        let reason = `Suitable for ${med.description?.illness.toLowerCase()}.`;
+        if (med.description?.patientType === 'Human') {
+            reason = `Suitable for ${med.description?.illness.toLowerCase()} in patients aged ${med.description?.minAge}-${med.description?.maxAge}.`;
+        }
+        return {
+            medicineId: med.id,
+            name: med.name,
+            reason: reason,
+        };
+    });
 
     // Limit to 5 suggestions to keep the UI clean
     const limitedSuggestions = suggestions.slice(0, 5);

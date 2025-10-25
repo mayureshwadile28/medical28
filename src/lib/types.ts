@@ -10,11 +10,13 @@ export type OtherStock = {
 };
 
 export interface MedicineDescription {
-  minAge: number;
-  maxAge: number;
-  gender: 'Male' | 'Female' | 'Both';
+  patientType: 'Human' | 'Animal';
+  minAge?: number;
+  maxAge?: number;
+  gender?: 'Male' | 'Female' | 'Both';
   illness: string;
 }
+
 
 interface BaseMedicine {
   id: string;
@@ -71,8 +73,9 @@ export interface SaleRecord {
 // AI Flow Schemas
 export const SuggestMedicinesInputSchema = z.object({
   patient: z.object({
-    age: z.number(),
-    gender: z.enum(['Male', 'Female', 'Both']),
+    patientType: z.enum(['Human', 'Animal']),
+    age: z.number().optional(),
+    gender: z.enum(['Male', 'Female', 'Both']).optional(),
     illnesses: z.array(z.string()),
   }),
   inventory: z.array(z.any()), // Using z.any() for the full medicine object

@@ -76,8 +76,9 @@ const generateNewBillNumber = (sales: SaleRecord[]): string => {
 };
 
 const DescriptionFormSchema = z.object({
-  age: z.coerce.number().int().min(0, 'Age must be a positive number.'),
-  gender: z.enum(['Male', 'Female', 'Both']),
+  patientType: z.enum(['Human', 'Animal']),
+  age: z.coerce.number().int().min(0, 'Age must be a positive number.').optional(),
+  gender: z.enum(['Male', 'Female', 'Both']).optional(),
   illnesses: z.array(z.string()).min(1, 'Please select at least one symptom.'),
 });
 
@@ -109,11 +110,14 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
   const form = useForm<DescriptionFormData>({
     resolver: zodResolver(DescriptionFormSchema),
     defaultValues: {
+      patientType: 'Human',
       age: undefined,
       gender: 'Both',
       illnesses: [],
     },
   });
+
+  const patientType = form.watch('patientType');
 
   const onSubmit = async (data: DescriptionFormData) => {
     setIsLoading(true);
@@ -121,6 +125,7 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
     try {
       const result = await suggestMedicines({
         patient: {
+          patientType: data.patientType,
           age: data.age,
           gender: data.gender,
           illnesses: data.illnesses,
@@ -179,6 +184,27 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
         </DialogHeader>
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                 <FormField
+                    control={form.control}
+                    name="patientType"
+                    render={({ field }) => (
+                        <FormItem>
+                        <Label>Patient Type</Label>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select patient type" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                <SelectItem value="Human">Human</SelectItem>
+                                <SelectItem value="Animal">Animal</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
                 <FormField
                     control={form.control}
                     name="illnesses"
@@ -195,43 +221,46 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
                         </FormItem>
                     )}
                 />
-                <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                        control={form.control}
-                        name="age"
-                        render={({ field }) => (
-                        <FormItem>
-                            <Label>Patient Age</Label>
-                            <FormControl>
-                            <Input type="number" placeholder="e.g., 25" {...field} value={field.value ?? ''} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="gender"
-                        render={({ field }) => (
+
+                {patientType === 'Human' && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="age"
+                            render={({ field }) => (
                             <FormItem>
-                            <Label>Patient Gender</Label>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Label>Patient Age</Label>
                                 <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select gender" />
-                                </SelectTrigger>
+                                <Input type="number" placeholder="e.g., 25" {...field} value={field.value ?? ''} />
                                 </FormControl>
-                                <SelectContent>
-                                    <SelectItem value="Both">Any</SelectItem>
-                                    <SelectItem value="Male">Male</SelectItem>
-                                    <SelectItem value="Female">Female</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
+                                <FormMessage />
                             </FormItem>
-                        )}
-                    />
-                </div>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="gender"
+                            render={({ field }) => (
+                                <FormItem>
+                                <Label>Patient Gender</Label>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select gender" />
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Both">Any</SelectItem>
+                                        <SelectItem value="Male">Male</SelectItem>
+                                        <SelectItem value="Female">Female</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                )}
                 <Button type="submit" disabled={isLoading} className="w-full">
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                     Get Suggestions
