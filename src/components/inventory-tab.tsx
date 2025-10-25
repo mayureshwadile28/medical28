@@ -360,7 +360,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>Inventory ({filteredMedicines.length} / {medicines.length})</CardTitle>
+          <CardTitle>Inventory ({medicines.length} items)</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
             <Button variant="outline" asChild>
                 <Link href="/out-of-stock">
@@ -396,7 +396,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={'Search by name...'}
+              placeholder={`Search in ${medicines.length} items...`}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -543,7 +543,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                           <div className="flex flex-col items-center justify-center gap-2">
                               <Info className="h-8 w-8 text-muted-foreground" />
                               <p>No medicines found.</p>
-                              <p className="text-sm text-muted-foreground">Try adjusting your search or filters.</p>
+                              <p className="text-sm text-muted-foreground">{searchTerm || categoryFilters.length > 0 ? 'Try adjusting your search or filters.' : 'Add your first medicine to get started.'}</p>
                           </div>
                       </TableCell>
                   </TableRow>
@@ -640,5 +640,3 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     </>
   );
 }
-
-    
