@@ -63,18 +63,18 @@ const formSchema = z.object({
     
     // Description fields validation
     const descriptionFields = [data.description_illness, data.description_minAge, data.description_maxAge, data.description_gender];
-    const filledDescriptionFields = descriptionFields.filter(f => f !== undefined && f !== null && f !== '').length;
+    const filledDescriptionFields = descriptionFields.filter(f => f !== undefined && f !== null && f !== '' && f !== 0).length;
 
     // Only validate description fields if at least one of them has a value.
     if (filledDescriptionFields > 0) {
         if (!data.description_illness?.trim()) {
             ctx.addIssue({ code: 'custom', message: 'Illness is required if providing a description.', path: ['description_illness']});
         }
-        if (data.description_minAge === undefined) {
-            ctx.addIssue({ code: 'custom', message: 'Min age is required if providing a description.', path: ['description_minAge']});
+        if (data.description_minAge === undefined || data.description_minAge <= 0) {
+            ctx.addIssue({ code: 'custom', message: 'Min age is required and must be greater than 0.', path: ['description_minAge']});
         }
-        if (data.description_maxAge === undefined) {
-            ctx.addIssue({ code: 'custom', message: 'Max age is required if providing a description.', path: ['description_maxAge']});
+        if (data.description_maxAge === undefined || data.description_maxAge <= 0) {
+            ctx.addIssue({ code: 'custom', message: 'Max age is required and must be greater than 0.', path: ['description_maxAge']});
         }
         if (!data.description_gender) {
             ctx.addIssue({ code: 'custom', message: 'Gender is required if providing a description.', path: ['description_gender']});
@@ -107,8 +107,8 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
       stock_quantity: (medicineToEdit?.category !== 'Tablet' && medicineToEdit?.category !== 'Capsule') ? (medicineToEdit?.stock as any)?.quantity || undefined : undefined,
       tablets_per_strip: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).tabletsPerStrip : 10,
       description_illness: medicineToEdit?.description?.illness || '',
-      description_minAge: medicineToEdit?.description?.minAge ?? undefined,
-      description_maxAge: medicineToEdit?.description?.maxAge ?? undefined,
+      description_minAge: medicineToEdit?.description?.minAge ?? 0,
+      description_maxAge: medicineToEdit?.description?.maxAge ?? 0,
       description_gender: medicineToEdit?.description?.gender,
     },
   });
@@ -120,19 +120,19 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     if (isDescriptionOpen) {
       const allValues = form.getValues();
       const descriptionFields = [allValues.description_illness, allValues.description_minAge, allValues.description_maxAge, allValues.description_gender];
-      const anyFieldFilled = descriptionFields.some(f => f !== undefined && f !== null && f !== '' && (typeof f !== 'number' || !isNaN(f)));
+      const anyFieldFilled = descriptionFields.some(f => f !== undefined && f !== null && f !== '' && (typeof f !== 'number' || !isNaN(f) && f !== 0));
 
       if (anyFieldFilled) {
-          const allFilled = descriptionFields.every(f => f !== undefined && f !== null && f !== '' && (typeof f !== 'number' || !isNaN(f)));
+          const allFilled = allValues.description_illness?.trim() && allValues.description_minAge && allValues.description_maxAge && allValues.description_gender;
           if (!allFilled) {
             if (!allValues.description_illness?.trim()) {
                form.setError('description_illness', { type: 'manual', message: 'Illness is required if providing a description.' });
             }
-            if (allValues.description_minAge === undefined || isNaN(allValues.description_minAge)) {
-               form.setError('description_minAge', { type: 'manual', message: 'Min age is required if providing a description.' });
+            if (!allValues.description_minAge || allValues.description_minAge <= 0) {
+               form.setError('description_minAge', { type: 'manual', message: 'Min age must be greater than 0.' });
             }
-            if (allValues.description_maxAge === undefined || isNaN(allValues.description_maxAge)) {
-               form.setError('description_maxAge', { type: 'manual', message: 'Max age is required if providing a description.' });
+            if (!allValues.description_maxAge || allValues.description_maxAge <= 0) {
+               form.setError('description_maxAge', { type: 'manual', message: 'Max age must be greater than 0.' });
             }
             if (!allValues.description_gender) {
                  form.setError('description_gender', { type: 'manual', message: 'Gender is required if providing a description.' });
@@ -175,7 +175,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
           .join(', ')
       : undefined;
 
-    const hasFullDescription = formattedIllness && values.description_minAge !== undefined && values.description_maxAge !== undefined && values.description_gender && values.description_minAge > 0 && values.description_maxAge > 0;
+    const hasFullDescription = formattedIllness && values.description_minAge && values.description_maxAge && values.description_gender && values.description_minAge > 0 && values.description_maxAge > 0;
 
     let medicineData: Medicine;
     
@@ -195,7 +195,10 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             maxAge: values.description_maxAge!,
             gender: values.description_gender!,
         };
+    } else {
+        baseData.description = undefined;
     }
+
 
     if (finalCategory === 'Tablet' || finalCategory === 'Capsule') {
         medicineData = {
@@ -424,7 +427,6 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                         <FormControl>
                             <RadioGroup
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
                             value={field.value}
                             className="flex flex-col space-y-1"
                             >
@@ -472,5 +474,3 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     </Form>
   );
 }
-
-    
