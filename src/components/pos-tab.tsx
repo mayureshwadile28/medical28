@@ -92,12 +92,16 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
   const allIllnesses = useMemo(() => {
     const illnessSet = new Set<string>();
     inventory.forEach(med => {
-        if(med.description?.illness) {
-            med.description.illness.split(',').forEach(symptom => {
-                const trimmed = symptom.trim();
-                if(trimmed) illnessSet.add(trimmed);
-            })
-        }
+      if (med.description?.illness) {
+        med.description.illness.split(',').forEach(symptom => {
+          const trimmed = symptom.trim();
+          if (trimmed) {
+            // Capitalize first letter to ensure uniqueness regardless of case
+            const capitalizedSymptom = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+            illnessSet.add(capitalizedSymptom);
+          }
+        });
+      }
     });
     return Array.from(illnessSet).sort();
   }, [inventory]);
@@ -838,5 +842,3 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     </div>
   );
 }
-
-    

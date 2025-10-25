@@ -95,8 +95,17 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
   function onSubmit(values: FormData) {
     const finalCategory = values.category === 'Other' ? values.customCategory! : values.category;
     
-    const formattedName = values.name.trim().toUpperCase().replace(/\s+/g, '-');
+    const formattedName = values.name.trim();
 
+    // Capitalize each symptom
+    const formattedIllness = values.description_illness
+      ? values.description_illness
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s)
+          .map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
+          .join(', ')
+      : undefined;
 
     const medicineData: Medicine = {
         id: medicineToEdit?.id || new Date().toISOString() + Math.random(),
@@ -105,9 +114,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
         location: values.location,
         expiry: new Date(values.expiry).toISOString(),
         price: values.price,
-        ...((values.description_illness && values.description_minAge !== undefined && values.description_maxAge !== undefined && values.description_gender) && {
+        ...((formattedIllness && values.description_minAge !== undefined && values.description_maxAge !== undefined && values.description_gender) && {
             description: {
-                illness: values.description_illness,
+                illness: formattedIllness,
                 minAge: values.description_minAge,
                 maxAge: values.description_maxAge,
                 gender: values.description_gender,
