@@ -93,6 +93,12 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const [isImportAlertOpen, setIsImportAlertOpen] = useState(false);
   const [importMode, setImportMode] = useState<ImportMode>('merge');
 
+  // State for sequential import with user prompts
+  const [importQueue, setImportQueue] = useState<Medicine[]>([]);
+  const [currentDuplicate, setCurrentDuplicate] = useState<{ imported: Medicine, existing: Medicine } | null>(null);
+  const [newInventoryState, setNewInventoryState] = useState<Medicine[] | null>(null);
+  const importStats = useRef({ added: 0, updated: 0, skipped: 0 });
+
   const getExpiryInfo = (expiry: string) => {
     const now = new Date();
     const expiryDate = new Date(expiry);
@@ -227,78 +233,118 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     URL.revokeObjectURL(url);
     toast({ title: 'Export Successful', description: 'Your inventory data has been successfully exported.' });
   };
+  
+  // ----- NEW IMPORT LOGIC -----
+  useEffect(() => {
+    if (importQueue.length > 0 && newInventoryState) {
+        processImportQueue();
+    } else if (importQueue.length === 0 && newInventoryState) {
+        // Finished processing
+        setMedicines(newInventoryState);
+        const { added, updated, skipped } = importStats.current;
+        toast({
+            title: 'Import Complete',
+            description: `${added} new, ${updated} updated, ${skipped} skipped.`
+        });
+        // Reset state
+        setNewInventoryState(null);
+        setCurrentDuplicate(null);
+        importStats.current = { added: 0, updated: 0, skipped: 0 };
+    }
+  }, [importQueue, newInventoryState]);
+
+  const processImportQueue = () => {
+    const queue = [...importQueue];
+    const inventory = [...newInventoryState!];
+    
+    while(queue.length > 0) {
+        const importedMed = queue.shift()!;
+        
+        const existingMedIndex = inventory.findIndex(
+            m => m.name.toLowerCase() === importedMed.name.toLowerCase() && m.category.toLowerCase() === importedMed.category.toLowerCase()
+        );
+
+        if (existingMedIndex > -1) {
+            // Found a duplicate, pause and ask user
+            setImportQueue(queue);
+            setCurrentDuplicate({ imported: importedMed, existing: inventory[existingMedIndex] });
+            return; 
+        } else {
+            // Not a duplicate, add it directly
+            inventory.push({ ...importedMed, id: importedMed.id || new Date().toISOString() + Math.random() });
+            importStats.current.added++;
+        }
+    }
+    setImportQueue(queue);
+    setNewInventoryState(inventory);
+  };
+  
+  const handleDuplicateDecision = (decision: 'update' | 'add' | 'skip') => {
+    if (!currentDuplicate || !newInventoryState) return;
+
+    let inventory = [...newInventoryState];
+    const { imported, existing } = currentDuplicate;
+
+    if (decision === 'update') {
+        const existingMedIndex = inventory.findIndex(m => m.id === existing.id);
+        const updatedMed: Medicine = {
+            ...inventory[existingMedIndex],
+            ...imported,
+            id: existing.id // Keep original ID
+        };
+        
+        if ((updatedMed.category === 'Tablet' || updatedMed.category === 'Capsule') && (existing.category === 'Tablet' || existing.category === 'Capsule')) {
+           (updatedMed as TabletMedicine).stock.tablets = ((existing as TabletMedicine).stock.tablets || 0) + ((imported as TabletMedicine).stock?.tablets || 0);
+        } else if (updatedMed.category !== 'Tablet' && updatedMed.category !== 'Capsule' && existing.category !== 'Tablet' && existing.category !== 'Capsule') {
+           (updatedMed as GenericMedicine).stock.quantity = ((existing as GenericMedicine).stock.quantity || 0) + ((imported as GenericMedicine).stock?.quantity || 0);
+        }
+        
+        inventory[existingMedIndex] = updatedMed;
+        importStats.current.updated++;
+    } else if (decision === 'add') {
+        inventory.push({ ...imported, id: new Date().toISOString() + Math.random() });
+        importStats.current.added++;
+    } else { // skip
+        importStats.current.skipped++;
+    }
+
+    setCurrentDuplicate(null);
+    setNewInventoryState(inventory);
+  };
 
   const handleImportInventory = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
         try {
-          const text = e.target?.result;
-          if (typeof text !== 'string') {
-            throw new Error("Failed to read file.");
-          }
-          const importedMedicines: Medicine[] = JSON.parse(text);
-          if (!Array.isArray(importedMedicines)) {
-            throw new Error("Invalid file format: should be an array of medicines.");
-          }
+            const text = e.target?.result;
+            if (typeof text !== 'string') throw new Error("Failed to read file.");
+            
+            const importedMedicines: Medicine[] = JSON.parse(text);
+            if (!Array.isArray(importedMedicines)) throw new Error("Invalid file format.");
 
-          if (importMode === 'replace') {
-            setMedicines(importedMedicines);
-            toast({ 
-              title: 'Import Successful', 
-              description: `Inventory replaced. ${importedMedicines.length} medicine(s) imported.`
-            });
-            return;
-          }
-
-          // Handle 'merge'
-          let updatedCount = 0;
-          let newCount = 0;
-          let newInventory = [...medicines];
-
-          importedMedicines.forEach(importedMed => {
-            const existingMedIndex = newInventory.findIndex(
-              m => m.name.toLowerCase() === importedMed.name.toLowerCase()
-            );
-
-            if (existingMedIndex > -1) {
-              const existingMed = newInventory[existingMedIndex];
-              const updatedMed: Medicine = {
-                ...existingMed,
-                ...importedMed,
-                id: existingMed.id // Keep original ID
-              };
-              
-              if ((updatedMed.category === 'Tablet' || updatedMed.category === 'Capsule') && (existingMed.category === 'Tablet' || existingMed.category === 'Capsule')) {
-                 (updatedMed as TabletMedicine).stock.tablets = ((existingMed as TabletMedicine).stock.tablets || 0) + ((importedMed as TabletMedicine).stock?.tablets || 0);
-              } else if (updatedMed.category !== 'Tablet' && updatedMed.category !== 'Capsule' && existingMed.category !== 'Tablet' && existingMed.category !== 'Capsule') {
-                 (updatedMed as GenericMedicine).stock.quantity = ((existingMed as GenericMedicine).stock.quantity || 0) + ((importedMed as GenericMedicine).stock?.quantity || 0);
-              }
-              
-              newInventory[existingMedIndex] = updatedMed;
-              updatedCount++;
-            } else {
-              newInventory.push({ ...importedMed, id: importedMed.id || new Date().toISOString() + Math.random() });
-              newCount++;
+            if (importMode === 'replace') {
+                setMedicines(importedMedicines);
+                toast({ 
+                    title: 'Import Successful', 
+                    description: `Inventory replaced with ${importedMedicines.length} medicine(s).`
+                });
+            } else { // 'merge'
+                importStats.current = { added: 0, updated: 0, skipped: 0 };
+                setNewInventoryState([...medicines]);
+                setImportQueue(importedMedicines);
             }
-          });
-
-          setMedicines(newInventory);
-          toast({ 
-            title: 'Import Successful', 
-            description: `${newCount} new medicine(s) added and ${updatedCount} existing medicine(s) updated.`
-          });
 
         } catch (error: any) {
-          toast({ variant: 'destructive', title: 'Import Error', description: error.message || 'The selected file is invalid or corrupted. Please check the file and try again.' });
+            toast({ variant: 'destructive', title: 'Import Error', description: error.message || 'Invalid or corrupted file.' });
         } finally {
             if(fileInputRef.current) fileInputRef.current.value = "";
             setIsImportAlertOpen(false);
         }
-      };
-      reader.readAsText(file);
-    }
+    };
+    reader.readAsText(file);
   };
 
   const triggerFileSelect = () => {
@@ -571,6 +617,25 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    
+    <AlertDialog open={!!currentDuplicate}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Duplicate Item Found</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Your inventory already contains <span className="font-bold">{currentDuplicate?.existing.name}</span> in the <span className="font-bold">{currentDuplicate?.existing.category}</span> category.
+                    What would you like to do with the imported item?
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <Button variant="outline" onClick={() => handleDuplicateDecision('skip')}>Skip</Button>
+                <Button variant="secondary" onClick={() => handleDuplicateDecision('add')}>Add as New</Button>
+                <Button onClick={() => handleDuplicateDecision('update')}>Update Existing</Button>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
+
+    
