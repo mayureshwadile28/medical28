@@ -34,7 +34,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
@@ -43,6 +42,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
 import { Label } from '@/components/ui/label';
+import { useLocalStorage } from '@/lib/hooks';
 
 interface PosTabProps {
   medicines: Medicine[];
@@ -67,10 +67,13 @@ const generateNewBillNumber = (sales: SaleRecord[]): string => {
 
 
 export default function PosTab({ medicines, setMedicines, sales, setSales }: PosTabProps) {
-  const [open, setOpen] = useState(false);
+  const [isMedicinePopoverOpen, setIsMedicinePopoverOpen] = useState(false);
+  const [isDoctorPopoverOpen, setIsDoctorPopoverOpen] = useState(false);
   const [selectedMedicineId, setSelectedMedicineId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [doctorName, setDoctorName] = useState('');
+  const [doctorNames, setDoctorNames] = useLocalStorage<string[]>('doctorNames', []);
+
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
   const [billItems, setBillItems] = useState<SaleItem[]>([]);
   const { toast } = useToast();
@@ -197,10 +200,15 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     });
     setMedicines(newMedicines);
 
+    const trimmedDoctorName = doctorName.trim();
+    if (trimmedDoctorName && !doctorNames.includes(trimmedDoctorName)) {
+        setDoctorNames([...doctorNames, trimmedDoctorName]);
+    }
+
     const newSale: SaleRecord = {
       id: generateNewBillNumber(sales),
       customerName: customerName.trim(),
-      doctorName: doctorName.trim(),
+      doctorName: trimmedDoctorName,
       saleDate: new Date().toISOString(),
       items: billItems.map(item => ({...item, quantity: Number(item.quantity), category: item.category || ''})),
       totalAmount: totalAmount,
@@ -231,12 +239,12 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-2">
-              <Popover open={open} onOpenChange={setOpen}>
+              <Popover open={isMedicinePopoverOpen} onOpenChange={setIsMedicinePopoverOpen}>
                 <PopoverTrigger asChild>
                     <Button
                     variant="outline"
                     role="combobox"
-                    aria-expanded={open}
+                    aria-expanded={isMedicinePopoverOpen}
                     className="w-full sm:w-[300px] justify-between"
                     >
                     {selectedMedicineId && medicines.find(m => m.id === selectedMedicineId)
@@ -257,7 +265,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                             value={med.name}
                             onSelect={() => {
                                 setSelectedMedicineId(med.id);
-                                setOpen(false);
+                                setIsMedicinePopoverOpen(false);
                             }}
                             >
                             <Check
@@ -379,12 +387,51 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
             </div>
              <div className="space-y-2">
                 <Label htmlFor='doctor-name'>Doctor's Name (Optional)</Label>
-                <Input
-                id="doctor-name"
-                placeholder={"Enter doctor's name"}
-                value={doctorName}
-                onChange={(e) => setDoctorName(e.target.value)}
-                />
+                 <Popover open={isDoctorPopoverOpen} onOpenChange={setIsDoctorPopoverOpen}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={isDoctorPopoverOpen}
+                            className="w-full justify-between font-normal"
+                        >
+                            {doctorName || "Select or type doctor's name..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <Command>
+                            <CommandInput 
+                                placeholder="Search or add doctor..."
+                                onValueChange={setDoctorName}
+                                value={doctorName}
+                            />
+                            <CommandList>
+                                <CommandEmpty>No doctor found. Type a name to add.</CommandEmpty>
+                                <CommandGroup>
+                                    {doctorNames.map((name) => (
+                                        <CommandItem
+                                            key={name}
+                                            value={name}
+                                            onSelect={(currentValue) => {
+                                                setDoctorName(currentValue === doctorName ? "" : currentValue);
+                                                setIsDoctorPopoverOpen(false);
+                                            }}
+                                        >
+                                            <Check
+                                                className={cn(
+                                                    "mr-2 h-4 w-4",
+                                                    doctorName === name ? "opacity-100" : "opacity-0"
+                                                )}
+                                            />
+                                            {name}
+                                        </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
             </div>
             <div className="space-y-2">
                 <Label>Mode of Payment</Label>
