@@ -1,8 +1,8 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { type Medicine, type SaleRecord, type PaymentMode } from '@/lib/types';
+import React, { useState, useMemo, Suspense } from 'react';
+import { type Medicine, type SaleRecord, type PaymentMode, type MedicineDescription, type SuggestMedicinesOutput } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -37,13 +37,22 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2 } from 'lucide-react';
+import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2, Search, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
 import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/lib/hooks';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useForm } from 'react-hook-form';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { suggestMedicines } from '@/ai/flows/suggest-medicines';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 
 interface PosTabProps {
   medicines: Medicine[];
@@ -65,6 +74,172 @@ const generateNewBillNumber = (sales: SaleRecord[]): string => {
   const newBillNum = highestBillNum + 1;
   return `VM-${newBillNum.toString().padStart(5, '0')}`;
 };
+
+const DescriptionFormSchema = z.object({
+  age: z.coerce.number().int().min(0, 'Age must be a positive number.'),
+  gender: z.enum(['Male', 'Female', 'Both']),
+  illness: z.string().min(3, 'Please describe the illness or symptom.'),
+});
+
+type DescriptionFormData = z.infer<typeof DescriptionFormSchema>;
+
+function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medicine[], onAddToBill: (medicine: Medicine) => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<SuggestMedicinesOutput['suggestions']>([]);
+  const { toast } = useToast();
+
+  const form = useForm<DescriptionFormData>({
+    resolver: zodResolver(DescriptionFormSchema),
+    defaultValues: {
+      age: undefined,
+      gender: 'Both',
+      illness: '',
+    },
+  });
+
+  const onSubmit = async (data: DescriptionFormData) => {
+    setIsLoading(true);
+    setSuggestions([]);
+    try {
+      const result = await suggestMedicines({
+        patient: {
+          age: data.age,
+          gender: data.gender,
+          illness: data.illness,
+        },
+        inventory,
+      });
+      setSuggestions(result.suggestions);
+       if (result.suggestions.length === 0) {
+        toast({
+            title: "No suggestions found",
+            description: "We couldn't find a suitable medicine in your inventory for the given description.",
+        });
+      }
+    } catch (error) {
+      console.error('Error suggesting medicines:', error);
+      toast({
+        variant: 'destructive',
+        title: 'AI Suggestion Failed',
+        description: 'Could not get suggestions. Please try again.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddToBill = (medicineId: string) => {
+    const medicine = inventory.find(m => m.id === medicineId);
+    if (medicine) {
+        onAddToBill(medicine);
+        setIsOpen(false);
+        form.reset();
+        setSuggestions([]);
+    }
+  };
+  
+  const handleOpenChange = (open: boolean) => {
+      setIsOpen(open);
+      if(!open) {
+          form.reset();
+          setSuggestions([]);
+          setIsLoading(false);
+      }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <Search className="mr-2 h-4 w-4" />
+          Find by Description
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Find Medicine by Patient Description</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                control={form.control}
+                name="illness"
+                render={({ field }) => (
+                    <FormItem>
+                    <Label>Illness / Symptom</Label>
+                    <FormControl>
+                        <Textarea placeholder="e.g., Fever and headache" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="age"
+                        render={({ field }) => (
+                        <FormItem>
+                            <Label>Patient Age</Label>
+                            <FormControl>
+                            <Input type="number" placeholder="e.g., 25" {...field} value={field.value ?? ''} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="gender"
+                        render={({ field }) => (
+                            <FormItem>
+                            <Label>Patient Gender</Label>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select gender" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Both">Any</SelectItem>
+                                    <SelectItem value="Male">Male</SelectItem>
+                                    <SelectItem value="Female">Female</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+                <Button type="submit" disabled={isLoading} className="w-full">
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    Get Suggestions
+                </Button>
+            </form>
+        </Form>
+        {suggestions.length > 0 && (
+            <div className="mt-4 space-y-2">
+                <h3 className="font-semibold">Suggestions:</h3>
+                <ul className="max-h-60 overflow-y-auto rounded-lg border p-2 space-y-2">
+                    {suggestions.map(suggestion => (
+                        <li key={suggestion.medicineId} className="p-2 rounded-md hover:bg-muted">
+                           <div className='flex items-start justify-between'>
+                             <div>
+                                <p className="font-bold">{suggestion.name}</p>
+                                <p className="text-sm text-muted-foreground">{suggestion.reason}</p>
+                             </div>
+                             <Button size="sm" onClick={() => handleAddToBill(suggestion.medicineId)}>Add</Button>
+                           </div>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 
 export default function PosTab({ medicines, setMedicines, sales, setSales }: PosTabProps) {
@@ -91,9 +266,9 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       if (expiryDate < now) return false;
       
       if (med.category === 'Tablet' || med.category === 'Capsule') {
-        return med.stock.tablets > 0;
+        return (med as any).stock.tablets > 0;
       }
-      return med.stock.quantity > 0;
+      return (med as any).stock.quantity > 0;
     });
   }, [medicines]);
 
@@ -101,31 +276,31 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     return medicines.find(m => m.id === selectedMedicineId);
   }, [medicines, selectedMedicineId]);
 
-  const addMedicineToBill = () => {
-    if (!selectedMedicine) return;
+  const addMedicineToBill = (medicineToAdd: Medicine) => {
+    if (!medicineToAdd) return;
     
-    if ((selectedMedicine.category === 'Tablet' || selectedMedicine.category === 'Capsule') && selectedMedicine.stock.tablets === 0) {
-      toast({ title: 'Out of Stock', description: `${selectedMedicine.name} is out of stock.`, variant: "destructive" });
+    if ((medicineToAdd.category === 'Tablet' || medicineToAdd.category === 'Capsule') && (medicineToAdd as any).stock.tablets === 0) {
+      toast({ title: 'Out of Stock', description: `${medicineToAdd.name} is out of stock.`, variant: "destructive" });
       return;
     }
-    if (selectedMedicine.category !== 'Tablet' && selectedMedicine.category !== 'Capsule' && selectedMedicine.stock.quantity === 0) {
-      toast({ title: 'Out of Stock', description: `${selectedMedicine.name} is out of stock.`, variant: "destructive" });
+    if (medicineToAdd.category !== 'Tablet' && medicineToAdd.category !== 'Capsule' && (medicineToAdd as any).stock.quantity === 0) {
+      toast({ title: 'Out of Stock', description: `${medicineToAdd.name} is out of stock.`, variant: "destructive" });
       return;
     }
 
-    if (billItems.some(item => item.medicineId === selectedMedicine.id)) {
+    if (billItems.some(item => item.medicineId === medicineToAdd.id)) {
         toast({ title: 'Item already in bill', description: 'You can change the quantity in the table.', variant: "default" });
         return;
     }
     
-    const pricePerUnit = (selectedMedicine.category === 'Tablet' || selectedMedicine.category === 'Capsule')
-      ? selectedMedicine.price / selectedMedicine.tabletsPerStrip 
-      : selectedMedicine.price;
+    const pricePerUnit = (medicineToAdd.category === 'Tablet' || medicineToAdd.category === 'Capsule')
+      ? (medicineToAdd as any).price / (medicineToAdd as any).tabletsPerStrip 
+      : (medicineToAdd as any).price;
 
     const newItem: SaleItem = {
-      medicineId: selectedMedicine.id,
-      name: selectedMedicine.name,
-      category: selectedMedicine.category,
+      medicineId: medicineToAdd.id,
+      name: medicineToAdd.name,
+      category: medicineToAdd.category,
       quantity: 1,
       pricePerUnit: pricePerUnit,
       total: pricePerUnit,
@@ -133,6 +308,12 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     setBillItems([...billItems, newItem]);
     setSelectedMedicineId('');
   };
+
+  const handleSelectAndAdd = () => {
+      if (selectedMedicine) {
+          addMedicineToBill(selectedMedicine);
+      }
+  }
 
   const updateItemQuantity = (medicineId: string, quantityStr: string) => {
     const quantity = quantityStr === '' ? '' : parseInt(quantityStr, 10);
@@ -151,9 +332,9 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
           let stockLimit = Infinity;
 
           if (med.category === 'Tablet' || med.category === 'Capsule') {
-              stockLimit = med.stock.tablets;
+              stockLimit = (med as any).stock.tablets;
           } else {
-              stockLimit = med.stock.quantity;
+              stockLimit = (med as any).stock.quantity;
           }
 
           if (validQuantity > stockLimit) {
@@ -229,9 +410,9 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   
   const getStockString = (med: Medicine) => {
     if (med.category === 'Tablet' || med.category === 'Capsule') {
-        return `${med.stock.tablets} tabs`;
+        return `${(med as any).stock.tablets} tabs`;
     }
-    return `${med.stock.quantity} units`;
+    return `${(med as any).stock.quantity} units`;
   };
 
   const handleDeleteDoctor = (nameToDelete: string) => {
@@ -299,7 +480,10 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                     </Command>
                 </PopoverContent>
               </Popover>
-              <Button onClick={addMedicineToBill} disabled={!selectedMedicineId}>Add to Bill</Button>
+              <Button onClick={handleSelectAndAdd} disabled={!selectedMedicineId}>Add to Bill</Button>
+               <Suspense fallback={<p>Loading...</p>}>
+                    <MedicineSuggestionDialog inventory={medicines} onAddToBill={addMedicineToBill} />
+                </Suspense>
             </div>
 
             {selectedMedicine && (
@@ -552,5 +736,3 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     </div>
   );
 }
-
-    

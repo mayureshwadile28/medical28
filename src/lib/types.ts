@@ -1,3 +1,4 @@
+import { z } from 'zod';
 
 export type TabletStock = {
   tablets: number; // Total number of tablets/capsules
@@ -7,12 +8,20 @@ export type OtherStock = {
   quantity: number;
 };
 
+export interface MedicineDescription {
+  minAge: number;
+  maxAge: number;
+  gender: 'Male' | 'Female' | 'Both';
+  illness: string;
+}
+
 interface BaseMedicine {
   id: string;
   name: string;
   category: string;
   location: string;
   expiry: string; // ISO date string
+  description?: MedicineDescription;
 }
 
 export type TabletMedicine = BaseMedicine & {
@@ -57,3 +66,25 @@ export interface SaleRecord {
   totalAmount: number;
   paymentMode: PaymentMode;
 }
+
+// AI Flow Schemas
+export const SuggestMedicinesInputSchema = z.object({
+  patient: z.object({
+    age: z.number(),
+    gender: z.enum(['Male', 'Female', 'Both']),
+    illness: z.string(),
+  }),
+  inventory: z.array(z.any()), // Using z.any() for the full medicine object
+});
+export type SuggestMedicinesInput = z.infer<typeof SuggestMedicinesInputSchema>;
+
+export const SuggestMedicinesOutputSchema = z.object({
+  suggestions: z.array(
+    z.object({
+      medicineId: z.string(),
+      name: z.string(),
+      reason: z.string(),
+    })
+  ),
+});
+export type SuggestMedicinesOutput = z.infer<typeof SuggestMedicinesOutputSchema>;

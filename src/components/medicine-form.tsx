@@ -9,7 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useState, useEffect } from 'react';
+import { Textarea } from '@/components/ui/textarea';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronsUpDown, PlusCircle } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface MedicineFormProps {
   medicineToEdit?: Medicine | null;
@@ -35,6 +38,11 @@ const formSchema = z.object({
   stock_strips: z.coerce.number().int().min(0).optional(),
   stock_quantity: z.coerce.number().int().min(0).optional(),
   tablets_per_strip: z.coerce.number().int().min(1).optional(),
+  // Description fields
+  description_illness: z.string().optional(),
+  description_minAge: z.coerce.number().min(0).optional(),
+  description_maxAge: z.coerce.number().min(0).optional(),
+  description_gender: z.enum(['Male', 'Female', 'Both']).optional(),
 }).superRefine((data, ctx) => {
     if (data.category === 'Tablet' || data.category === 'Capsule') {
         if (data.stock_strips === undefined || data.stock_strips < 0) {
@@ -50,6 +58,9 @@ const formSchema = z.object({
     }
     if (data.category === 'Other' && (!data.customCategory || data.customCategory.trim().length < 2)) {
         ctx.addIssue({ code: 'custom', message: 'Please specify a category name (at least 2 characters).', path: ['customCategory'] });
+    }
+    if (data.description_minAge !== undefined && data.description_maxAge !== undefined && data.description_maxAge < data.description_minAge) {
+        ctx.addIssue({ code: 'custom', message: 'Max age cannot be less than min age.', path: ['description_maxAge']});
     }
 });
 
@@ -72,6 +83,10 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
       stock_strips: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).stock.tablets / ((medicineToEdit as any).tabletsPerStrip || 10) : 0,
       stock_quantity: (medicineToEdit?.category !== 'Tablet' && medicineToEdit?.category !== 'Capsule') ? (medicineToEdit?.stock as any)?.quantity || 0 : 0,
       tablets_per_strip: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).tabletsPerStrip : 10,
+      description_illness: medicineToEdit?.description?.illness || '',
+      description_minAge: medicineToEdit?.description?.minAge || 0,
+      description_maxAge: medicineToEdit?.description?.maxAge || 0,
+      description_gender: medicineToEdit?.description?.gender || 'Both',
     },
   });
 
@@ -90,6 +105,14 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
         location: values.location,
         expiry: new Date(values.expiry).toISOString(),
         price: values.price,
+        ...((values.description_illness && values.description_minAge !== undefined && values.description_maxAge !== undefined && values.description_gender) && {
+            description: {
+                illness: values.description_illness,
+                minAge: values.description_minAge,
+                maxAge: values.description_maxAge,
+                gender: values.description_gender,
+            }
+        }),
         ...(finalCategory === 'Tablet' || finalCategory === 'Capsule'
             ? { tabletsPerStrip: values.tablets_per_strip || 10, stock: { tablets: (values.stock_strips || 0) * (values.tablets_per_strip || 10) } }
             : { stock: { quantity: values.stock_quantity || 0 } })
@@ -241,6 +264,102 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             />
           </div>
         )}
+        
+        <Collapsible>
+            <CollapsibleTrigger asChild>
+                <Button variant="link" className="p-0 h-auto">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Usage Description (for smart search)
+                    <ChevronsUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-4 space-y-4 p-4 border rounded-lg bg-muted/30">
+                 <FormField
+                    control={form.control}
+                    name="description_illness"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Illness / Symptom</FormLabel>
+                            <FormControl>
+                                <Textarea placeholder="e.g., Fever, headache, body pain" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="description_minAge"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Min Age</FormLabel>
+                                <FormControl>
+                                    <Input type="number" placeholder="e.g., 5" {...field} value={field.value || ''} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="description_maxAge"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Max Age</FormLabel>
+                                <FormControl>
+                                    <Input type="number" placeholder="e.g., 60" {...field} value={field.value || ''}/>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+                <FormField
+                    control={form.control}
+                    name="description_gender"
+                    render={({ field }) => (
+                        <FormItem className="space-y-3">
+                        <FormLabel>Recommended For</FormLabel>
+                        <FormControl>
+                            <RadioGroup
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            className="flex flex-col space-y-1"
+                            >
+                            <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                <RadioGroupItem value="Both" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                Both
+                                </FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                <RadioGroupItem value="Male" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                Male
+                                </FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                <RadioGroupItem value="Female" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                Female
+                                </FormLabel>
+                            </FormItem>
+                            </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            </CollapsibleContent>
+        </Collapsible>
+
 
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>
