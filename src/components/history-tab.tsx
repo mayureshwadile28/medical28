@@ -37,6 +37,7 @@ import { createRoot } from 'react-dom/client';
 import { PrintableBill } from './printable-bill';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 interface HistoryTabProps {
   sales: SaleRecord[];
@@ -55,7 +56,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   }, [sales, searchTerm]);
 
   const handleExportCSV = () => {
-    const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'TotalAmount', 'MedicineName', 'Category', 'Quantity', 'PricePerUnit', 'ItemTotal'];
+    const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'PaymentMode', 'TotalAmount', 'MedicineName', 'Category', 'Quantity', 'PricePerUnit', 'ItemTotal'];
     const csvRows = [headers.join(',')];
 
     sales.forEach(sale => {
@@ -65,6 +66,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
           `"${sale.customerName.replace(/"/g, '""')}"`,
           `"${(sale.doctorName || '').replace(/"/g, '""')}"`,
           sale.saleDate,
+          sale.paymentMode,
           sale.totalAmount,
           `"${item.name.replace(/"/g, '""')}"`,
           item.category,
@@ -205,6 +207,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                       <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
                         <span className="text-muted-foreground">{new Date(sale.saleDate).toLocaleDateString()}</span>
                       </ClientOnly>
+                      <Badge variant="secondary">{sale.paymentMode}</Badge>
                       <span className="font-mono text-right text-foreground">{formatToINR(sale.totalAmount)}</span>
                     </div>
                   </div>
@@ -253,5 +256,3 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     </Card>
   );
 }
-
-    

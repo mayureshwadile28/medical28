@@ -28,6 +28,10 @@ export function PrintableBill({ sale }: PrintableBillProps) {
             <span>Date:</span>
             <span>{new Date(sale.saleDate).toLocaleString()}</span>
         </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Payment Mode:</span>
+            <span>{sale.paymentMode}</span>
+        </div>
       </section>
 
        <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '10px 0' }} />
@@ -75,5 +79,3 @@ export function PrintableBill({ sale }: PrintableBillProps) {
     </div>
   );
 }
-
-    

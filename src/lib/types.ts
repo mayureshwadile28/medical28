@@ -39,6 +39,8 @@ export interface SaleItem {
   total: number;
 }
 
+export type PaymentMode = 'Cash' | 'Online' | 'Card';
+
 export interface SaleRecord {
   id: string;
   customerName: string;
@@ -53,6 +55,5 @@ export interface SaleRecord {
     total: number;
   }[];
   totalAmount: number;
+  paymentMode: PaymentMode;
 }
-
-    

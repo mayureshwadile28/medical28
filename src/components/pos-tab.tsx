@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { type Medicine, type SaleRecord, type SaleItem, TabletMedicine } from '@/lib/types';
+import { type Medicine, type SaleRecord, type SaleItem, type PaymentMode } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -70,6 +71,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   const [selectedMedicineId, setSelectedMedicineId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [doctorName, setDoctorName] = useState('');
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
   const [billItems, setBillItems] = useState<SaleItem[]>([]);
   const { toast } = useToast();
 
@@ -202,12 +204,14 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       saleDate: new Date().toISOString(),
       items: billItems.map(item => ({...item, quantity: Number(item.quantity), category: item.category || ''})),
       totalAmount: totalAmount,
+      paymentMode: paymentMode,
     };
     setSales([...sales, newSale]);
     
     setCustomerName('');
     setDoctorName('');
     setBillItems([]);
+    setPaymentMode('Cash');
     toast({ title: 'Sale Completed!', description: `Bill for ${newSale.customerName} saved successfully.`});
   };
   
@@ -382,6 +386,27 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                 onChange={(e) => setDoctorName(e.target.value)}
                 />
             </div>
+            <div className="space-y-2">
+                <Label>Mode of Payment</Label>
+                <RadioGroup
+                    value={paymentMode}
+                    onValueChange={(value: PaymentMode) => setPaymentMode(value)}
+                    className="flex space-x-4"
+                >
+                    <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="Cash" id="payment-cash" />
+                        <Label htmlFor="payment-cash">Cash</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="Online" id="payment-online" />
+                        <Label htmlFor="payment-online">Online</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="Card" id="payment-card" />
+                        <Label htmlFor="payment-card">Card</Label>
+                    </div>
+                </RadioGroup>
+            </div>
             <div className="space-y-2 rounded-lg bg-primary/10 p-4">
                 <div className="flex justify-between text-muted-foreground">
                     <span>Subtotal</span>
@@ -404,7 +429,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                   <AlertDialogHeader>
                     <AlertDialogTitle>Confirm Sale</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will finalize the sale for {customerName} with a total of {formatToINR(totalAmount)} and update the inventory. This action cannot be undone.
+                      This will finalize the sale for {customerName} with a total of {formatToINR(totalAmount)} via {paymentMode}. This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -421,7 +446,3 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     </div>
   );
 }
-
-    
-
-    
