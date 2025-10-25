@@ -112,8 +112,12 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
       remainderText = `Expires in ${diffDays} ${diffDays === 1 ? 'day' : 'days'}`;
     }
 
+    const date = new Date(expiry);
+    const displayDate = `${(date.getUTCMonth() + 1).toString().padStart(2, '0')}/${date.getUTCFullYear()}`;
+
+
     return {
-      text: expiryDate.toLocaleDateString(),
+      text: displayDate,
       remainder: remainderText,
       isExpired: diffDays < 0,
       isNearExpiry: diffDays >= 0 && diffDays <= 30,
@@ -422,7 +426,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                           <TableCell>
                             <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
                               <div className='flex flex-col'>
-                                  <span className={cn((expiry.isExpired || expiry.isNearExpiry) && !expiry.isExpired && "font-semibold text-amber-500", expiry.isExpired && "font-semibold")}>{expiry.text}</span>
+                                  <span className={cn("font-mono", (expiry.isExpired || expiry.isNearExpiry) && !expiry.isExpired && "font-semibold text-amber-500", expiry.isExpired && "font-semibold")}>{expiry.text}</span>
                                   <span className={cn("text-xs", expiry.isExpired ? 'text-destructive-foreground/80' : 'text-muted-foreground')}>
                                     {expiry.remainder}
                                   </span>

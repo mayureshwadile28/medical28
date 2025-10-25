@@ -15,13 +15,6 @@ import { ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useState } from 'react';
 
-interface MedicineFormProps {
-  medicineToEdit?: Medicine | null;
-  onSave: (medicine: Medicine) => void;
-  onCancel: () => void;
-  categories: string[];
-}
-
 const formSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -30,10 +23,13 @@ const formSchema = z.object({
   location: z.string().min(1, 'Location is required.'),
   expiry: z.string().refine((val) => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return new Date(val) >= today;
+    today.setHours(0, 0, 0, 0); // Start of today
+    // The input value is 'YYYY-MM'. We append a dummy day to create a valid date.
+    // And we check against the start of the month.
+    const selectedDate = new Date(`${val}-02`);
+    return selectedDate.getTime() >= new Date(today.getFullYear(), today.getMonth(), 1).getTime();
   }, {
-    message: 'Expiry date must be today or in the future.',
+    message: 'Expiry month must be the current month or in the future.',
   }),
   price: z.coerce.number().positive('Price must be a positive number.'),
   stock_strips: z.coerce.number().int().min(0).optional(),
@@ -96,6 +92,15 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(!!medicineToEdit?.description);
 
   const isCustomCategory = medicineToEdit && !['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'].includes(medicineToEdit.category);
+  
+  const getFormattedExpiry = (expiry?: string) => {
+    if (!expiry) return '';
+    const date = new Date(expiry);
+    const year = date.getUTCFullYear();
+    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+    return `${year}-${month}`;
+  };
+
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -105,15 +110,15 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
       category: isCustomCategory ? 'Other' : (medicineToEdit?.category || ''),
       customCategory: isCustomCategory ? medicineToEdit.category : '',
       location: medicineToEdit?.location || '',
-      expiry: medicineToEdit ? new Date(medicineToEdit.expiry).toISOString().split('T')[0] : '',
+      expiry: getFormattedExpiry(medicineToEdit?.expiry),
       price: medicineToEdit?.price || 0,
       stock_strips: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).stock.tablets / ((medicineToEdit as any).tabletsPerStrip || 10) : undefined,
       stock_quantity: (medicineToEdit?.category !== 'Tablet' && medicineToEdit?.category !== 'Capsule') ? (medicineToEdit?.stock as any)?.quantity || undefined : undefined,
       tablets_per_strip: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).tabletsPerStrip : 10,
       description_patientType: medicineToEdit?.description?.patientType,
       description_illness: medicineToEdit?.description?.illness || '',
-      description_minAge: medicineToEdit?.description?.minAge ?? undefined,
-      description_maxAge: medicineToEdit?.description?.maxAge ?? undefined,
+      description_minAge: medicineToEdit?.description?.minAge === 0 ? undefined : medicineToEdit?.description?.minAge,
+      description_maxAge: medicineToEdit?.description?.maxAge === 0 ? undefined : medicineToEdit?.description?.maxAge,
       description_gender: medicineToEdit?.description?.gender,
     },
   });
@@ -169,8 +174,8 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
   const handleClearDescription = () => {
     form.setValue('description_patientType', undefined);
     form.setValue('description_illness', '');
-    form.setValue('description_minAge', undefined);
-    form.setValue('description_maxAge', undefined);
+    form.setValue('description_minAge', 0);
+    form.setValue('description_maxAge', 0);
     form.setValue('description_gender', undefined);
     // Clear errors after resetting the fields
     form.clearErrors(['description_patientType', 'description_illness', 'description_minAge', 'description_maxAge', 'description_gender']);
@@ -197,6 +202,10 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
         hasFullDescription = true;
     }
 
+    const [year, month] = values.expiry.split('-').map(Number);
+    // Get the last day of the selected month
+    const expiryDate = new Date(year, month, 0);
+
 
     let medicineData: Medicine;
     
@@ -205,7 +214,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
         name: formattedName,
         category: finalCategory,
         location: values.location,
-        expiry: new Date(values.expiry).toISOString(),
+        expiry: expiryDate.toISOString(),
         price: values.price,
     };
     
@@ -213,8 +222,8 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
         baseData.description = {
             patientType: values.description_patientType!,
             illness: formattedIllness!,
-            minAge: values.description_patientType === 'Human' ? values.description_minAge : undefined,
-            maxAge: values.description_patientType === 'Human' ? values.description_maxAge : undefined,
+            minAge: values.description_patientType === 'Human' ? (values.description_minAge || 0) : 0,
+            maxAge: values.description_patientType === 'Human' ? (values.description_maxAge || 0) : 0,
             gender: values.description_patientType === 'Human' ? values.description_gender : undefined,
         };
     } else {
@@ -312,9 +321,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             name="expiry"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Expiry Date</FormLabel>
+                <FormLabel>Expiry Date (MM/YYYY)</FormLabel>
                 <FormControl>
-                    <Input type="date" {...field} />
+                    <Input type="month" {...field} />
                 </FormControl>
                 <FormMessage />
                 </FormItem>
@@ -443,7 +452,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                                 <FormItem>
                                     <FormLabel>Min Age</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} />
+                                        <Input type="number" placeholder="e.g., 5" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -456,7 +465,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                                 <FormItem>
                                     <FormLabel>Max Age</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}/>
+                                        <Input type="number" placeholder="e.g., 60" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}/>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -521,5 +530,3 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     </Form>
   );
 }
-
-    
