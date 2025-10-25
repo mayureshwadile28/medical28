@@ -244,7 +244,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
         const { added, updated, skipped } = importStats.current;
         toast({
             title: 'Import Complete',
-            description: `${added} new, ${updated} updated, ${skipped} skipped.`
+            description: `${added} new item(s) added, ${updated} item(s) updated, ${skipped} item(s) skipped.`
         });
         // Reset state
         setNewInventoryState(null);
@@ -287,20 +287,23 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
 
     if (decision === 'update') {
         const existingMedIndex = inventory.findIndex(m => m.id === existing.id);
-        const updatedMed: Medicine = {
-            ...inventory[existingMedIndex],
-            ...imported,
-            id: existing.id // Keep original ID
-        };
-        
-        if ((updatedMed.category === 'Tablet' || updatedMed.category === 'Capsule') && (existing.category === 'Tablet' || existing.category === 'Capsule')) {
-           (updatedMed as TabletMedicine).stock.tablets = ((existing as TabletMedicine).stock.tablets || 0) + ((imported as TabletMedicine).stock?.tablets || 0);
-        } else if (updatedMed.category !== 'Tablet' && updatedMed.category !== 'Capsule' && existing.category !== 'Tablet' && existing.category !== 'Capsule') {
-           (updatedMed as GenericMedicine).stock.quantity = ((existing as GenericMedicine).stock.quantity || 0) + ((imported as GenericMedicine).stock?.quantity || 0);
+        if (existingMedIndex > -1) {
+            const updatedMed: Medicine = {
+                ...inventory[existingMedIndex], // Start with existing data
+                ...imported, // Overwrite with imported data (e.g., price, expiry)
+                id: existing.id, // IMPORTANT: Keep original ID
+            };
+            
+            // Smart stock merging
+            if ((updatedMed.category === 'Tablet' || updatedMed.category === 'Capsule') && (existing.category === 'Tablet' || existing.category === 'Capsule')) {
+               (updatedMed as TabletMedicine).stock.tablets = ((existing as TabletMedicine).stock.tablets || 0) + ((imported as TabletMedicine).stock?.tablets || 0);
+            } else if (updatedMed.category !== 'Tablet' && updatedMed.category !== 'Capsule' && existing.category !== 'Tablet' && existing.category !== 'Capsule') {
+               (updatedMed as GenericMedicine).stock.quantity = ((existing as GenericMedicine).stock.quantity || 0) + ((imported as GenericMedicine).stock?.quantity || 0);
+            }
+            
+            inventory[existingMedIndex] = updatedMed;
+            importStats.current.updated++;
         }
-        
-        inventory[existingMedIndex] = updatedMed;
-        importStats.current.updated++;
     } else if (decision === 'add') {
         inventory.push({ ...imported, id: new Date().toISOString() + Math.random() });
         importStats.current.added++;
@@ -309,7 +312,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     }
 
     setCurrentDuplicate(null);
-    setNewInventoryState(inventory);
+    setNewInventoryState(inventory); // This triggers the useEffect to continue the queue
   };
 
   const handleImportInventory = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -578,7 +581,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                         <RadioGroupItem value="merge" id="merge" className="peer sr-only" />
                         <Label htmlFor="merge" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
                           <span className="font-semibold">Merge with Existing</span>
-                          <span className="text-sm text-muted-foreground">Adds new items and updates stock for existing items.</span>
+                          <span className="text-sm text-muted-foreground">Adds new items and prompts for duplicates.</span>
                         </Label>
                       </div>
                       <div>
@@ -624,7 +627,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                 <AlertDialogTitle>Duplicate Item Found</AlertDialogTitle>
                 <AlertDialogDescription>
                     Your inventory already contains <span className="font-bold">{currentDuplicate?.existing.name}</span> in the <span className="font-bold">{currentDuplicate?.existing.category}</span> category.
-                    What would you like to do with the imported item?
+                    What would you like to do?
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="grid grid-cols-1 sm:grid-cols-3 gap-2">
