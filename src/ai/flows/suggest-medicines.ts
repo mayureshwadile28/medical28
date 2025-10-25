@@ -39,8 +39,10 @@ export async function suggestMedicines(input: SuggestMedicinesInput): Promise<Su
         // Check gender: medicine's gender must be 'Both' or match the patient's gender.
         const genderMatch = desc.gender === 'Both' || desc.gender === patient.gender;
         
-        // Basic keyword match for illness: check if the medicine's illness description includes the patient's symptom.
-        const illnessMatch = desc.illness.toLowerCase().includes(patient.illness.toLowerCase());
+        // Basic keyword match for illness: check if the medicine's illness description includes any of the patient's symptoms.
+        const illnessMatch = patient.illnesses.some(symptom => 
+            desc.illness.toLowerCase().includes(symptom.toLowerCase())
+        );
         
         return ageMatch && genderMatch && illnessMatch;
     });
@@ -56,3 +58,5 @@ export async function suggestMedicines(input: SuggestMedicinesInput): Promise<Su
 
     return Promise.resolve({ suggestions: limitedSuggestions });
 }
+
+    

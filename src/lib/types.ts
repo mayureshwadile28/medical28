@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export type TabletStock = {
@@ -72,7 +73,7 @@ export const SuggestMedicinesInputSchema = z.object({
   patient: z.object({
     age: z.number(),
     gender: z.enum(['Male', 'Female', 'Both']),
-    illness: z.string(),
+    illnesses: z.array(z.string()),
   }),
   inventory: z.array(z.any()), // Using z.any() for the full medicine object
 });
@@ -88,3 +89,5 @@ export const SuggestMedicinesOutputSchema = z.object({
   ),
 });
 export type SuggestMedicinesOutput = z.infer<typeof SuggestMedicinesOutputSchema>;
+
+    

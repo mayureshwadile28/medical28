@@ -39,7 +39,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2, Search, Loader2, Sparkles } from 'lucide-react';
+import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2, Search, Loader2, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
@@ -78,7 +78,7 @@ const generateNewBillNumber = (sales: SaleRecord[]): string => {
 const DescriptionFormSchema = z.object({
   age: z.coerce.number().int().min(0, 'Age must be a positive number.'),
   gender: z.enum(['Male', 'Female', 'Both']),
-  illness: z.string().min(3, 'Please describe the illness or symptom.'),
+  illnesses: z.array(z.string()).min(1, 'Please select at least one symptom.'),
 });
 
 type DescriptionFormData = z.infer<typeof DescriptionFormSchema>;
@@ -89,12 +89,25 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
   const [suggestions, setSuggestions] = useState<SuggestMedicinesOutput['suggestions']>([]);
   const { toast } = useToast();
 
+  const allIllnesses = useMemo(() => {
+    const illnessSet = new Set<string>();
+    inventory.forEach(med => {
+        if(med.description?.illness) {
+            med.description.illness.split(',').forEach(symptom => {
+                const trimmed = symptom.trim();
+                if(trimmed) illnessSet.add(trimmed);
+            })
+        }
+    });
+    return Array.from(illnessSet).sort();
+  }, [inventory]);
+
   const form = useForm<DescriptionFormData>({
     resolver: zodResolver(DescriptionFormSchema),
     defaultValues: {
       age: undefined,
       gender: 'Both',
-      illness: '',
+      illnesses: [],
     },
   });
 
@@ -106,7 +119,7 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
         patient: {
           age: data.age,
           gender: data.gender,
-          illness: data.illness,
+          illnesses: data.illnesses,
         },
         inventory,
       });
@@ -121,7 +134,7 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
       console.error('Error suggesting medicines:', error);
       toast({
         variant: 'destructive',
-        title: 'AI Suggestion Failed',
+        title: 'Suggestion Failed',
         description: 'Could not get suggestions. Please try again.',
       });
     } finally {
@@ -163,17 +176,20 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
-                control={form.control}
-                name="illness"
-                render={({ field }) => (
-                    <FormItem>
-                    <Label>Illness / Symptom</Label>
-                    <FormControl>
-                        <Textarea placeholder="e.g., Fever and headache" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
+                    control={form.control}
+                    name="illnesses"
+                    render={({ field }) => (
+                        <FormItem>
+                        <Label>Illness / Symptom(s)</Label>
+                        <MultiSelect
+                            options={allIllnesses}
+                            selected={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select symptoms..."
+                        />
+                        <FormMessage />
+                        </FormItem>
+                    )}
                 />
                 <div className="grid grid-cols-2 gap-4">
                     <FormField
@@ -240,6 +256,94 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
     </Dialog>
   );
 }
+
+const MultiSelect = ({
+    options,
+    selected,
+    onChange,
+    className,
+    placeholder = "Select...",
+    ...props
+}: {
+    options: string[];
+    selected: string[];
+    onChange: (selected: string[]) => void;
+    className?: string;
+    placeholder?: string;
+}) => {
+    const [open, setOpen] = useState(false);
+
+    const handleUnselect = (item: string) => {
+        onChange(selected.filter((i) => i !== item));
+    };
+
+    return (
+        <Popover open={open} onOpenChange={setOpen} {...props}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className={`w-full justify-between h-auto min-h-10 ${selected.length > 0 ? 'h-full' : 'h-10'}`}
+                    onClick={() => setOpen(!open)}
+                >
+                    <div className="flex gap-1 flex-wrap">
+                        {selected.length > 0 ? (
+                            selected.map((item) => (
+                                <Badge
+                                    variant="secondary"
+                                    key={item}
+                                    className="mr-1"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleUnselect(item);
+                                    }}
+                                >
+                                    {item}
+                                    <X className="ml-1 h-3 w-3" />
+                                </Badge>
+                            ))
+                        ) : (
+                            <span className="text-muted-foreground">{placeholder}</span>
+                        )}
+                    </div>
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command className={className}>
+                    <CommandInput placeholder="Search..." />
+                    <CommandList>
+                        <CommandEmpty>No results found.</CommandEmpty>
+                        <CommandGroup>
+                            {options.map((option) => (
+                                <CommandItem
+                                    key={option}
+                                    onSelect={() => {
+                                        onChange(
+                                            selected.includes(option)
+                                                ? selected.filter((item) => item !== option)
+                                                : [...selected, option]
+                                        );
+                                        setOpen(true);
+                                    }}
+                                >
+                                    <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            selected.includes(option) ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                    {option}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
+};
 
 
 export default function PosTab({ medicines, setMedicines, sales, setSales }: PosTabProps) {
@@ -568,7 +672,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
         </Card>
       </div>
       <div className="lg:col-span-1">
-       <AlertDialog open={!!deletingDoctorName} onOpenChange={(open) => { if (!open) setDeletingDoctorName(null); }}>
+       <AlertDialog open={!!deletingDoctorName} onOpenChange={(open) => { if (!open) {setDeletingDoctorName(null); setDeleteConfirmation('')} }}>
           <Card className="sticky top-6">
             <CardHeader>
               <CardTitle>Checkout</CardTitle>
@@ -625,19 +729,17 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                                                   )}
                                               />
                                               <span className='flex-1'>{name}</span>
-                                              <AlertDialogTrigger asChild>
-                                                  <Button
-                                                      variant="ghost"
-                                                      size="icon"
-                                                      className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                                                      onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          setDeletingDoctorName(name);
-                                                      }}
-                                                  >
-                                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                                  </Button>
-                                              </AlertDialogTrigger>
+                                              <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                                                  onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setDeletingDoctorName(name);
+                                                  }}
+                                              >
+                                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                              </Button>
                                           </CommandItem>
                                       ))}
                                   </CommandGroup>
@@ -736,3 +838,5 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     </div>
   );
 }
+
+    
