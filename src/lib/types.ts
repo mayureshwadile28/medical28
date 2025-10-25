@@ -70,6 +70,10 @@ export interface SaleRecord {
   paymentMode: PaymentMode;
 }
 
+export type SaleBillItem = Omit<SaleItem, 'quantity'> & {
+  quantity: number;
+}
+
 // AI Flow Schemas
 export const SuggestMedicinesInputSchema = z.object({
   patient: z.object({
