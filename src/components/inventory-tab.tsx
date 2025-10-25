@@ -121,7 +121,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     }
 
     const date = new Date(expiry);
-    const displayDate = date.toLocaleDateString(undefined, { month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+    const displayDate = date.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
 
 
     return {
@@ -648,3 +648,5 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     </>
   );
 }
+
+    

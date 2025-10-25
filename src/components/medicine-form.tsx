@@ -22,14 +22,13 @@ const formSchema = z.object({
   customCategory: z.string().optional(),
   location: z.string().min(1, 'Location is required.'),
   expiry: z.string().refine((val) => {
+    if (!val) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Start of today
-    // The input value is 'YYYY-MM'. We append a dummy day to create a valid date.
-    // And we check against the start of the month.
-    const selectedDate = new Date(`${val}-02`);
-    return selectedDate.getTime() >= new Date(today.getFullYear(), today.getMonth(), 1).getTime();
+    const selectedDate = new Date(val);
+    return selectedDate.getTime() >= today.getTime();
   }, {
-    message: 'Expiry month must be the current month or in the future.',
+    message: 'Expiry date cannot be in the past.',
   }),
   price: z.coerce.number().positive('Price must be a positive number.'),
   stock_strips: z.coerce.number().int().min(0).optional(),
@@ -102,10 +101,13 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
   
   const getFormattedExpiry = (expiry?: string) => {
     if (!expiry) return '';
-    const date = new Date(expiry);
-    const year = date.getUTCFullYear();
-    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-    return `${year}-${month}`;
+    try {
+        const date = new Date(expiry);
+        // Returns date in 'YYYY-MM-DD' format, which is what the input[type="date"] expects
+        return date.toISOString().split('T')[0];
+    } catch(e) {
+        return '';
+    }
   };
 
 
@@ -209,7 +211,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
         hasFullDescription = true;
     }
 
-    const expiryDate = new Date(values.expiry + '-01');
+    const expiryDate = new Date(values.expiry);
 
 
     let medicineData: Medicine;
@@ -326,9 +328,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             name="expiry"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Expiry Date (MM/YYYY)</FormLabel>
+                <FormLabel>Expiry Date</FormLabel>
                 <FormControl>
-                    <Input type="month" {...field} />
+                    <Input type="date" {...field} />
                 </FormControl>
                 <FormMessage />
                 </FormItem>
