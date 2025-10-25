@@ -90,23 +90,6 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
   const [suggestions, setSuggestions] = useState<SuggestMedicinesOutput['suggestions']>([]);
   const { toast } = useToast();
 
-  const allIllnesses = useMemo(() => {
-    const illnessSet = new Set<string>();
-    inventory.forEach(med => {
-      if (med.description?.illness) {
-        med.description.illness.split(',').forEach(symptom => {
-          const trimmed = symptom.trim();
-          if (trimmed) {
-            // Capitalize first letter to ensure uniqueness regardless of case
-            const capitalizedSymptom = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
-            illnessSet.add(capitalizedSymptom);
-          }
-        });
-      }
-    });
-    return Array.from(illnessSet).sort();
-  }, [inventory]);
-
   const form = useForm<DescriptionFormData>({
     resolver: zodResolver(DescriptionFormSchema),
     defaultValues: {
@@ -118,6 +101,30 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
   });
 
   const patientType = form.watch('patientType');
+  
+  const allIllnesses = useMemo(() => {
+    const illnessSet = new Set<string>();
+    inventory
+      .filter(med => med.description?.patientType === patientType)
+      .forEach(med => {
+        if (med.description?.illness) {
+          med.description.illness.split(',').forEach(symptom => {
+            const trimmed = symptom.trim();
+            if (trimmed) {
+              const capitalizedSymptom = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+              illnessSet.add(capitalizedSymptom);
+            }
+          });
+        }
+      });
+    return Array.from(illnessSet).sort();
+  }, [inventory, patientType]);
+
+  // Effect to reset illnesses when patientType changes
+  React.useEffect(() => {
+      form.setValue('illnesses', []);
+  }, [patientType, form]);
+
 
   const onSubmit = async (data: DescriptionFormData) => {
     setIsLoading(true);
@@ -871,3 +878,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     </div>
   );
 }
+
+
+    
