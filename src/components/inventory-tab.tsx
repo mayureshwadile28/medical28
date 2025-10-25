@@ -58,23 +58,23 @@ type SortOption = 'name_asc' | 'expiry_asc' | 'expiry_desc';
 
 const getStockString = (med: Medicine) => {
   if (med.category === 'Tablet' || med.category === 'Capsule') {
-    return `${med.stock.tablets} tabs`;
+    return `${(med as any).stock.tablets} tabs`;
   }
-  return `${med.stock.quantity} units`;
+  return `${(med as any).stock.quantity} units`;
 };
 
 const isLowStock = (med: Medicine) => {
     if (med.category === 'Tablet' || med.category === 'Capsule') {
-        return med.stock.tablets > 0 && med.stock.tablets < 50; // Low stock if less than 50 tabs (5 strips)
+        return (med as any).stock.tablets > 0 && (med as any).stock.tablets < 50; // Low stock if less than 50 tabs (5 strips)
     }
-    return med.stock.quantity > 0 && med.stock.quantity < 10;
+    return (med as any).stock.quantity > 0 && (med as any).stock.quantity < 10;
 }
 
 const isOutOfStock = (med: Medicine) => {
     if (med.category === 'Tablet' || med.category === 'Capsule') {
-        return med.stock.tablets <= 0;
+        return (med as any).stock.tablets <= 0;
     }
-    return med.stock.quantity <= 0;
+    return (med as any).stock.quantity <= 0;
 }
 
 export default function InventoryTab({ medicines, setMedicines, sales, restockId, onRestockComplete }: InventoryTabProps) {
@@ -87,6 +87,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const { toast } = useToast();
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deletingMedicineId, setDeletingMedicineId] = useState<string | null>(null);
+  const [pendingMedicine, setPendingMedicine] = useState<Medicine | null>(null);
 
   const getExpiryInfo = (expiry: string) => {
     const now = new Date();
@@ -136,9 +137,9 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const outOfStockMedicines = useMemo(() => {
     return medicines.filter(med => {
         if (med.category === 'Tablet' || med.category === 'Capsule') {
-            return med.stock.tablets <= 0;
+            return (med as any).stock.tablets <= 0;
         }
-        return med.stock.quantity <= 0;
+        return (med as any).stock.quantity <= 0;
     });
   }, [medicines]);
 
@@ -163,7 +164,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
       .filter(med => categoryFilters.length === 0 || categoryFilters.includes(med.category));
   }, [medicines, searchTerm, categoryFilters, sortOption]);
 
-  const handleSaveMedicine = (medicine: Medicine) => {
+  const proceedWithSave = (medicine: Medicine) => {
     if (editingMedicine) {
       setMedicines(medicines.map(m => (m.id === medicine.id ? medicine : m)));
     } else {
@@ -172,6 +173,18 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     setEditingMedicine(null);
     setIsFormOpen(false);
     if(onRestockComplete) onRestockComplete();
+    setPendingMedicine(null);
+  };
+
+  const handleSaveMedicine = (medicine: Medicine) => {
+    if (!editingMedicine) {
+      const existingMedicine = medicines.find(m => m.name.toLowerCase() === medicine.name.toLowerCase());
+      if (existingMedicine) {
+        setPendingMedicine(medicine);
+        return; // Stop execution and wait for user confirmation
+      }
+    }
+    proceedWithSave(medicine);
   };
 
   const handleDeleteMedicine = (id: string) => {
@@ -236,6 +249,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   };
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -476,5 +490,25 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
         </div>
       </CardContent>
     </Card>
+
+    <AlertDialog open={!!pendingMedicine} onOpenChange={(open) => !open && setPendingMedicine(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Duplicate Medicine Found</AlertDialogTitle>
+          <AlertDialogDescription>
+            A medicine named "{pendingMedicine?.name}" already exists in your inventory. Do you want to add it anyway?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setPendingMedicine(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => pendingMedicine && proceedWithSave(pendingMedicine)}>
+            Add Anyway
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
+
+    
