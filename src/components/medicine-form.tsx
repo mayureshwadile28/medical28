@@ -41,8 +41,8 @@ const formSchema = z.object({
   tablets_per_strip: z.coerce.number().int().min(1).optional(),
   // Description fields
   description_illness: z.string().optional(),
-  description_minAge: z.coerce.number().min(0).optional(),
-  description_maxAge: z.coerce.number().min(0).optional(),
+  description_minAge: z.coerce.number().min(0, "Age cannot be negative.").optional(),
+  description_maxAge: z.coerce.number().min(0, "Age cannot be negative.").optional(),
   description_gender: z.enum(['Male', 'Female', 'Both']).optional(),
 }).superRefine((data, ctx) => {
     if (data.category === 'Tablet' || data.category === 'Capsule') {
@@ -118,25 +118,20 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
   const handleSubmit = async () => {
     // Manually trigger validation for description fields if the collapsible is open
     if (isDescriptionOpen) {
-      const illnessResult = await form.trigger('description_illness');
-      const minAgeResult = await form.trigger('description_minAge');
-      const maxAgeResult = await form.trigger('description_maxAge');
-      const genderResult = await form.trigger('description_gender');
-      
       const allValues = form.getValues();
       const descriptionFields = [allValues.description_illness, allValues.description_minAge, allValues.description_maxAge, allValues.description_gender];
-      const anyFieldFilled = descriptionFields.some(f => f !== undefined && f !== null && f !== '' && f.toString().length > 0);
+      const anyFieldFilled = descriptionFields.some(f => f !== undefined && f !== null && f !== '' && (typeof f !== 'number' || !isNaN(f)));
 
       if (anyFieldFilled) {
-          const allFilled = descriptionFields.every(f => f !== undefined && f !== null && f !== '' && f.toString().length > 0);
+          const allFilled = descriptionFields.every(f => f !== undefined && f !== null && f !== '' && (typeof f !== 'number' || !isNaN(f)));
           if (!allFilled) {
             if (!allValues.description_illness?.trim()) {
                form.setError('description_illness', { type: 'manual', message: 'Illness is required if providing a description.' });
             }
-            if (allValues.description_minAge === undefined) {
+            if (allValues.description_minAge === undefined || isNaN(allValues.description_minAge)) {
                form.setError('description_minAge', { type: 'manual', message: 'Min age is required if providing a description.' });
             }
-            if (allValues.description_maxAge === undefined) {
+            if (allValues.description_maxAge === undefined || isNaN(allValues.description_maxAge)) {
                form.setError('description_maxAge', { type: 'manual', message: 'Max age is required if providing a description.' });
             }
             if (!allValues.description_gender) {
@@ -161,6 +156,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     form.setValue('description_minAge', undefined);
     form.setValue('description_maxAge', undefined);
     form.setValue('description_gender', undefined);
+    // Clear errors after resetting the fields
     form.clearErrors(['description_illness', 'description_minAge', 'description_maxAge', 'description_gender']);
   };
 
@@ -183,7 +179,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
 
     let medicineData: Medicine;
     
-    const baseData: Omit<BaseMedicine, 'description'> & { description?: any } = {
+    const baseData: Omit<any, 'description'> & { description?: any } = {
         id: medicineToEdit?.id || new Date().toISOString() + Math.random(),
         name: formattedName,
         category: finalCategory,
@@ -199,8 +195,6 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             maxAge: values.description_maxAge!,
             gender: values.description_gender!,
         };
-    } else {
-       delete baseData.description;
     }
 
     if (finalCategory === 'Tablet' || finalCategory === 'Capsule') {
@@ -367,7 +361,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
         
         <Collapsible open={isDescriptionOpen} onOpenChange={setIsDescriptionOpen}>
             <CollapsibleTrigger asChild>
-                <Button variant="link" className="p-0 h-auto">
+                <Button type="button" variant="link" className="p-0 h-auto">
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Add Usage Description (for smart search)
                     <ChevronsUpDown className="ml-2 h-4 w-4" />
@@ -401,7 +395,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                             <FormItem>
                                 <FormLabel>Min Age</FormLabel>
                                 <FormControl>
-                                    <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} />
+                                    <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10))} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -414,7 +408,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                             <FormItem>
                                 <FormLabel>Max Age</FormLabel>
                                 <FormControl>
-                                    <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''}/>
+                                    <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10))}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -431,6 +425,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                             <RadioGroup
                             onValueChange={field.onChange}
                             defaultValue={field.value}
+                            value={field.value}
                             className="flex flex-col space-y-1"
                             >
                             <FormItem className="flex items-center space-x-3 space-y-0">
@@ -477,3 +472,5 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     </Form>
   );
 }
+
+    
