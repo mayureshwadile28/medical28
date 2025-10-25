@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useMemo, Suspense } from 'react';
-import { type Medicine, type SaleRecord, type PaymentMode, type MedicineDescription, type SuggestMedicinesOutput } from '@/lib/types';
+import { type Medicine, type SaleRecord, type PaymentMode, type MedicineDescription, type SuggestMedicinesOutput, type SaleItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -238,7 +238,13 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
                             <FormItem>
                                 <Label>Patient Age</Label>
                                 <FormControl>
-                                <Input type="number" placeholder="e.g., 25" {...field} value={field.value ?? ''} />
+                                <Input 
+                                    type="number" 
+                                    placeholder="e.g., 25" 
+                                    {...field} 
+                                    value={field.value ?? ''} 
+                                    onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                                />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -878,6 +884,3 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     </div>
   );
 }
-
-
-    
