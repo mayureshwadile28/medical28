@@ -28,8 +28,8 @@ export async function suggestMedicines(input: SuggestMedicinesInput): Promise<Su
     });
 
     const matchingMedicines = availableInventory.filter((med: Medicine) => {
-        // Only consider medicines that have a description
-        if (!med.description) return false;
+        // Only consider medicines that have a valid description
+        if (!med.description || med.description.minAge === 0 || med.description.maxAge === 0) return false;
         
         const desc = med.description;
         

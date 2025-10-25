@@ -107,8 +107,8 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
       stock_quantity: (medicineToEdit?.category !== 'Tablet' && medicineToEdit?.category !== 'Capsule') ? (medicineToEdit?.stock as any)?.quantity || undefined : undefined,
       tablets_per_strip: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).tabletsPerStrip : 10,
       description_illness: medicineToEdit?.description?.illness || '',
-      description_minAge: medicineToEdit?.description?.minAge,
-      description_maxAge: medicineToEdit?.description?.maxAge,
+      description_minAge: medicineToEdit?.description?.minAge ?? undefined,
+      description_maxAge: medicineToEdit?.description?.maxAge ?? undefined,
       description_gender: medicineToEdit?.description?.gender,
     },
   });
@@ -153,8 +153,8 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
 
   const handleClearDescription = () => {
     form.setValue('description_illness', '');
-    form.setValue('description_minAge', undefined);
-    form.setValue('description_maxAge', undefined);
+    form.setValue('description_minAge', 0);
+    form.setValue('description_maxAge', 0);
     form.setValue('description_gender', undefined);
     // Clear errors after resetting the fields
     form.clearErrors(['description_illness', 'description_minAge', 'description_maxAge', 'description_gender']);
@@ -175,7 +175,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
           .join(', ')
       : undefined;
 
-    const hasFullDescription = formattedIllness && values.description_minAge !== undefined && values.description_maxAge !== undefined && values.description_gender;
+    const hasFullDescription = formattedIllness && values.description_minAge !== undefined && values.description_maxAge !== undefined && values.description_gender && values.description_minAge > 0 && values.description_maxAge > 0;
 
     let medicineData: Medicine;
     
@@ -395,7 +395,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                             <FormItem>
                                 <FormLabel>Min Age</FormLabel>
                                 <FormControl>
-                                    <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10))} />
+                                    <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -408,7 +408,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                             <FormItem>
                                 <FormLabel>Max Age</FormLabel>
                                 <FormControl>
-                                    <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10))}/>
+                                    <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
