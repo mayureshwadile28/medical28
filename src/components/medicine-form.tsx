@@ -59,6 +59,23 @@ const formSchema = z.object({
     if (data.category === 'Other' && (!data.customCategory || data.customCategory.trim().length < 2)) {
         ctx.addIssue({ code: 'custom', message: 'Please specify a category name (at least 2 characters).', path: ['customCategory'] });
     }
+    
+    // Description fields validation
+    const descriptionFields = [data.description_illness, data.description_minAge, data.description_maxAge, data.description_gender];
+    const filledDescriptionFields = descriptionFields.filter(f => f !== undefined && f !== null && f !== '').length;
+
+    if (filledDescriptionFields > 0 && filledDescriptionFields < 4) {
+        if (!data.description_illness) {
+            ctx.addIssue({ code: 'custom', message: 'Illness is required if providing a description.', path: ['description_illness']});
+        }
+        if (data.description_minAge === undefined) {
+            ctx.addIssue({ code: 'custom', message: 'Min age is required if providing a description.', path: ['description_minAge']});
+        }
+        if (data.description_maxAge === undefined) {
+            ctx.addIssue({ code: 'custom', message: 'Max age is required if providing a description.', path: ['description_maxAge']});
+        }
+    }
+    
     if (data.description_minAge !== undefined && data.description_maxAge !== undefined && data.description_maxAge < data.description_minAge) {
         ctx.addIssue({ code: 'custom', message: 'Max age cannot be less than min age.', path: ['description_maxAge']});
     }
@@ -80,12 +97,12 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
       location: medicineToEdit?.location || '',
       expiry: medicineToEdit ? new Date(medicineToEdit.expiry).toISOString().split('T')[0] : '',
       price: medicineToEdit?.price || 0,
-      stock_strips: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).stock.tablets / ((medicineToEdit as any).tabletsPerStrip || 10) : 0,
-      stock_quantity: (medicineToEdit?.category !== 'Tablet' && medicineToEdit?.category !== 'Capsule') ? (medicineToEdit?.stock as any)?.quantity || 0 : 0,
+      stock_strips: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).stock.tablets / ((medicineToEdit as any).tabletsPerStrip || 10) : undefined,
+      stock_quantity: (medicineToEdit?.category !== 'Tablet' && medicineToEdit?.category !== 'Capsule') ? (medicineToEdit?.stock as any)?.quantity || undefined : undefined,
       tablets_per_strip: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).tabletsPerStrip : 10,
       description_illness: medicineToEdit?.description?.illness || '',
-      description_minAge: medicineToEdit?.description?.minAge || 0,
-      description_maxAge: medicineToEdit?.description?.maxAge || 0,
+      description_minAge: medicineToEdit?.description?.minAge,
+      description_maxAge: medicineToEdit?.description?.maxAge,
       description_gender: medicineToEdit?.description?.gender || 'Both',
     },
   });
@@ -107,6 +124,8 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
           .join(', ')
       : undefined;
 
+    const hasFullDescription = formattedIllness && values.description_minAge !== undefined && values.description_maxAge !== undefined && values.description_gender;
+
     const medicineData: Medicine = {
         id: medicineToEdit?.id || new Date().toISOString() + Math.random(),
         name: formattedName,
@@ -114,12 +133,12 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
         location: values.location,
         expiry: new Date(values.expiry).toISOString(),
         price: values.price,
-        ...((formattedIllness && values.description_minAge !== undefined && values.description_maxAge !== undefined && values.description_gender) && {
+        ...(hasFullDescription && {
             description: {
                 illness: formattedIllness,
-                minAge: values.description_minAge,
-                maxAge: values.description_maxAge,
-                gender: values.description_gender,
+                minAge: values.description_minAge!,
+                maxAge: values.description_maxAge!,
+                gender: values.description_gender!,
             }
         }),
         ...(finalCategory === 'Tablet' || finalCategory === 'Capsule'
@@ -304,7 +323,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                             <FormItem>
                                 <FormLabel>Min Age</FormLabel>
                                 <FormControl>
-                                    <Input type="number" placeholder="e.g., 5" {...field} value={field.value || ''} />
+                                    <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -317,7 +336,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                             <FormItem>
                                 <FormLabel>Max Age</FormLabel>
                                 <FormControl>
-                                    <Input type="number" placeholder="e.g., 60" {...field} value={field.value || ''}/>
+                                    <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -380,3 +399,5 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     </Form>
   );
 }
+
+    
