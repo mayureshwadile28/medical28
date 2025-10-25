@@ -61,7 +61,7 @@ export interface SaleItem {
   total: number;
 }
 
-export type PaymentMode = 'Cash' | 'Online' | 'Card';
+export type PaymentMode = 'Cash' | 'Online' | 'Card' | 'Pending';
 
 export interface SaleRecord {
   id: string;
@@ -78,6 +78,7 @@ export interface SaleRecord {
   }[];
   totalAmount: number;
   paymentMode: PaymentMode;
+  paymentSettledDate?: string; // ISO date string, set when a 'Pending' payment is cleared
 }
 
 export type SaleBillItem = Omit<SaleItem, 'quantity'> & {

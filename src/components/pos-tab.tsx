@@ -801,7 +801,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                   <RadioGroup
                       value={paymentMode}
                       onValueChange={(value: PaymentMode) => setPaymentMode(value)}
-                      className="flex space-x-4"
+                      className="flex flex-wrap gap-x-4 gap-y-2"
                   >
                       <div className="flex items-center space-x-2">
                           <RadioGroupItem value="Cash" id="payment-cash" />
@@ -814,6 +814,10 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                       <div className="flex items-center space-x-2">
                           <RadioGroupItem value="Card" id="payment-card" />
                           <Label htmlFor="payment-card">Card</Label>
+                      </div>
+                       <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="Pending" id="payment-pending" />
+                          <Label htmlFor="payment-pending">Pending</Label>
                       </div>
                   </RadioGroup>
               </div>

@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { type SaleRecord } from '@/lib/types';
+import { type SaleRecord, type PaymentMode } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Download, Trash2, Info, Printer, Search, Calendar as CalendarIcon, X, ArrowDownUp } from 'lucide-react';
+import { Download, Trash2, Info, Printer, Search, Calendar as CalendarIcon, X, ArrowDownUp, Receipt } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +30,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose
+} from '@/components/ui/dialog';
 import { ClientOnly } from './client-only';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { formatToINR } from '@/lib/currency';
@@ -51,6 +61,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useToast } from '@/hooks/use-toast';
 
 interface HistoryTabProps {
   sales: SaleRecord[];
@@ -58,6 +70,133 @@ interface HistoryTabProps {
 }
 
 type SortOption = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'amount_desc' | 'amount_asc';
+
+function PendingPaymentsDialog({ sales, setSales }: HistoryTabProps) {
+    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const [settlingSale, setSettlingSale] = React.useState<SaleRecord | null>(null);
+    const [settlePaymentMode, setSettlePaymentMode] = React.useState<PaymentMode>('Cash');
+    const { toast } = useToast();
+
+    const pendingSales = sales.filter(s => s.paymentMode === 'Pending');
+
+    const handleSettlePayment = () => {
+        if (!settlingSale) return;
+
+        setSales(sales.map(sale => {
+            if (sale.id === settlingSale.id) {
+                return {
+                    ...sale,
+                    paymentMode: settlePaymentMode,
+                    paymentSettledDate: new Date().toISOString(),
+                };
+            }
+            return sale;
+        }));
+
+        toast({
+            title: "Payment Settled",
+            description: `Bill ${settlingSale.id} for ${settlingSale.customerName} has been marked as paid.`,
+        });
+
+        setSettlingSale(null);
+    };
+
+    return (
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" disabled={pendingSales.length === 0}>
+                    <Receipt className="mr-2 h-4 w-4" />
+                    Pending Payments
+                    {pendingSales.length > 0 && <Badge variant="destructive" className="ml-2">{pendingSales.length}</Badge>}
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Pending Payments ({pendingSales.length})</DialogTitle>
+                    <DialogDescription>
+                        View and settle all pending payments here.
+                    </DialogDescription>
+                </DialogHeader>
+                {pendingSales.length > 0 ? (
+                    <div className="max-h-[60vh] overflow-y-auto pr-4">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Customer</TableHead>
+                                    <TableHead>Bill ID</TableHead>
+                                    <TableHead>Sale Date</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
+                                    <TableHead className="text-right">Action</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {pendingSales.map(sale => (
+                                    <TableRow key={sale.id}>
+                                        <TableCell className="font-semibold">{sale.customerName}</TableCell>
+                                        <TableCell>{sale.id}</TableCell>
+                                        <TableCell>{new Date(sale.saleDate).toLocaleDateString()}</TableCell>
+                                        <TableCell className="text-right font-mono">{formatToINR(sale.totalAmount)}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button size="sm" onClick={() => setSettlingSale(sale)}>
+                                                Settle
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-10 text-center">
+                        <Info className="h-10 w-10 text-muted-foreground mb-4" />
+                        <h3 className="text-xl font-semibold">All Clear!</h3>
+                        <p className="text-muted-foreground">There are no pending payments.</p>
+                    </div>
+                )}
+                 <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Close</Button>
+                </DialogFooter>
+
+                {settlingSale && (
+                     <AlertDialog open={!!settlingSale} onOpenChange={() => setSettlingSale(null)}>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Settle Payment for {settlingSale.customerName}</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Select the mode of payment for the total amount of {formatToINR(settlingSale.totalAmount)}.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <div className="py-4">
+                                <RadioGroup
+                                    value={settlePaymentMode}
+                                    onValueChange={(value: PaymentMode) => setSettlePaymentMode(value)}
+                                    className="flex space-x-4"
+                                >
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="Cash" id="settle-cash" />
+                                        <Label htmlFor="settle-cash">Cash</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="Online" id="settle-online" />
+                                        <Label htmlFor="settle-online">Online</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="Card" id="settle-card" />
+                                        <Label htmlFor="settle-card">Card</Label>
+                                    </div>
+                                </RadioGroup>
+                            </div>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleSettlePayment}>Confirm and Settle</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
@@ -67,7 +206,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   const [sortOption, setSortOption] = React.useState<SortOption>('date_desc');
 
   const filteredSales = React.useMemo(() => {
-    let sortedSales = [...sales];
+    let sortedSales = [...sales].filter(s => s.paymentMode !== 'Pending');
 
     sortedSales.sort((a, b) => {
         switch (sortOption) {
@@ -102,7 +241,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     if (!selectedDate) return null;
     
     // Filter sales for the selected date, ignoring the search term for the summary
-    const summarySales = sales.filter(sale => new Date(sale.saleDate).toDateString() === selectedDate.toDateString());
+    const summarySales = sales.filter(sale => new Date(sale.saleDate).toDateString() === selectedDate.toDateString() && sale.paymentMode !== 'Pending');
     
     if(summarySales.length === 0) return null;
 
@@ -114,7 +253,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
 
 
   const handleExportCSV = () => {
-    const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'PaymentMode', 'TotalAmount', 'MedicineName', 'Category', 'Quantity', 'PricePerUnit', 'ItemTotal'];
+    const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'PaymentMode', 'TotalAmount', 'PaymentSettledDate', 'MedicineName', 'Category', 'Quantity', 'PricePerUnit', 'ItemTotal'];
     const csvRows = [headers.join(',')];
 
     filteredSales.forEach(sale => {
@@ -126,6 +265,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
           sale.saleDate,
           sale.paymentMode,
           sale.totalAmount,
+          sale.paymentSettledDate || '',
           `"${item.name.replace(/"/g, '""')}"`,
           item.category,
           item.quantity,
@@ -195,7 +335,8 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
       <CardHeader>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Sales History</CardTitle>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <PendingPaymentsDialog sales={sales} setSales={setSales} />
             <Button onClick={handleExportCSV} disabled={sales.length === 0}>
               <Download className="mr-2 h-4 w-4" />
               Export CSV
@@ -306,13 +447,20 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">Bill: {sale.id}</span>
                           {sale.doctorName && <span className="text-xs text-muted-foreground">Prescribed by Dr. {sale.doctorName}</span>}
+                          {sale.paymentSettledDate && (
+                            <ClientOnly>
+                                <Badge variant="outline" className="text-primary border-primary/50">
+                                    Paid: {new Date(sale.paymentSettledDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                                </Badge>
+                            </ClientOnly>
+                          )}
                         </div>
                     </div>
                     <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
                       <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
                         <span className="text-muted-foreground">{new Date(sale.saleDate).toLocaleDateString(undefined, { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })}</span>
                       </ClientOnly>
-                      <Badge variant="secondary">{sale.paymentMode}</Badge>
+                      <Badge variant={sale.paymentMode === 'Pending' ? 'destructive' : 'secondary'}>{sale.paymentMode}</Badge>
                       <span className="font-mono text-right text-foreground">{formatToINR(sale.totalAmount)}</span>
                     </div>
                   </div>
