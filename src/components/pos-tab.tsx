@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, Suspense } from 'react';
@@ -238,12 +237,14 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
                             <FormItem>
                                 <Label>Patient Age</Label>
                                 <FormControl>
-                                <Input 
-                                    type="number" 
-                                    placeholder="e.g., 25" 
-                                    {...field} 
-                                    value={field.value ?? ''} 
-                                    onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                                <Input
+                                    type="number"
+                                    placeholder="e.g., 25"
+                                    value={field.value ?? ''}
+                                    onChange={e => {
+                                        const value = e.target.value;
+                                        field.onChange(value === '' ? undefined : parseInt(value, 10));
+                                    }}
                                 />
                                 </FormControl>
                                 <FormMessage />
