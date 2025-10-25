@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock } from 'lucide-react';
 import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
@@ -363,6 +363,12 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
           <CardTitle>Inventory ({medicines.length} items)</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
             <Button variant="outline" asChild>
+                <Link href="/expiry-report">
+                    <CalendarClock className="mr-2 h-4 w-4" /> 
+                    Expiry Report
+                </Link>
+            </Button>
+            <Button variant="outline" asChild>
                 <Link href="/out-of-stock">
                     <Bell className="mr-2 h-4 w-4" /> 
                     Out of Stock
@@ -640,3 +646,5 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     </>
   );
 }
+
+    
