@@ -121,7 +121,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     }
 
     const date = new Date(expiry);
-    const displayDate = date.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+    const displayDate = date.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 
     return {
@@ -150,12 +150,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   }, [medicines]);
 
   const outOfStockMedicines = useMemo(() => {
-    return medicines.filter(med => {
-        if (isTablet(med)) {
-            return med.stock.tablets <= 0;
-        }
-        return med.stock.quantity <= 0;
-    });
+    return medicines.filter(isOutOfStock);
   }, [medicines]);
 
   const filteredMedicines = useMemo(() => {
@@ -362,7 +357,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-           <CardTitle>Inventory ({filteredMedicines.length} / {medicines.length} items)</CardTitle>
+           <CardTitle>Inventory ({medicines.length} items)</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
             <Button variant="outline" asChild>
                 <Link href="/expiry-report">
@@ -484,7 +479,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                           <TableCell>
                             <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
                               <div className='flex flex-col'>
-                                  <span className={cn("font-mono", (expiry.isExpired || expiry.isNearExpiry) && !expiry.isExpired && "font-semibold text-amber-500", expiry.isExpired && "font-semibold")}>{expiry.text}</span>
+                                  <span className={cn("font-semibold", (expiry.isExpired || expiry.isNearExpiry) && !expiry.isExpired && "font-semibold text-amber-500", expiry.isExpired && "font-semibold")}>{expiry.text}</span>
                                   <span className={cn("text-xs", expiry.isExpired ? 'text-destructive-foreground/80' : 'text-muted-foreground')}>
                                     {expiry.remainder}
                                   </span>

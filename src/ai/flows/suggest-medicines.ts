@@ -1,9 +1,7 @@
 
 'use server';
 
-import { ai } from '@/ai/genkit';
-import { z } from 'zod';
-import { Medicine, SuggestMedicinesInput, SuggestMedicinesInputSchema, SuggestMedicinesOutput, SuggestMedicinesOutputSchema, isTablet } from '@/lib/types';
+import { Medicine, SuggestMedicinesInput, SuggestMedicinesOutput, isTablet } from '@/lib/types';
 
 
 export async function suggestMedicines(input: SuggestMedicinesInput): Promise<SuggestMedicinesOutput> {
