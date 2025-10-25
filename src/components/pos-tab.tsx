@@ -384,172 +384,173 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
         </Card>
       </div>
       <div className="lg:col-span-1">
-        <Card className="sticky top-6">
-          <CardHeader>
-            <CardTitle>Checkout</CardTitle>
-            <CardDescription>Finalize the sale here.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-                <Label htmlFor='customer-name'>Customer Name</Label>
-                <Input
-                id="customer-name"
-                placeholder={'Enter customer name'}
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                />
-            </div>
-             <div className="space-y-2">
-                <Label htmlFor='doctor-name'>Doctor's Name (Optional)</Label>
-                 <Popover open={isDoctorPopoverOpen} onOpenChange={setIsDoctorPopoverOpen}>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={isDoctorPopoverOpen}
-                            className="w-full justify-between font-normal"
-                        >
-                            {doctorName || "Select or type doctor's name..."}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                        <Command>
-                            <CommandInput 
-                                placeholder="Search or add doctor..."
-                                onValueChange={setDoctorName}
-                                value={doctorName}
-                            />
-                            <CommandList>
-                                <CommandEmpty>No doctor found. Type a name to add.</CommandEmpty>
-                                <CommandGroup>
-                                    {doctorNames.map((name) => (
-                                        <CommandItem
-                                            key={name}
-                                            value={name}
-                                            onSelect={(currentValue) => {
-                                                setDoctorName(currentValue === doctorName ? "" : currentValue);
-                                                setIsDoctorPopoverOpen(false);
-                                            }}
-                                            className="group"
-                                        >
-                                            <Check
-                                                className={cn(
-                                                    "mr-2 h-4 w-4",
-                                                    doctorName === name ? "opacity-100" : "opacity-0"
-                                                )}
-                                            />
-                                            <span className='flex-1'>{name}</span>
-                                            <AlertDialogTrigger asChild>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setDeletingDoctorName(name);
-                                                    }}
-                                                >
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                        </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                            </CommandList>
-                        </Command>
-                    </PopoverContent>
-                </Popover>
-            </div>
-            <div className="space-y-2">
-                <Label>Mode of Payment</Label>
-                <RadioGroup
-                    value={paymentMode}
-                    onValueChange={(value: PaymentMode) => setPaymentMode(value)}
-                    className="flex space-x-4"
-                >
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="Cash" id="payment-cash" />
-                        <Label htmlFor="payment-cash">Cash</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="Online" id="payment-online" />
-                        <Label htmlFor="payment-online">Online</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="Card" id="payment-card" />
-                        <Label htmlFor="payment-card">Card</Label>
-                    </div>
-                </RadioGroup>
-            </div>
-            <div className="space-y-2 rounded-lg bg-primary/10 p-4">
-                <div className="flex justify-between text-muted-foreground">
-                    <span>Subtotal</span>
-                    <span className='font-mono'>{formatToINR(totalAmount)}</span>
-                </div>
-                <div className="flex justify-between text-lg font-bold">
-                    <span>Total Amount</span>
-                    <span className='font-mono'>{formatToINR(totalAmount)}</span>
-                </div>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button className="w-full" size="lg" disabled={billItems.length === 0 || customerName.trim() === ''}>
-                        Complete Sale
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Sale</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will finalize the sale for {customerName} with a total of {formatToINR(totalAmount)} via {paymentMode}. This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={completeSale}>
-                      Confirm
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-          </CardFooter>
-        </Card>
-      </div>
-      
        <AlertDialog open={!!deletingDoctorName} onOpenChange={(open) => { if (!open) setDeletingDoctorName(null); }}>
-          <AlertDialogContent>
-              <AlertDialogHeader>
-              <AlertDialogTitle>Delete Dr. {deletingDoctorName}?</AlertDialogTitle>
-              <AlertDialogDescription>
-                  This action cannot be undone. This will permanently remove the doctor's name from your saved list.
-                  <br />
-                  To confirm, please type <strong>delete</strong> in the box below.
-              </AlertDialogDescription>
-              </AlertDialogHeader>
-              <div className="py-2">
-                  <Label htmlFor="delete-confirm-doctor" className="sr-only">Type "delete" to confirm</Label>
-                  <Input 
-                      id="delete-confirm-doctor"
-                      value={deleteConfirmation}
-                      onChange={(e) => setDeleteConfirmation(e.target.value)}
-                      placeholder={'Type "delete" to confirm'}
-                      autoComplete="off"
+          <Card className="sticky top-6">
+            <CardHeader>
+              <CardTitle>Checkout</CardTitle>
+              <CardDescription>Finalize the sale here.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                  <Label htmlFor='customer-name'>Customer Name</Label>
+                  <Input
+                  id="customer-name"
+                  placeholder={'Enter customer name'}
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
                   />
               </div>
-              <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setDeleteConfirmation('')}>Cancel</AlertDialogCancel>
-              <AlertDialogAction 
-                  onClick={() => { if(deletingDoctorName) handleDeleteDoctor(deletingDoctorName); }}
-                  disabled={deleteConfirmation.toLowerCase() !== 'delete'}
-              >
-                  Delete
-              </AlertDialogAction>
-              </AlertDialogFooter>
-          </AlertDialogContent>
+              <div className="space-y-2">
+                  <Label htmlFor='doctor-name'>Doctor's Name (Optional)</Label>
+                  <Popover open={isDoctorPopoverOpen} onOpenChange={setIsDoctorPopoverOpen}>
+                      <PopoverTrigger asChild>
+                          <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={isDoctorPopoverOpen}
+                              className="w-full justify-between font-normal"
+                          >
+                              {doctorName || "Select or type doctor's name..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                          <Command>
+                              <CommandInput 
+                                  placeholder="Search or add doctor..."
+                                  onValueChange={setDoctorName}
+                                  value={doctorName}
+                              />
+                              <CommandList>
+                                  <CommandEmpty>No doctor found. Type a name to add.</CommandEmpty>
+                                  <CommandGroup>
+                                      {doctorNames.map((name) => (
+                                          <CommandItem
+                                              key={name}
+                                              value={name}
+                                              onSelect={(currentValue) => {
+                                                  setDoctorName(currentValue === doctorName ? "" : currentValue);
+                                                  setIsDoctorPopoverOpen(false);
+                                              }}
+                                              className="group"
+                                          >
+                                              <Check
+                                                  className={cn(
+                                                      "mr-2 h-4 w-4",
+                                                      doctorName === name ? "opacity-100" : "opacity-0"
+                                                  )}
+                                              />
+                                              <span className='flex-1'>{name}</span>
+                                              <AlertDialogTrigger asChild>
+                                                  <Button
+                                                      variant="ghost"
+                                                      size="icon"
+                                                      className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                                                      onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setDeletingDoctorName(name);
+                                                      }}
+                                                  >
+                                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                                  </Button>
+                                              </AlertDialogTrigger>
+                                          </CommandItem>
+                                      ))}
+                                  </CommandGroup>
+                              </CommandList>
+                          </Command>
+                      </PopoverContent>
+                  </Popover>
+              </div>
+              <div className="space-y-2">
+                  <Label>Mode of Payment</Label>
+                  <RadioGroup
+                      value={paymentMode}
+                      onValueChange={(value: PaymentMode) => setPaymentMode(value)}
+                      className="flex space-x-4"
+                  >
+                      <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="Cash" id="payment-cash" />
+                          <Label htmlFor="payment-cash">Cash</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="Online" id="payment-online" />
+                          <Label htmlFor="payment-online">Online</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="Card" id="payment-card" />
+                          <Label htmlFor="payment-card">Card</Label>
+                      </div>
+                  </RadioGroup>
+              </div>
+              <div className="space-y-2 rounded-lg bg-primary/10 p-4">
+                  <div className="flex justify-between text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span className='font-mono'>{formatToINR(totalAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-lg font-bold">
+                      <span>Total Amount</span>
+                      <span className='font-mono'>{formatToINR(totalAmount)}</span>
+                  </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                      <Button className="w-full" size="lg" disabled={billItems.length === 0 || customerName.trim() === ''}>
+                          Complete Sale
+                      </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirm Sale</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will finalize the sale for {customerName} with a total of {formatToINR(totalAmount)} via {paymentMode}. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={completeSale}>
+                        Confirm
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+              </AlertDialog>
+            </CardFooter>
+          </Card>
+          <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Delete Dr. {deletingDoctorName}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently remove the doctor's name from your saved list.
+                    <br />
+                    To confirm, please type <strong>delete</strong> in the box below.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="py-2">
+                    <Label htmlFor="delete-confirm-doctor" className="sr-only">Type "delete" to confirm</Label>
+                    <Input 
+                        id="delete-confirm-doctor"
+                        value={deleteConfirmation}
+                        onChange={(e) => setDeleteConfirmation(e.target.value)}
+                        placeholder={'Type "delete" to confirm'}
+                        autoComplete="off"
+                    />
+                </div>
+                <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setDeleteConfirmation('')}>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                    onClick={() => { if(deletingDoctorName) handleDeleteDoctor(deletingDoctorName); }}
+                    disabled={deleteConfirmation.toLowerCase() !== 'delete'}
+                >
+                    Delete
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
        </AlertDialog>
+      </div>
     </div>
   );
 }
+
+    
