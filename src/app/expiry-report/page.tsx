@@ -37,13 +37,13 @@ export default function ExpiryReportPage() {
     if (loading) return [];
     
     const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
     return medicines
       .map(med => {
-        const expiryDate = new Date(med.expiry);
-        expiryDate.setHours(0, 0, 0, 0);
-        const diffDays = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const expiryDateUTC = new Date(med.expiry);
+        const expiryDate = new Date(Date.UTC(expiryDateUTC.getUTCFullYear(), expiryDateUTC.getUTCMonth(), expiryDateUTC.getUTCDate()));
+        const diffDays = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         return { ...med, diffDays };
       })
       .filter(med => {
@@ -176,5 +176,3 @@ export default function ExpiryReportPage() {
     </main>
   );
 }
-
-    

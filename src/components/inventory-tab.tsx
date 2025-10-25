@@ -101,10 +101,12 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
 
   const getExpiryInfo = (expiry: string) => {
     const now = new Date();
-    const expiryDate = new Date(expiry);
-    now.setHours(0, 0, 0, 0);
-    expiryDate.setHours(0, 0, 0, 0);
-    const diffTime = expiryDate.getTime() - now.getTime();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    
+    const expiryDateUTC = new Date(expiry);
+    const expiryDate = new Date(Date.UTC(expiryDateUTC.getUTCFullYear(), expiryDateUTC.getUTCMonth(), expiryDateUTC.getUTCDate()));
+
+    const diffTime = expiryDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     let remainderText = '';
@@ -646,5 +648,3 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     </>
   );
 }
-
-    
