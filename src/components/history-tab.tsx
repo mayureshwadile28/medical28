@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React from 'react';
 import { type SaleRecord } from '@/lib/types';
 import {
   Accordion,
@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Download, Trash2, Info, Printer, Search, Calendar as CalendarIcon, X } from 'lucide-react';
+import { Download, Trash2, Info, Printer, Search, Calendar as CalendarIcon, X, ArrowDownUp } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,45 +42,78 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface HistoryTabProps {
   sales: SaleRecord[];
   setSales: (sales: SaleRecord[]) => void;
 }
 
+type SortOption = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'amount_desc' | 'amount_asc';
+
 export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(undefined);
+  const [sortOption, setSortOption] = React.useState<SortOption>('date_desc');
 
   const filteredSales = React.useMemo(() => {
-    return sales
+    let sortedSales = [...sales];
+
+    sortedSales.sort((a, b) => {
+        switch (sortOption) {
+            case 'date_asc':
+                return new Date(a.saleDate).getTime() - new Date(b.saleDate).getTime();
+            case 'name_asc':
+                return a.customerName.localeCompare(b.customerName);
+            case 'name_desc':
+                return b.customerName.localeCompare(a.customerName);
+            case 'amount_asc':
+                return a.totalAmount - b.totalAmount;
+            case 'amount_desc':
+                return b.totalAmount - a.totalAmount;
+            case 'date_desc':
+            default:
+                return new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime();
+        }
+    });
+
+    return sortedSales
         .filter(sale => {
-          const searchTermMatch = sale.id.toLowerCase().includes(searchTerm.toLowerCase());
+          const searchTermMatch = sale.id.toLowerCase().includes(searchTerm.toLowerCase()) || sale.customerName.toLowerCase().includes(searchTerm.toLowerCase());
           if (!selectedDate) {
               return searchTermMatch;
           }
           const saleDate = new Date(sale.saleDate);
           return searchTermMatch && saleDate.toDateString() === selectedDate.toDateString();
-        })
-        .sort((a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime());
-  }, [sales, searchTerm, selectedDate]);
+        });
+  }, [sales, searchTerm, selectedDate, sortOption]);
 
-  const dailySummary = useMemo(() => {
+  const dailySummary = React.useMemo(() => {
     if (!selectedDate || filteredSales.length === 0) return null;
 
-    const totalEntries = filteredSales.length;
-    const totalAmount = filteredSales.reduce((acc, sale) => acc + sale.totalAmount, 0);
+    const summarySales = sales.filter(sale => new Date(sale.saleDate).toDateString() === selectedDate.toDateString());
+    const totalEntries = summarySales.length;
+    const totalAmount = summarySales.reduce((acc, sale) => acc + sale.totalAmount, 0);
 
     return { totalEntries, totalAmount };
-  }, [filteredSales, selectedDate]);
+  }, [sales, selectedDate, filteredSales.length]);
+
 
   const handleExportCSV = () => {
     const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'PaymentMode', 'TotalAmount', 'MedicineName', 'Category', 'Quantity', 'PricePerUnit', 'ItemTotal'];
     const csvRows = [headers.join(',')];
 
-    sales.forEach(sale => {
+    filteredSales.forEach(sale => {
       sale.items.forEach(item => {
         const row = [
           sale.id,
@@ -204,18 +237,38 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
             <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                    placeholder={'Search Bill...'}
+                    placeholder={'Search by Bill ID or Customer...'}
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                     className="pl-10"
                 />
             </div>
+             <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-start sm:w-auto">
+                  <ArrowDownUp className="mr-2 h-4 w-4" />
+                  Sort
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
+                    <DropdownMenuRadioItem value="date_desc">Date (Newest first)</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="date_asc">Date (Oldest first)</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="name_asc">Name (A-Z)</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="name_desc">Name (Z-A)</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="amount_desc">Amount (High-Low)</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="amount_asc">Amount (Low-High)</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Popover>
                 <PopoverTrigger asChild>
                 <Button
                     variant={"outline"}
                     className={cn(
-                    "w-full sm:w-[280px] justify-start text-left font-normal",
+                    "w-full sm:w-[240px] justify-start text-left font-normal",
                     !selectedDate && "text-muted-foreground"
                     )}
                 >
