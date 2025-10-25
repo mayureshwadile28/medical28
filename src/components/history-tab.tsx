@@ -506,10 +506,10 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
           </div>
         )}
       </CardContent>
-      {dailySummary && (
+      {dailySummary && selectedDate && (
         <CardFooter className="flex-col items-start gap-2 border-t pt-4">
             <h3 className="font-semibold text-lg">
-                Summary for {format(selectedDate!, "PPP")}
+                Summary for {format(selectedDate, "PPP")}
             </h3>
             <div className="flex justify-between w-full text-muted-foreground">
                 <span>Total Entries:</span>
