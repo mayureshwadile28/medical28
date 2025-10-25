@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { type Medicine, type SaleRecord } from '@/lib/types';
+import { type Medicine, type SaleRecord, type TabletMedicine, type GenericMedicine } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -151,7 +151,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
             case 'name_asc':
                 return a.name.localeCompare(b.name);
             case 'expiry_asc':
-                return new Date(a.expiry).getTime() - new Date(a.expiry).getTime();
+                return new Date(a.expiry).getTime() - new Date(b.expiry).getTime();
             case 'expiry_desc':
                 return new Date(b.expiry).getTime() - new Date(a.expiry).getTime();
             default:
@@ -227,18 +227,58 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
       reader.onload = (e) => {
         try {
           const text = e.target?.result;
-          if (typeof text === 'string') {
-            const importedMedicines = JSON.parse(text);
-            // Basic validation
-            if (Array.isArray(importedMedicines) && (importedMedicines.length === 0 || importedMedicines[0].id)) {
-              setMedicines(importedMedicines);
-              toast({ title: 'Import Successful', description: 'Your inventory has been updated from the file.' });
-            } else {
-              throw new Error("Invalid file format");
-            }
+          if (typeof text !== 'string') {
+            throw new Error("Failed to read file.");
           }
-        } catch (error) {
-          toast({ variant: 'destructive', title: 'Import Error', description: 'The selected file is invalid or corrupted. Please check the file and try again.' });
+
+          const importedMedicines: Medicine[] = JSON.parse(text);
+          if (!Array.isArray(importedMedicines)) {
+            throw new Error("Invalid file format: should be an array of medicines.");
+          }
+
+          let updatedCount = 0;
+          let newCount = 0;
+
+          setMedicines(currentInventory => {
+            const newInventory = [...currentInventory];
+            
+            importedMedicines.forEach(importedMed => {
+              const existingMedIndex = newInventory.findIndex(
+                m => m.name.toLowerCase() === importedMed.name.toLowerCase()
+              );
+
+              if (existingMedIndex > -1) {
+                // Medicine exists, update it
+                const existingMed = newInventory[existingMedIndex];
+                
+                const updatedMed = { ...existingMed, ...importedMed, id: existingMed.id }; // Keep original ID
+
+                // Smart stock merging
+                if (updatedMed.category === 'Tablet' || updatedMed.category === 'Capsule') {
+                   (updatedMed as TabletMedicine).stock.tablets = ((existingMed as TabletMedicine).stock.tablets || 0) + ((importedMed as TabletMedicine).stock.tablets || 0);
+                } else {
+                   (updatedMed as GenericMedicine).stock.quantity = ((existingMed as GenericMedicine).stock.quantity || 0) + ((importedMed as GenericMedicine).stock.quantity || 0);
+                }
+                
+                newInventory[existingMedIndex] = updatedMed;
+                updatedCount++;
+              } else {
+                // New medicine, add it
+                newInventory.push({ ...importedMed, id: importedMed.id || new Date().toISOString() + Math.random() });
+                newCount++;
+              }
+            });
+
+            return newInventory;
+          });
+
+          toast({ 
+            title: 'Import Successful', 
+            description: `${newCount} new medicine(s) added and ${updatedCount} existing medicine(s) updated.`
+          });
+
+        } catch (error: any) {
+          toast({ variant: 'destructive', title: 'Import Error', description: error.message || 'The selected file is invalid or corrupted. Please check the file and try again.' });
         } finally {
             // Reset file input to allow importing the same file again
             if(fileInputRef.current) fileInputRef.current.value = "";
@@ -471,7 +511,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                     <AlertDialogHeader>
                         <AlertDialogTitle>Confirm Inventory Import</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will replace your current inventory with the data from the selected file. This action cannot be undone. Are you sure you want to proceed?
+                            This will merge the inventory from the selected file with your current inventory. Stock for existing items will be added, and new items will be created. Are you sure you want to proceed?
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
