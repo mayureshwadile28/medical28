@@ -33,6 +33,7 @@ export type Medicine = TabletMedicine | GenericMedicine;
 export interface SaleItem {
   medicineId: string;
   name: string;
+  category: string;
   quantity: number | ''; // Allow empty string for controlled input, represents tablets for Tablet category
   pricePerUnit: number; // Price for the unit sold (e.g., price per tablet, price per bottle)
   total: number;
@@ -46,9 +47,12 @@ export interface SaleRecord {
   items: {
     medicineId: string;
     name: string;
+    category: string;
     quantity: number;
     pricePerUnit: number;
     total: number;
   }[];
   totalAmount: number;
 }
+
+    

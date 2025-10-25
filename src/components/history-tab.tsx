@@ -55,7 +55,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   }, [sales, searchTerm]);
 
   const handleExportCSV = () => {
-    const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'TotalAmount', 'MedicineName', 'Quantity', 'PricePerUnit', 'ItemTotal'];
+    const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'TotalAmount', 'MedicineName', 'Category', 'Quantity', 'PricePerUnit', 'ItemTotal'];
     const csvRows = [headers.join(',')];
 
     sales.forEach(sale => {
@@ -67,6 +67,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
           sale.saleDate,
           sale.totalAmount,
           `"${item.name.replace(/"/g, '""')}"`,
+          item.category,
           item.quantity,
           item.pricePerUnit,
           item.total,
@@ -219,6 +220,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Item</TableHead>
+                        <TableHead>Category</TableHead>
                         <TableHead className="text-right">Units</TableHead>
                         <TableHead className="text-right">Price/Unit</TableHead>
                         <TableHead className="text-right">Total</TableHead>
@@ -228,6 +230,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                       {sale.items.map((item, index) => (
                         <TableRow key={`${sale.id}-${item.medicineId}-${index}`}>
                           <TableCell>{item.name}</TableCell>
+                          <TableCell>{item.category}</TableCell>
                           <TableCell className="text-right">{item.quantity}</TableCell>
                           <TableCell className="text-right font-mono">{formatToINR(item.pricePerUnit)}</TableCell>
                           <TableCell className="text-right font-mono">{formatToINR(item.total)}</TableCell>
@@ -250,3 +253,5 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     </Card>
   );
 }
+
+    

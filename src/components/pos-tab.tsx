@@ -116,6 +116,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     const newItem: SaleItem = {
       medicineId: selectedMedicine.id,
       name: selectedMedicine.name,
+      category: selectedMedicine.category,
       quantity: 1,
       pricePerUnit: pricePerUnit,
       total: pricePerUnit,
@@ -199,7 +200,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       customerName: customerName.trim(),
       doctorName: doctorName.trim(),
       saleDate: new Date().toISOString(),
-      items: billItems.map(item => ({...item, quantity: Number(item.quantity)})),
+      items: billItems.map(item => ({...item, quantity: Number(item.quantity), category: item.category || ''})),
       totalAmount: totalAmount,
     };
     setSales([...sales, newSale]);
@@ -279,9 +280,10 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
               <div className="flex items-center gap-2 rounded-md bg-primary/10 p-3 text-primary border border-primary/20">
                 <MapPin className="h-5 w-5" />
                 <p className="text-sm font-medium">
-                  Location for{' '}
-                  <span className="font-semibold">{selectedMedicine.name}</span>: 
-                  <span className="ml-2 inline-block rounded-md bg-primary px-2 py-1 font-bold text-primary-foreground">{selectedMedicine.location}</span>
+                  <span className="font-semibold">{selectedMedicine.name}</span> &middot;{' '}
+                  <span className="text-xs font-bold uppercase">{selectedMedicine.category}</span> &middot;{' '}
+                  Location:{' '}
+                  <span className="ml-1 inline-block rounded-md bg-primary px-2 py-1 font-bold text-primary-foreground">{selectedMedicine.location}</span>
                 </p>
               </div>
             )}
@@ -298,6 +300,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
               <TableHeader>
                 <TableRow>
                   <TableHead>Item</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead className="w-[100px] text-center">Units</TableHead>
                   <TableHead className="text-right">Price/Unit</TableHead>
                   <TableHead className="text-right">Total</TableHead>
@@ -309,6 +312,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                   billItems.map(item => (
                     <TableRow key={item.medicineId}>
                       <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>{item.category}</TableCell>
                       <TableCell>
                         <Input
                           type="number"
@@ -329,7 +333,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                        <div className="flex flex-col items-center justify-center gap-2">
                             <ShoppingCart className="h-8 w-8 text-muted-foreground" />
                             <p>No items in bill.</p>
@@ -342,7 +346,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
               {billItems.length > 0 && (
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={3} className="font-bold text-lg">Total</TableCell>
+                        <TableCell colSpan={4} className="font-bold text-lg">Total</TableCell>
                         <TableCell className="text-right font-bold text-lg font-mono">{formatToINR(totalAmount)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
@@ -417,5 +421,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     </div>
   );
 }
+
+    
 
     
