@@ -81,7 +81,7 @@ const formSchema = z.object({
                 ctx.addIssue({ code: 'custom', message: 'Max age is required and must be greater than 0.', path: ['description_maxAge']});
             }
             if (!data.description_gender) {
-                ctx.addIssue({ code: 'custom', message: 'Gender is required if providing a description.', path: ['description_gender']});
+                ctx.addIssue({ code: 'custom', message: 'Gender is required if providing a description for humans.', path: ['description_gender']});
             }
             if (data.description_minAge !== undefined && data.description_maxAge !== undefined && data.description_maxAge < data.description_minAge) {
                 ctx.addIssue({ code: 'custom', message: 'Max age cannot be less than min age.', path: ['description_maxAge']});
@@ -112,8 +112,8 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
       tablets_per_strip: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).tabletsPerStrip : 10,
       description_patientType: medicineToEdit?.description?.patientType,
       description_illness: medicineToEdit?.description?.illness || '',
-      description_minAge: medicineToEdit?.description?.minAge ?? 0,
-      description_maxAge: medicineToEdit?.description?.maxAge ?? 0,
+      description_minAge: medicineToEdit?.description?.minAge ?? undefined,
+      description_maxAge: medicineToEdit?.description?.maxAge ?? undefined,
       description_gender: medicineToEdit?.description?.gender,
     },
   });
@@ -169,8 +169,8 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
   const handleClearDescription = () => {
     form.setValue('description_patientType', undefined);
     form.setValue('description_illness', '');
-    form.setValue('description_minAge', 0);
-    form.setValue('description_maxAge', 0);
+    form.setValue('description_minAge', undefined);
+    form.setValue('description_maxAge', undefined);
     form.setValue('description_gender', undefined);
     // Clear errors after resetting the fields
     form.clearErrors(['description_patientType', 'description_illness', 'description_minAge', 'description_maxAge', 'description_gender']);
@@ -212,7 +212,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     if (hasFullDescription) {
         baseData.description = {
             patientType: values.description_patientType!,
-            illness: formattedIllness,
+            illness: formattedIllness!,
             minAge: values.description_patientType === 'Human' ? values.description_minAge : undefined,
             maxAge: values.description_patientType === 'Human' ? values.description_maxAge : undefined,
             gender: values.description_patientType === 'Human' ? values.description_gender : undefined,
@@ -443,7 +443,10 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                                 <FormItem>
                                     <FormLabel>Min Age</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
+                                        <Input type="number" placeholder="e.g., 5" {...field} value={field.value ?? ''} onChange={e => {
+                                            const value = e.target.value;
+                                            field.onChange(value === '' ? undefined : parseInt(value, 10));
+                                        }} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -456,7 +459,10 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                                 <FormItem>
                                     <FormLabel>Max Age</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/>
+                                        <Input type="number" placeholder="e.g., 60" {...field} value={field.value ?? ''} onChange={e => {
+                                            const value = e.target.value;
+                                            field.onChange(value === '' ? undefined : parseInt(value, 10));
+                                        }}/>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
