@@ -45,6 +45,7 @@ import { formatToINR } from '@/lib/currency';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface InventoryTabProps {
   medicines: Medicine[];
@@ -55,6 +56,7 @@ interface InventoryTabProps {
 }
 
 type SortOption = 'name_asc' | 'expiry_asc' | 'expiry_desc';
+type ImportMode = 'merge' | 'replace';
 
 const getStockString = (med: Medicine) => {
   if (med.category === 'Tablet' || med.category === 'Capsule') {
@@ -88,6 +90,8 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deletingMedicineId, setDeletingMedicineId] = useState<string | null>(null);
   const [pendingMedicine, setPendingMedicine] = useState<Medicine | null>(null);
+  const [isImportAlertOpen, setIsImportAlertOpen] = useState(false);
+  const [importMode, setImportMode] = useState<ImportMode>('merge');
 
   const getExpiryInfo = (expiry: string) => {
     const now = new Date();
@@ -230,48 +234,53 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
           if (typeof text !== 'string') {
             throw new Error("Failed to read file.");
           }
-
           const importedMedicines: Medicine[] = JSON.parse(text);
           if (!Array.isArray(importedMedicines)) {
             throw new Error("Invalid file format: should be an array of medicines.");
           }
 
+          if (importMode === 'replace') {
+            setMedicines(importedMedicines);
+            toast({ 
+              title: 'Import Successful', 
+              description: `Inventory replaced. ${importedMedicines.length} medicine(s) imported.`
+            });
+            return;
+          }
+
+          // Handle 'merge'
           let updatedCount = 0;
           let newCount = 0;
+          let newInventory = [...medicines];
 
-          setMedicines(currentInventory => {
-            const newInventory = [...currentInventory];
-            
-            importedMedicines.forEach(importedMed => {
-              const existingMedIndex = newInventory.findIndex(
-                m => m.name.toLowerCase() === importedMed.name.toLowerCase()
-              );
+          importedMedicines.forEach(importedMed => {
+            const existingMedIndex = newInventory.findIndex(
+              m => m.name.toLowerCase() === importedMed.name.toLowerCase()
+            );
 
-              if (existingMedIndex > -1) {
-                // Medicine exists, update it
-                const existingMed = newInventory[existingMedIndex];
-                
-                const updatedMed = { ...existingMed, ...importedMed, id: existingMed.id }; // Keep original ID
-
-                // Smart stock merging
-                if (updatedMed.category === 'Tablet' || updatedMed.category === 'Capsule') {
-                   (updatedMed as TabletMedicine).stock.tablets = ((existingMed as TabletMedicine).stock.tablets || 0) + ((importedMed as TabletMedicine).stock.tablets || 0);
-                } else {
-                   (updatedMed as GenericMedicine).stock.quantity = ((existingMed as GenericMedicine).stock.quantity || 0) + ((importedMed as GenericMedicine).stock.quantity || 0);
-                }
-                
-                newInventory[existingMedIndex] = updatedMed;
-                updatedCount++;
-              } else {
-                // New medicine, add it
-                newInventory.push({ ...importedMed, id: importedMed.id || new Date().toISOString() + Math.random() });
-                newCount++;
+            if (existingMedIndex > -1) {
+              const existingMed = newInventory[existingMedIndex];
+              const updatedMed: Medicine = {
+                ...existingMed,
+                ...importedMed,
+                id: existingMed.id // Keep original ID
+              };
+              
+              if ((updatedMed.category === 'Tablet' || updatedMed.category === 'Capsule') && (existingMed.category === 'Tablet' || existingMed.category === 'Capsule')) {
+                 (updatedMed as TabletMedicine).stock.tablets = ((existingMed as TabletMedicine).stock.tablets || 0) + ((importedMed as TabletMedicine).stock?.tablets || 0);
+              } else if (updatedMed.category !== 'Tablet' && updatedMed.category !== 'Capsule' && existingMed.category !== 'Tablet' && existingMed.category !== 'Capsule') {
+                 (updatedMed as GenericMedicine).stock.quantity = ((existingMed as GenericMedicine).stock.quantity || 0) + ((importedMed as GenericMedicine).stock?.quantity || 0);
               }
-            });
-
-            return newInventory;
+              
+              newInventory[existingMedIndex] = updatedMed;
+              updatedCount++;
+            } else {
+              newInventory.push({ ...importedMed, id: importedMed.id || new Date().toISOString() + Math.random() });
+              newCount++;
+            }
           });
 
+          setMedicines(newInventory);
           toast({ 
             title: 'Import Successful', 
             description: `${newCount} new medicine(s) added and ${updatedCount} existing medicine(s) updated.`
@@ -280,8 +289,8 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
         } catch (error: any) {
           toast({ variant: 'destructive', title: 'Import Error', description: error.message || 'The selected file is invalid or corrupted. Please check the file and try again.' });
         } finally {
-            // Reset file input to allow importing the same file again
             if(fileInputRef.current) fileInputRef.current.value = "";
+            setIsImportAlertOpen(false);
         }
       };
       reader.readAsText(file);
@@ -500,7 +509,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                 <Download className="mr-2 h-4 w-4" />
                 Export Inventory
             </Button>
-            <AlertDialog>
+            <AlertDialog open={isImportAlertOpen} onOpenChange={setIsImportAlertOpen}>
                 <AlertDialogTrigger asChild>
                     <Button variant="outline">
                         <Upload className="mr-2 h-4 w-4" />
@@ -509,15 +518,31 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Confirm Inventory Import</AlertDialogTitle>
+                        <AlertDialogTitle>Import Inventory</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will merge the inventory from the selected file with your current inventory. Stock for existing items will be added, and new items will be created. Are you sure you want to proceed?
+                            Choose how you want to import the inventory file.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
+                    <RadioGroup defaultValue="merge" value={importMode} onValueChange={(value: ImportMode) => setImportMode(value)} className="my-4 space-y-3">
+                      <div>
+                        <RadioGroupItem value="merge" id="merge" className="peer sr-only" />
+                        <Label htmlFor="merge" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                          <span className="font-semibold">Merge with Existing</span>
+                          <span className="text-sm text-muted-foreground">Adds new items and updates stock for existing items.</span>
+                        </Label>
+                      </div>
+                      <div>
+                        <RadioGroupItem value="replace" id="replace" className="peer sr-only" />
+                         <Label htmlFor="replace" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                          <span className="font-semibold">Replace Everything</span>
+                          <span className="text-sm text-muted-foreground">Deletes current inventory and replaces it with the file.</span>
+                        </Label>
+                      </div>
+                    </RadioGroup>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={triggerFileSelect}>
-                            Confirm Import
+                            Choose File and Import
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
