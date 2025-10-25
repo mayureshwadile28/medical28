@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, from 'react';
+import React, { useState, useMemo } from 'react';
 import { type SaleRecord } from '@/lib/types';
 import {
   Accordion,
@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Download, Trash2, Info, Printer, Search } from 'lucide-react';
+import { Download, Trash2, Info, Printer, Search, Calendar as CalendarIcon, X } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,13 +31,17 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ClientOnly } from './client-only';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { formatToINR } from '@/lib/currency';
 import { createRoot } from 'react-dom/client';
 import { PrintableBill } from './printable-bill';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface HistoryTabProps {
   sales: SaleRecord[];
@@ -48,12 +52,29 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(undefined);
 
   const filteredSales = React.useMemo(() => {
     return sales
-        .filter(sale => sale.id.toLowerCase().includes(searchTerm.toLowerCase()))
+        .filter(sale => {
+          const searchTermMatch = sale.id.toLowerCase().includes(searchTerm.toLowerCase());
+          if (!selectedDate) {
+              return searchTermMatch;
+          }
+          const saleDate = new Date(sale.saleDate);
+          return searchTermMatch && saleDate.toDateString() === selectedDate.toDateString();
+        })
         .sort((a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime());
-  }, [sales, searchTerm]);
+  }, [sales, searchTerm, selectedDate]);
+
+  const dailySummary = useMemo(() => {
+    if (!selectedDate || filteredSales.length === 0) return null;
+
+    const totalEntries = filteredSales.length;
+    const totalAmount = filteredSales.reduce((acc, sale) => acc + sale.totalAmount, 0);
+
+    return { totalEntries, totalAmount };
+  }, [filteredSales, selectedDate]);
 
   const handleExportCSV = () => {
     const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'PaymentMode', 'TotalAmount', 'MedicineName', 'Category', 'Quantity', 'PricePerUnit', 'ItemTotal'];
@@ -179,7 +200,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="mb-4">
+        <div className="mb-4 flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -189,6 +210,33 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                     className="pl-10"
                 />
             </div>
+            <Popover>
+                <PopoverTrigger asChild>
+                <Button
+                    variant={"outline"}
+                    className={cn(
+                    "w-full sm:w-[280px] justify-start text-left font-normal",
+                    !selectedDate && "text-muted-foreground"
+                    )}
+                >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "PPP") : <span>Filter by date...</span>}
+                </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    initialFocus
+                />
+                </PopoverContent>
+            </Popover>
+            {selectedDate && (
+                <Button variant="ghost" onClick={() => setSelectedDate(undefined)}>
+                    <X className="mr-2 h-4 w-4" /> Clear
+                </Button>
+            )}
         </div>
         {filteredSales.length > 0 ? (
           <Accordion type="single" collapsible className="w-full">
@@ -248,11 +296,26 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
         ) : (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-10 text-center">
               <Info className="h-10 w-10 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold">{searchTerm ? 'No sales found' : 'No Sales Recorded Yet'}</h3>
-              <p className="text-muted-foreground">{searchTerm ? 'Try searching for a different bill number.' : 'Completed sales will appear here.'}</p>
+              <h3 className="text-xl font-semibold">{searchTerm || selectedDate ? 'No sales found' : 'No Sales Recorded Yet'}</h3>
+              <p className="text-muted-foreground">{searchTerm || selectedDate ? 'Try a different search or date.' : 'Completed sales will appear here.'}</p>
           </div>
         )}
       </CardContent>
+      {dailySummary && (
+        <CardFooter className="flex-col items-start gap-2 border-t pt-4">
+            <h3 className="font-semibold text-lg">
+                Summary for {format(selectedDate!, "PPP")}
+            </h3>
+            <div className="flex justify-between w-full text-muted-foreground">
+                <span>Total Entries:</span>
+                <span className="font-mono text-foreground">{dailySummary.totalEntries}</span>
+            </div>
+            <div className="flex justify-between w-full text-muted-foreground">
+                <span>Total Amount:</span>
+                <span className="font-mono text-foreground">{formatToINR(dailySummary.totalAmount)}</span>
+            </div>
+        </CardFooter>
+      )}
     </Card>
   );
 }
