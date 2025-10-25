@@ -99,14 +99,18 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   }, [sales, searchTerm, selectedDate, sortOption]);
 
   const dailySummary = React.useMemo(() => {
-    if (!selectedDate || filteredSales.length === 0) return null;
-
+    if (!selectedDate) return null;
+    
+    // Filter sales for the selected date, ignoring the search term for the summary
     const summarySales = sales.filter(sale => new Date(sale.saleDate).toDateString() === selectedDate.toDateString());
+    
+    if(summarySales.length === 0) return null;
+
     const totalEntries = summarySales.length;
     const totalAmount = summarySales.reduce((acc, sale) => acc + sale.totalAmount, 0);
 
     return { totalEntries, totalAmount };
-  }, [sales, selectedDate, filteredSales.length]);
+  }, [sales, selectedDate]);
 
 
   const handleExportCSV = () => {
