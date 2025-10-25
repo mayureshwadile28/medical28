@@ -3,7 +3,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { Medicine, SuggestMedicinesInput, SuggestMedicinesInputSchema, SuggestMedicinesOutput, SuggestMedicinesOutputSchema } from '@/lib/types';
+import { Medicine, SuggestMedicinesInput, SuggestMedicinesInputSchema, SuggestMedicinesOutput, SuggestMedicinesOutputSchema, isTablet } from '@/lib/types';
 
 
 export async function suggestMedicines(input: SuggestMedicinesInput): Promise<SuggestMedicinesOutput> {
@@ -21,10 +21,10 @@ export async function suggestMedicines(input: SuggestMedicinesInput): Promise<Su
         expiryDate.setHours(0, 0, 0, 0);
         if (expiryDate < now) return false;
 
-        if (med.category === 'Tablet' || med.category === 'Capsule') {
-            return (med as any).stock.tablets > 0;
+        if (isTablet(med)) {
+            return med.stock.tablets > 0;
         }
-        return (med as any).stock.quantity > 0;
+        return med.stock.quantity > 0;
     });
 
     const matchingMedicines = availableInventory.filter((med: Medicine) => {
@@ -76,5 +76,3 @@ export async function suggestMedicines(input: SuggestMedicinesInput): Promise<Su
 
     return Promise.resolve({ suggestions: limitedSuggestions });
 }
-
-    

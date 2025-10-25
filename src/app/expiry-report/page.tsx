@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useLocalStorage } from '@/lib/hooks';
-import { type Medicine } from '@/lib/types';
+import { type Medicine, isTablet } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, CalendarClock, Info, Loader2 } from 'lucide-react';
@@ -23,10 +23,10 @@ import { Label } from '@/components/ui/label';
 type FilterOption = 'expired' | '30' | '60' | '90';
 
 const getStockString = (med: Medicine) => {
-  if (med.category === 'Tablet' || med.category === 'Capsule') {
-    return `${(med as any).stock.tablets} tabs`;
+  if (isTablet(med)) {
+    return `${med.stock.tablets} tabs`;
   }
-  return `${(med as any).stock.quantity} units`;
+  return `${med.stock.quantity} units`;
 };
 
 export default function ExpiryReportPage() {
@@ -176,5 +176,3 @@ export default function ExpiryReportPage() {
     </main>
   );
 }
-
-    

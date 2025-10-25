@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLocalStorage } from '@/lib/hooks';
-import { type Medicine } from '@/lib/types';
+import { type Medicine, isTablet } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Bell, Edit, Info, Loader2 } from 'lucide-react';
@@ -16,7 +16,7 @@ export default function OutOfStockPage() {
   const outOfStockMedicines = useMemo(() => {
     if (loading) return [];
     return medicines.filter(med => {
-      if (med.category === 'Tablet' || med.category === 'Capsule') {
+      if (isTablet(med)) {
         return med.stock.tablets <= 0;
       }
       return med.stock.quantity <= 0;

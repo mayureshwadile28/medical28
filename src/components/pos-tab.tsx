@@ -1,7 +1,8 @@
+
 'use client';
 
 import React, { useState, useMemo, Suspense } from 'react';
-import { type Medicine, type SaleRecord, type PaymentMode, type MedicineDescription, type SuggestMedicinesOutput, type SaleItem } from '@/lib/types';
+import { type Medicine, type SaleRecord, type PaymentMode, type MedicineDescription, type SuggestMedicinesOutput, type SaleItem, isTablet, isGeneric } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -416,10 +417,10 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       expiryDate.setHours(0, 0, 0, 0);
       if (expiryDate < now) return false;
       
-      if (med.category === 'Tablet' || med.category === 'Capsule') {
-        return (med as any).stock.tablets > 0;
+      if (isTablet(med)) {
+        return med.stock.tablets > 0;
       }
-      return (med as any).stock.quantity > 0;
+      return med.stock.quantity > 0;
     });
   }, [medicines]);
 
@@ -430,11 +431,11 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   const addMedicineToBill = (medicineToAdd: Medicine) => {
     if (!medicineToAdd) return;
     
-    if ((medicineToAdd.category === 'Tablet' || medicineToAdd.category === 'Capsule') && (medicineToAdd as any).stock.tablets === 0) {
+    if (isTablet(medicineToAdd) && medicineToAdd.stock.tablets === 0) {
       toast({ title: 'Out of Stock', description: `${medicineToAdd.name} is out of stock.`, variant: "destructive" });
       return;
     }
-    if (medicineToAdd.category !== 'Tablet' && medicineToAdd.category !== 'Capsule' && (medicineToAdd as any).stock.quantity === 0) {
+    if (isGeneric(medicineToAdd) && medicineToAdd.stock.quantity === 0) {
       toast({ title: 'Out of Stock', description: `${medicineToAdd.name} is out of stock.`, variant: "destructive" });
       return;
     }
@@ -444,9 +445,9 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
         return;
     }
     
-    const pricePerUnit = (medicineToAdd.category === 'Tablet' || medicineToAdd.category === 'Capsule')
-      ? (medicineToAdd as any).price / (medicineToAdd as any).tabletsPerStrip 
-      : (medicineToAdd as any).price;
+    const pricePerUnit = isTablet(medicineToAdd)
+      ? medicineToAdd.price / medicineToAdd.tabletsPerStrip 
+      : medicineToAdd.price;
 
     const newItem: SaleItem = {
       medicineId: medicineToAdd.id,
@@ -472,7 +473,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     setBillItems(
       billItems.map(item => {
         if (item.medicineId === medicineId) {
-          const med = medicines.find(m => m.id === medicineId) as Medicine | undefined;
+          const med = medicines.find(m => m.id === medicineId);
           if (!med) return item;
 
           let validQuantity = isNaN(Number(quantity)) ? 0 : Number(quantity);
@@ -482,10 +483,10 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
 
           let stockLimit = Infinity;
 
-          if (med.category === 'Tablet' || med.category === 'Capsule') {
-              stockLimit = (med as any).stock.tablets;
+          if (isTablet(med)) {
+              stockLimit = med.stock.tablets;
           } else {
-              stockLimit = (med as any).stock.quantity;
+              stockLimit = med.stock.quantity;
           }
 
           if (validQuantity > stockLimit) {
@@ -527,10 +528,10 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       const medIndex = newMedicines.findIndex(m => m.id === item.medicineId);
       if (medIndex !== -1) {
         const med = newMedicines[medIndex];
-        if (med.category === 'Tablet' || med.category === 'Capsule') {
-          (med.stock as any).tablets -= Number(item.quantity);
+        if (isTablet(med)) {
+          med.stock.tablets -= Number(item.quantity);
         } else {
-          (med.stock as any).quantity -= Number(item.quantity);
+          med.stock.quantity -= Number(item.quantity);
         }
       }
     });
@@ -560,10 +561,10 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   };
   
   const getStockString = (med: Medicine) => {
-    if (med.category === 'Tablet' || med.category === 'Capsule') {
-        return `${(med as any).stock.tablets} tabs`;
+    if (isTablet(med)) {
+        return `${med.stock.tablets} tabs`;
     }
-    return `${(med as any).stock.quantity} units`;
+    return `${med.stock.quantity} units`;
   };
 
   const handleDeleteDoctor = (nameToDelete: string) => {

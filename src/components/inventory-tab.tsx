@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { type Medicine, type SaleRecord, type TabletMedicine, type GenericMedicine } from '@/lib/types';
+import { type Medicine, type SaleRecord, isTablet, isGeneric, type TabletMedicine, type GenericMedicine } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -59,24 +59,24 @@ type SortOption = 'name_asc' | 'expiry_asc' | 'expiry_desc';
 type ImportMode = 'merge' | 'replace';
 
 const getStockString = (med: Medicine) => {
-  if (med.category === 'Tablet' || med.category === 'Capsule') {
-    return `${(med as any).stock.tablets} tabs`;
+  if (isTablet(med)) {
+    return `${med.stock.tablets} tabs`;
   }
-  return `${(med as any).stock.quantity} units`;
+  return `${med.stock.quantity} units`;
 };
 
 const isLowStock = (med: Medicine) => {
-    if (med.category === 'Tablet' || med.category === 'Capsule') {
-        return (med as any).stock.tablets > 0 && (med as any).stock.tablets < 50; // Low stock if less than 50 tabs (5 strips)
+    if (isTablet(med)) {
+        return med.stock.tablets > 0 && med.stock.tablets < 50; // Low stock if less than 50 tabs (5 strips)
     }
-    return (med as any).stock.quantity > 0 && (med as any).stock.quantity < 10;
+    return med.stock.quantity > 0 && med.stock.quantity < 10;
 }
 
 const isOutOfStock = (med: Medicine) => {
-    if (med.category === 'Tablet' || med.category === 'Capsule') {
-        return (med as any).stock.tablets <= 0;
+    if (isTablet(med)) {
+        return med.stock.tablets <= 0;
     }
-    return (med as any).stock.quantity <= 0;
+    return med.stock.quantity <= 0;
 }
 
 export default function InventoryTab({ medicines, setMedicines, sales, restockId, onRestockComplete }: InventoryTabProps) {
@@ -151,10 +151,10 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
 
   const outOfStockMedicines = useMemo(() => {
     return medicines.filter(med => {
-        if (med.category === 'Tablet' || med.category === 'Capsule') {
-            return (med as any).stock.tablets <= 0;
+        if (isTablet(med)) {
+            return med.stock.tablets <= 0;
         }
-        return (med as any).stock.quantity <= 0;
+        return med.stock.quantity <= 0;
     });
   }, [medicines]);
 
@@ -298,10 +298,10 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                 id: existing.id,
             };
             
-            if ('tablets' in (updatedMed as TabletMedicine).stock && 'tablets' in (existing as TabletMedicine).stock) {
-               (updatedMed as TabletMedicine).stock.tablets = ((existing as TabletMedicine).stock.tablets || 0) + ((imported as TabletMedicine).stock?.tablets || 0);
-            } else if ('quantity' in (updatedMed as GenericMedicine).stock && 'quantity' in (existing as GenericMedicine).stock) {
-               (updatedMed as GenericMedicine).stock.quantity = ((existing as GenericMedicine).stock.quantity || 0) + ((imported as GenericMedicine).stock?.quantity || 0);
+            if (isTablet(updatedMed) && isTablet(existing)) {
+               updatedMed.stock.tablets = (existing.stock.tablets || 0) + (imported as TabletMedicine).stock?.tablets || 0;
+            } else if (isGeneric(updatedMed) && isGeneric(existing)) {
+               updatedMed.stock.quantity = (existing.stock.quantity || 0) + (imported as GenericMedicine).stock?.quantity || 0;
             }
             
             inventory[existingMedIndex] = updatedMed;
@@ -362,7 +362,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>Inventory ({medicines.length} items)</CardTitle>
+           <CardTitle>Inventory ({filteredMedicines.length} / {medicines.length} items)</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
             <Button variant="outline" asChild>
                 <Link href="/expiry-report">
@@ -648,5 +648,3 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     </>
   );
 }
-
-    
