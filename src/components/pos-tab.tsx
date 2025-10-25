@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
-import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart } from 'lucide-react';
+import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
@@ -78,6 +78,9 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
   const [billItems, setBillItems] = useState<SaleItem[]>([]);
   const { toast } = useToast();
+
+  const [deletingDoctorName, setDeletingDoctorName] = useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
   const availableMedicines = useMemo(() => {
     const now = new Date();
@@ -229,6 +232,16 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
         return `${med.stock.tablets} tabs`;
     }
     return `${med.stock.quantity} units`;
+  };
+
+  const handleDeleteDoctor = (nameToDelete: string) => {
+    setDoctorNames(doctorNames.filter(name => name !== nameToDelete));
+    if (doctorName === nameToDelete) {
+        setDoctorName('');
+    }
+    setDeletingDoctorName(null);
+    setDeleteConfirmation('');
+    toast({ title: 'Doctor Removed', description: `Dr. ${nameToDelete} has been removed from the list.`});
   };
 
   return (
@@ -418,6 +431,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                                                 setDoctorName(currentValue === doctorName ? "" : currentValue);
                                                 setIsDoctorPopoverOpen(false);
                                             }}
+                                            className="group"
                                         >
                                             <Check
                                                 className={cn(
@@ -425,7 +439,20 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                                                     doctorName === name ? "opacity-100" : "opacity-0"
                                                 )}
                                             />
-                                            {name}
+                                            <span className='flex-1'>{name}</span>
+                                            <AlertDialogTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setDeletingDoctorName(name);
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </AlertDialogTrigger>
                                         </CommandItem>
                                     ))}
                                 </CommandGroup>
@@ -491,6 +518,40 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
           </CardFooter>
         </Card>
       </div>
+      
+       <AlertDialog open={!!deletingDoctorName} onOpenChange={(open) => { if (!open) setDeletingDoctorName(null); }}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+              <AlertDialogTitle>Delete Dr. {deletingDoctorName}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                  This action cannot be undone. This will permanently remove the doctor's name from your saved list.
+                  <br />
+                  To confirm, please type <strong>delete</strong> in the box below.
+              </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="py-2">
+                  <Label htmlFor="delete-confirm-doctor" className="sr-only">Type "delete" to confirm</Label>
+                  <Input 
+                      id="delete-confirm-doctor"
+                      value={deleteConfirmation}
+                      onChange={(e) => setDeleteConfirmation(e.target.value)}
+                      placeholder={'Type "delete" to confirm'}
+                      autoComplete="off"
+                  />
+              </div>
+              <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleteConfirmation('')}>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                  onClick={() => { if(deletingDoctorName) handleDeleteDoctor(deletingDoctorName); }}
+                  disabled={deleteConfirmation.toLowerCase() !== 'delete'}
+              >
+                  Delete
+              </AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+       </AlertDialog>
     </div>
   );
 }
+
+    
