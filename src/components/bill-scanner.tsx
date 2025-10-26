@@ -43,35 +43,31 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
     }
   }, []);
   
-  const startCamera = useCallback(async () => {
-    // Stop any existing camera streams
-    stopCamera();
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        streamRef.current = stream;
-        setHasCameraPermission(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(e => console.error("Play failed:", e));
-        }
-    } catch (error) {
-        console.error('Error accessing camera:', error);
-        setHasCameraPermission(false);
-    }
-  }, [stopCamera]);
-
   useEffect(() => {
-    if (isOpen && !analysisResult) {
-      startCamera();
-    } else {
-      stopCamera();
-    }
-    
-    // Cleanup function to stop camera when component unmounts
-    return () => {
+    async function setupCamera() {
+      if (isOpen && !analysisResult) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          streamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(e => console.error("Play failed:", e));
+          }
+          setHasCameraPermission(true);
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+        }
+      } else {
         stopCamera();
+      }
+    }
+    setupCamera();
+
+    return () => {
+      stopCamera();
     };
-  }, [isOpen, analysisResult, startCamera, stopCamera]);
+  }, [isOpen, analysisResult, stopCamera]);
   
   const handleClose = () => {
     setAnalysisResult(null);
@@ -152,7 +148,6 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
         const context = canvasRef.current.getContext('2d');
         context?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     }
-    // startCamera() will be called by the useEffect
   };
 
   return (
@@ -253,5 +248,3 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
     </Dialog>
   );
 }
-
-    
