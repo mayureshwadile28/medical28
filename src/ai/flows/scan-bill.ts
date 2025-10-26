@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'genkit';
@@ -12,10 +13,11 @@ const ScanBillInputSchema = z.object({
     ),
 });
 
-// The AI will now return a simple string.
-const ScanBillOutputSchema = z.object({
-  description: z.string().describe("A simple text description of the items and quantities found.")
+// This is the internal schema we expect from the AI model.
+const InternalScanOutputSchema = z.object({
+  description: z.string().describe("A simple text description of the items and quantities found, formatted as a comma-separated list. For example: Paracetamol: 2, Aspirin: 1, Band-Aids: 10")
 });
+
 
 export async function scanBill(input: ScanBillInput): Promise<ScanBillOutput> {
     console.log('Starting scanBill flow with input URI starting with:', input.photoDataUri.substring(0, 30));
@@ -23,17 +25,19 @@ export async function scanBill(input: ScanBillInput): Promise<ScanBillOutput> {
         const { output } = await scanBillFlow(input);
         
         if (!output?.description) {
+           console.log('AI returned no description.');
            return { items: [] };
         }
         
-        // Manually parse the AI's text output.
+        // Manually parse the AI's text output into the structured format we need.
         const parsedItems = output.description
           .split(',')
           .map(part => {
               const [name, quantityStr] = part.split(':');
               if (name && quantityStr) {
                   const quantity = parseInt(quantityStr.trim(), 10);
-                  if (!isNaN(quantity)) {
+                  // Ensure the parsed quantity is a valid number
+                  if (!isNaN(quantity) && quantity > 0) {
                       return { name: name.trim(), quantity };
                   }
               }
@@ -41,7 +45,8 @@ export async function scanBill(input: ScanBillInput): Promise<ScanBillOutput> {
           })
           .filter((item): item is { name: string; quantity: number } => item !== null);
 
-        console.log('scanBill flow completed successfully with output:', { items: parsedItems });
+        console.log('scanBill flow completed successfully. Parsed items:', parsedItems);
+        // Return the final, structured output.
         return { items: parsedItems };
 
     } catch (error) {
@@ -53,11 +58,11 @@ export async function scanBill(input: ScanBillInput): Promise<ScanBillOutput> {
 const scanBillPrompt = ai.definePrompt({
   name: 'scanBillPrompt',
   input: { schema: ScanBillInputSchema },
-  output: { schema: ScanBillOutputSchema },
+  output: { schema: InternalScanOutputSchema },
   prompt: `You are an expert at reading medical bills.
 Analyze the provided image and extract all the medicine names and their quantities.
 If the bill contains items that are not medicines, ignore them.
-Return the result as a simple comma-separated list. For example: "Paracetamol: 2, Aspirin: 1, Band-Aids: 10"
+Return the result ONLY as a simple comma-separated list with no other text. For example: "Paracetamol: 2, Aspirin: 1, Band-Aids: 10"
 
 Image: {{media url=photoDataUri}}`,
 });
@@ -66,7 +71,7 @@ const scanBillFlow = ai.defineFlow(
   {
     name: 'scanBillFlow',
     inputSchema: ScanBillInputSchema,
-    outputSchema: ScanBillOutputSchema,
+    outputSchema: InternalScanOutputSchema,
   },
   async (input) => {
     const { output } = await scanBillPrompt(input);
