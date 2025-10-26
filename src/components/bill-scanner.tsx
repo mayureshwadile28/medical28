@@ -31,39 +31,43 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalyzeImageOutput | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const stopCamera = useCallback(() => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+        videoRef.current.srcObject = null;
     }
   }, []);
   
   const startCamera = useCallback(async () => {
+    // Stop any existing camera streams
+    stopCamera();
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        streamRef.current = stream;
         setHasCameraPermission(true);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play(); // Explicitly play the video
+          videoRef.current.play().catch(e => console.error("Play failed:", e));
         }
     } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
     }
-  }, []);
+  }, [stopCamera]);
 
   useEffect(() => {
-    if (isOpen) {
-      if (!analysisResult) {
-        startCamera();
-      }
+    if (isOpen && !analysisResult) {
+      startCamera();
     } else {
       stopCamera();
     }
     
-    // Cleanup function to stop camera when component unmounts or dialog closes
+    // Cleanup function to stop camera when component unmounts
     return () => {
         stopCamera();
     };
@@ -148,7 +152,7 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
         const context = canvasRef.current.getContext('2d');
         context?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     }
-    startCamera();
+    // startCamera() will be called by the useEffect
   };
 
   return (
@@ -164,7 +168,7 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
         <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-muted">
             <video
                 ref={videoRef}
-                className={`h-full w-full object-cover ${analysisResult || !hasCameraPermission ? 'hidden' : ''}`}
+                className={`h-full w-full object-cover ${analysisResult || hasCameraPermission === false ? 'hidden' : ''}`}
                 autoPlay
                 playsInline
                 muted
@@ -249,3 +253,5 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
     </Dialog>
   );
 }
+
+    
