@@ -642,3 +642,5 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     </>
   );
 }
+
+    
