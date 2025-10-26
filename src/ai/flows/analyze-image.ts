@@ -12,41 +12,22 @@ const AnalyzeImageInputSchema = z.object({
     ),
 });
 
-const AnalyzeImageOutputSchema = z.object({
-  description: z.string().describe("A simple text description of the contents of the image."),
-});
-
-
 export async function analyzeImage(input: AnalyzeImageInput): Promise<AnalyzeImageOutput> {
-    console.log('Starting analyzeImage flow with input URI starting with:', input.photoDataUri.substring(0, 30));
-    try {
-        const output = await analyzeImageFlow(input);
-        console.log('analyzeImage flow completed successfully. Description:', output.description);
-        return output;
-    } catch (error) {
-        console.error('Error executing analyzeImageFlow:', error);
-        throw new Error('Failed to analyze the image due to an AI processing error.');
-    }
-}
+  console.log('Starting analyzeImage flow with input URI starting with:', input.photoDataUri.substring(0, 30));
+  
+  try {
+    const { text } = await ai.generate({
+      prompt: `You are an expert at describing images. Analyze the provided image and provide a concise, one-paragraph description of what you see.
+Image: {{media url=${input.photoDataUri}}}`,
+    });
 
-const analyzeImagePrompt = ai.definePrompt({
-  name: 'analyzeImagePrompt',
-  input: { schema: AnalyzeImageInputSchema },
-  output: { schema: AnalyzeImageOutputSchema },
-  prompt: `You are an expert at describing images.
-Analyze the provided image and provide a concise, one-paragraph description of what you see.
+    const description = text || "The AI model did not return a description.";
+    console.log('analyzeImage flow completed successfully. Description:', description);
+    
+    return { description };
 
-Image: {{media url=photoDataUri}}`,
-});
-
-const analyzeImageFlow = ai.defineFlow(
-  {
-    name: 'analyzeImageFlow',
-    inputSchema: AnalyzeImageInputSchema,
-    outputSchema: AnalyzeImageOutputSchema,
-  },
-  async (input) => {
-    const { output } = await analyzeImagePrompt(input);
-    return output!;
+  } catch (error) {
+    console.error('Error executing analyzeImage flow:', error);
+    throw new Error('Failed to analyze the image due to an AI processing error.');
   }
-);
+}
