@@ -86,6 +86,8 @@ export type SaleBillItem = Omit<SaleItem, 'quantity'> & {
 }
 
 // AI Flow Schemas
+
+// For suggest-medicines flow
 export const SuggestMedicinesInputSchema = z.object({
   patient: z.object({
     patientType: z.enum(['Human', 'Animal']),
@@ -107,3 +109,20 @@ export const SuggestMedicinesOutputSchema = z.object({
   ),
 });
 export type SuggestMedicinesOutput = z.infer<typeof SuggestMedicinesOutputSchema>;
+
+
+// For scan-bill flow
+const ScannedItemSchema = z.object({
+  name: z.string().describe('The name of the medicine.'),
+  quantity: z.number().describe('The quantity of the medicine.'),
+});
+
+export const ScanBillOutputSchema = z.object({
+  items: z.array(ScannedItemSchema).describe('An array of medicines found on the bill.'),
+});
+export type ScanBillOutput = z.infer<typeof ScanBillOutputSchema>;
+
+export const ScanBillInputSchema = z.object({
+  photoDataUri: z.string().describe("A photo of the bill, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
+});
+export type ScanBillInput = z.infer<typeof ScanBillInputSchema>;
