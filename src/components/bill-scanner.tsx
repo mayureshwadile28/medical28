@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -35,6 +36,7 @@ export function BillScanner({ isOpen, onClose, inventory, onAddItems }: BillScan
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -49,26 +51,23 @@ export function BillScanner({ isOpen, onClose, inventory, onAddItems }: BillScan
     }
   }, []);
   
-  useEffect(() => {
-    if (isOpen) {
-      const getCameraPermission = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (error) {
-          console.error('Error accessing camera:', error);
-          setHasCameraPermission(false);
-          toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings.',
-          });
+  const startCamera = useCallback(async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        setHasCameraPermission(true);
+        if (videoRef.current) {
+        videoRef.current.srcObject = stream;
         }
-      };
-      getCameraPermission();
+    } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        // Do not show toast here, let the UI show the error message.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && !scannedResult) {
+      startCamera();
     } else {
       stopCamera();
     }
@@ -76,7 +75,7 @@ export function BillScanner({ isOpen, onClose, inventory, onAddItems }: BillScan
     return () => {
         stopCamera();
     };
-  }, [isOpen, stopCamera, toast]);
+  }, [isOpen, startCamera, stopCamera, scannedResult]);
   
   const handleClose = () => {
     setScannedResult(null);
@@ -85,22 +84,24 @@ export function BillScanner({ isOpen, onClose, inventory, onAddItems }: BillScan
     onClose();
   };
 
-  const handleCaptureAndScan = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
+  const processImage = useCallback(async (dataUri: string) => {
     setIsScanning(true);
+    stopCamera();
 
-    const video = videoRef.current;
+    // Draw the image on the canvas to show a preview
     const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const context = canvas.getContext('2d');
-    if (context) {
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUri = canvas.toDataURL('image/jpeg');
-      
-      stopCamera(); // Stop the camera after capturing the image
+    const context = canvas?.getContext('2d');
+    if (canvas && context) {
+        const img = new Image();
+        img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            context.drawImage(img, 0, 0);
+        };
+        img.src = dataUri;
+    }
 
-      try {
+    try {
         const result = await analyzeBillAction({ photoDataUri: dataUri });
         setScannedResult(result);
         const initialSelection: Record<string, boolean> = {};
@@ -112,37 +113,53 @@ export function BillScanner({ isOpen, onClose, inventory, onAddItems }: BillScan
         if (result.items.length === 0) {
             toast({ title: "Scan Complete", description: "The AI couldn't find any medicine items on the bill." });
         }
-      } catch (error: any) {
+    } catch (error: any) {
         console.error(error);
         toast({
-          variant: 'destructive',
-          title: 'Scan Failed',
-          description: error.message || 'The AI failed to process the image.',
+            variant: 'destructive',
+            title: 'Scan Failed',
+            description: error.message || 'The AI failed to process the image.',
         });
         setScannedResult({ items: [] }); // Set to empty result to allow retry
-      } finally {
+    } finally {
         setIsScanning(false);
-      }
     }
+  }, [stopCamera, toast]);
+
+
+  const handleCaptureAndScan = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (context) {
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUri = canvas.toDataURL('image/jpeg');
+      processImage(dataUri);
+    }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUri = e.target?.result as string;
+        processImage(dataUri);
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset file input to allow selecting the same file again
+    if(fileInputRef.current) fileInputRef.current.value = "";
   };
   
   const handleRetry = () => {
     setScannedResult(null);
     setSelectedItems({});
-    // Re-request camera access
-     const getCameraPermission = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (error) {
-          console.error('Error accessing camera:', error);
-          setHasCameraPermission(false);
-        }
-      };
-      getCameraPermission();
+    startCamera();
   };
 
   const handleAddSelectedToBill = () => {
@@ -219,47 +236,52 @@ export function BillScanner({ isOpen, onClose, inventory, onAddItems }: BillScan
         <DialogHeader>
           <DialogTitle>Scan Medical Bill</DialogTitle>
           <DialogDescription>
-            Point your camera at a bill or prescription. The AI will try to extract the items.
+            Point your camera at a bill, or upload an image. The AI will try to extract the items.
           </DialogDescription>
         </DialogHeader>
 
         <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-muted">
-            {!scannedResult && (
-                <>
-                    <video
-                        ref={videoRef}
-                        className="h-full w-full object-cover"
-                        autoPlay
-                        playsInline
-                        muted
-                    />
-                    {isScanning && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white">
-                            <Loader2 className="mb-4 h-10 w-10 animate-spin" />
-                            <p className="text-lg font-semibold">Scanning...</p>
-                        </div>
-                    )}
-                    {hasCameraPermission === false && (
-                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background p-4">
-                            <Alert variant="destructive">
-                                <Camera className="h-4 w-4" />
-                                <AlertTitle>Camera Access Required</AlertTitle>
-                                <AlertDescription>
-                                Please allow camera access in your browser settings to use the scanner.
-                                </AlertDescription>
-                            </Alert>
-                         </div>
-                    )}
-                </>
+            {!scannedResult && hasCameraPermission && (
+                <video
+                    ref={videoRef}
+                    className="h-full w-full object-cover"
+                    autoPlay
+                    playsInline
+                    muted
+                />
+            )}
+            
+            {isScanning && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white z-10">
+                    <Loader2 className="mb-4 h-10 w-10 animate-spin" />
+                    <p className="text-lg font-semibold">Scanning...</p>
+                    <p className="text-sm">This may take a moment.</p>
+                </div>
             )}
 
-             {scannedResult && (
-                 <canvas ref={canvasRef} className="h-full w-full object-contain" />
-             )}
+            {(hasCameraPermission === false && !scannedResult) && (
+                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-background p-4">
+                    <Alert variant="destructive">
+                        <Camera className="h-4 w-4" />
+                        <AlertTitle>Camera Access Required</AlertTitle>
+                        <AlertDescription>
+                        Please allow camera access in your browser settings to use the scanner, or upload an image instead.
+                        </AlertDescription>
+                    </Alert>
+                 </div>
+            )}
+
+             <canvas ref={canvasRef} className="h-full w-full object-contain" />
         </div>
         
-        {/* Hidden canvas for capturing image */}
-        <canvas ref={canvasRef} style={{ display: 'none' }} />
+        {/* Hidden file input */}
+        <input 
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/png, image/jpeg, image/webp"
+            style={{ display: 'none' }}
+        />
 
         {scannedResult && (
             <div>
@@ -319,13 +341,19 @@ export function BillScanner({ isOpen, onClose, inventory, onAddItems }: BillScan
             </div>
         )}
 
-        <DialogFooter className="gap-2 sm:justify-between">
+        <DialogFooter className="gap-2 flex-col sm:flex-row sm:justify-between">
           <div>
             {!scannedResult ? (
-              <Button onClick={handleCaptureAndScan} disabled={!hasCameraPermission || isScanning} className="w-full sm:w-auto">
-                {isScanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                Capture & Scan
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={handleCaptureAndScan} disabled={!hasCameraPermission || isScanning} className="flex-1 sm:flex-initial">
+                  {isScanning ? <Loader2 className="mr-2 animate-spin" /> : <Camera className="mr-2" />}
+                  Capture & Scan
+                </Button>
+                <Button variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={isScanning} className="flex-1 sm:flex-initial">
+                   {isScanning ? <Loader2 className="mr-2 animate-spin" /> : <ImageUp className="mr-2" />}
+                   Upload Image
+                </Button>
+              </div>
             ) : (
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={handleRetry}>
@@ -350,3 +378,5 @@ export function BillScanner({ isOpen, onClose, inventory, onAddItems }: BillScan
     </Dialog>
   );
 }
+
+    
