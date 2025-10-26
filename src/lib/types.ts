@@ -1,4 +1,3 @@
-import { z } from 'zod';
 
 export type TabletStock = {
   tablets: number; // Total number of tablets/capsules
@@ -102,15 +101,3 @@ export interface SuggestMedicinesOutput {
     reason: string;
   }[];
 }
-
-
-// For scan-bill flow - Simplified for debugging
-export const ScanBillOutputSchema = z.object({
-  description: z.string().describe('A description of the image contents.'),
-});
-export type ScanBillOutput = z.infer<typeof ScanBillOutputSchema>;
-
-export const ScanBillInputSchema = z.object({
-  photoDataUri: z.string().describe("A photo of the bill, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
-});
-export type ScanBillInput = z.infer<typeof ScanBillInputSchema>;
