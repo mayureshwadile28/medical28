@@ -8,7 +8,7 @@ const ScannedItemSchema = z.object({
   quantity: z.number().describe('The quantity of the medicine.'),
 });
 
-export const ScanBillOutputSchema = z.object({
+const ScanBillOutputSchema = z.object({
   items: z.array(ScannedItemSchema).describe('An array of medicines found on the bill.'),
 });
 export type ScanBillOutput = z.infer<typeof ScanBillOutputSchema>;

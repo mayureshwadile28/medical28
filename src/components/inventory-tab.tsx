@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock, Camera } from 'lucide-react';
 import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
@@ -46,6 +46,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { BillScanner } from './bill-scanner';
 
 interface InventoryTabProps {
   medicines: Medicine[];
@@ -83,6 +84,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('expiry_asc');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -351,6 +353,24 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const triggerFileSelect = () => {
     fileInputRef.current?.click();
   };
+  
+  const handleInventoryUpdateFromScan = (updates: { medicineId: string; newStock: number }[]) => {
+    setMedicines(prevMeds => {
+        const newMeds = [...prevMeds];
+        updates.forEach(update => {
+            const medIndex = newMeds.findIndex(m => m.id === update.medicineId);
+            if (medIndex !== -1) {
+                const med = newMeds[medIndex];
+                if (isTablet(med)) {
+                    med.stock.tablets = update.newStock;
+                } else {
+                    med.stock.quantity = update.newStock;
+                }
+            }
+        });
+        return newMeds;
+    });
+  };
 
   return (
     <>
@@ -359,19 +379,23 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
            <CardTitle>Inventory ({medicines.length} items)</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button variant="outline" asChild>
-                <Link href="/expiry-report">
-                    <CalendarClock className="mr-2 h-4 w-4" /> 
-                    Expiry Report
-                </Link>
-            </Button>
-            <Button variant="outline" asChild>
-                <Link href="/out-of-stock">
-                    <Bell className="mr-2 h-4 w-4" /> 
-                    Out of Stock
-                    {outOfStockMedicines.length > 0 && <Badge variant="destructive" className="ml-2">{outOfStockMedicines.length}</Badge>}
-                </Link>
-            </Button>
+            <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Camera className="mr-2 h-4 w-4" /> Update from Bill
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Scan Bill to Update Inventory</DialogTitle>
+                </DialogHeader>
+                <BillScanner 
+                  inventory={medicines} 
+                  onUpdateInventory={handleInventoryUpdateFromScan}
+                  onClose={() => setIsScannerOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
 
             <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
@@ -406,6 +430,19 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
             />
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" asChild>
+                <Link href="/expiry-report">
+                    <CalendarClock className="mr-2 h-4 w-4" /> 
+                    Expiry Report
+                </Link>
+            </Button>
+            <Button variant="outline" asChild>
+                <Link href="/out-of-stock">
+                    <Bell className="mr-2 h-4 w-4" /> 
+                    Out of Stock
+                    {outOfStockMedicines.length > 0 && <Badge variant="destructive" className="ml-2">{outOfStockMedicines.length}</Badge>}
+                </Link>
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full justify-start md:w-auto">
