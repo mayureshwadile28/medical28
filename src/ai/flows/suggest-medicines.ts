@@ -1,5 +1,8 @@
 
-import { Medicine, SuggestMedicinesInput, SuggestMedicinesOutput, isTablet } from '@/lib/types';
+'use server';
+
+import { ai } from '@/ai/genkit';
+import { Medicine, SuggestMedicinesInput, SuggestMedicinesInputSchema, SuggestMedicinesOutput, SuggestMedicinesOutputSchema, isTablet } from '@/lib/types';
 
 
 export async function suggestMedicines(input: SuggestMedicinesInput): Promise<SuggestMedicinesOutput> {
