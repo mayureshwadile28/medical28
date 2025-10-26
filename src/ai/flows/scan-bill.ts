@@ -22,7 +22,7 @@ For each item on the bill, identify the medicine name and the quantity purchased
 Return the data as a structured list of items. If no valid items are found, return an empty list.`;
 
     const { output } = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-1.5-flash-latest',
       prompt: [
         { text: prompt },
         { media: { url: input.photoDataUri } },
