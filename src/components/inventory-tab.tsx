@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -36,7 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock, ScanLine } from 'lucide-react';
 import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
@@ -46,6 +45,8 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { BillScanner } from './bill-scanner';
+import { SaleItem } from '@/lib/types';
 
 interface InventoryTabProps {
   medicines: Medicine[];
@@ -92,6 +93,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const [pendingMedicine, setPendingMedicine] = useState<Medicine | null>(null);
   const [isImportAlertOpen, setIsImportAlertOpen] = useState(false);
   const [importMode, setImportMode] = useState<ImportMode>('merge');
+  const [showBillScanner, setShowBillScanner] = useState(false);
 
   // State for sequential import with user prompts
   const [importQueue, setImportQueue] = useState<Medicine[]>([]);
@@ -351,6 +353,32 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const triggerFileSelect = () => {
     fileInputRef.current?.click();
   };
+
+  const handleAddScannedItems = (items: SaleItem[]) => {
+    const updatedMedicines = [...medicines];
+    const itemsAdded: string[] = [];
+
+    items.forEach(scannedItem => {
+        const medIndex = updatedMedicines.findIndex(m => m.id === scannedItem.medicineId);
+        if (medIndex !== -1) {
+            const med = updatedMedicines[medIndex];
+            if (isTablet(med)) {
+                med.stock.tablets += scannedItem.quantity as number;
+            } else {
+                med.stock.quantity += scannedItem.quantity as number;
+            }
+            itemsAdded.push(`${scannedItem.name} (x${scannedItem.quantity})`);
+        }
+    });
+
+    if (itemsAdded.length > 0) {
+        setMedicines(updatedMedicines);
+        toast({
+            title: 'Inventory Updated',
+            description: `Stock added for: ${itemsAdded.join(', ')}`,
+        });
+    }
+  };
   
   return (
     <>
@@ -359,6 +387,10 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
            <CardTitle>Inventory ({medicines.length} items)</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowBillScanner(true)}>
+                <ScanLine className="mr-2 h-4 w-4" />
+                Update from Bill
+            </Button>
             <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
                     <Button onClick={() => setEditingMedicine(null)}>
@@ -639,6 +671,13 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
+    
+    <BillScanner 
+        isOpen={showBillScanner}
+        onClose={() => setShowBillScanner(false)}
+        inventory={medicines}
+        onAddItems={handleAddScannedItems}
+    />
     </>
   );
 }

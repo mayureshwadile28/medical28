@@ -1,4 +1,5 @@
 
+
 export type TabletStock = {
   tablets: number; // Total number of tablets/capsules
 };
@@ -101,3 +102,16 @@ export interface SuggestMedicinesOutput {
     reason: string;
   }[];
 }
+
+
+// AI Bill Scanner Types
+export type ScanBillInput = {
+  photoDataUri: string;
+};
+
+export type ScanBillOutput = {
+  items: {
+    name: string;
+    quantity: number;
+  }[];
+};
