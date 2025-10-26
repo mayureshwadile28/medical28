@@ -14,16 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Camera, ImageUp, Loader2, RefreshCw, ScanLine, X } from 'lucide-react';
-import { type Medicine, type SaleItem, AnalyzeImageOutput } from '@/lib/types';
+import { type AnalyzeImageOutput } from '@/lib/types';
 import { analyzeImageAction } from '@/app/actions';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 
 interface ImageAnalyzerProps {
   isOpen: boolean;
@@ -53,26 +45,29 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
         setHasCameraPermission(true);
         if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+          videoRef.current.srcObject = stream;
+          videoRef.current.play(); // Explicitly play the video
         }
     } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
-        // Do not show toast here, let the UI show the error message.
     }
   }, []);
 
   useEffect(() => {
-    if (isOpen && !analysisResult) {
-      startCamera();
+    if (isOpen) {
+      if (!analysisResult) {
+        startCamera();
+      }
     } else {
       stopCamera();
     }
     
+    // Cleanup function to stop camera when component unmounts or dialog closes
     return () => {
         stopCamera();
     };
-  }, [isOpen, startCamera, stopCamera, analysisResult]);
+  }, [isOpen, analysisResult, startCamera, stopCamera]);
   
   const handleClose = () => {
     setAnalysisResult(null);
@@ -84,7 +79,6 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
     setIsScanning(true);
     stopCamera();
 
-    // Draw the image on the canvas to show a preview
     const canvas = canvasRef.current;
     const context = canvas?.getContext('2d');
     if (canvas && context) {
@@ -111,7 +105,7 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
             title: 'Analysis Failed',
             description: error.message || 'The AI failed to process the image.',
         });
-        setAnalysisResult({ description: 'Analysis failed. Please try again.' }); // Set to empty result to allow retry
+        setAnalysisResult({ description: 'Analysis failed. Please try again.' });
     } finally {
         setIsScanning(false);
     }
@@ -139,16 +133,21 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
       const reader = new FileReader();
       reader.onload = (e) => {
         const dataUri = e.target?.result as string;
-        processImage(dataUri);
+        if(dataUri) {
+          processImage(dataUri);
+        }
       };
       reader.readAsDataURL(file);
     }
-    // Reset file input to allow selecting the same file again
     if(fileInputRef.current) fileInputRef.current.value = "";
   };
   
   const handleRetry = () => {
     setAnalysisResult(null);
+    if(canvasRef.current) {
+        const context = canvasRef.current.getContext('2d');
+        context?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
     startCamera();
   };
 
@@ -163,15 +162,13 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
         </DialogHeader>
 
         <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-muted">
-            {!analysisResult && hasCameraPermission && (
-                <video
-                    ref={videoRef}
-                    className="h-full w-full object-cover"
-                    autoPlay
-                    playsInline
-                    muted
-                />
-            )}
+            <video
+                ref={videoRef}
+                className={`h-full w-full object-cover ${analysisResult || !hasCameraPermission ? 'hidden' : ''}`}
+                autoPlay
+                playsInline
+                muted
+            />
             
             {isScanning && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white z-10">
@@ -193,10 +190,9 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
                  </div>
             )}
 
-             <canvas ref={canvasRef} className="h-full w-full object-contain" />
+             <canvas ref={canvasRef} className={`h-full w-full object-contain ${!analysisResult ? 'hidden' : ''}`} />
         </div>
         
-        {/* Hidden file input */}
         <input 
             type="file"
             ref={fileInputRef}
@@ -208,7 +204,7 @@ export function BillScanner({ isOpen, onClose }: ImageAnalyzerProps) {
         {analysisResult && (
             <div>
                 <h3 className="font-semibold mb-2">AI Description:</h3>
-                {analysisResult.description ? (
+                {analysisResult.description && analysisResult.description !== 'Analysis failed. Please try again.' ? (
                     <div className="max-h-60 overflow-y-auto rounded-md border p-4 bg-muted/50">
                         <p className="text-foreground">{analysisResult.description}</p>
                     </div>
