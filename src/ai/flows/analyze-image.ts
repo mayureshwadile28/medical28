@@ -9,9 +9,11 @@ export async function analyzeImage(input: AnalyzeImageInput): Promise<AnalyzeIma
   
   try {
     const { text } = await ai.generate({
-      prompt: `You are an expert at describing images. Analyze the provided image. Determine if the main subject is a human or an object. If it is a human, identify if they are male or female. Provide a concise, one-paragraph description based on your analysis.`,
-      input: { photoDataUri: input.photoDataUri },
       model: 'gemini-1.5-flash-latest',
+      prompt: [
+        { text: 'You are an expert at describing images. Analyze the provided image. Determine if the main subject is a human or an object. If it is a human, identify if they are male or female. Provide a concise, one-paragraph description based on your analysis.'},
+        { media: { url: input.photoDataUri } }
+      ],
     });
 
     const description = text || "The AI model did not return a description.";
