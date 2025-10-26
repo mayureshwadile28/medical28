@@ -1,3 +1,4 @@
+
 'use server';
 
 import { ai } from '@/ai/genkit';
@@ -18,7 +19,7 @@ const scanBillFlow = ai.defineFlow(
         name: 'scanBillPrompt',
         input: { schema: ScanBillInputSchema },
         output: { schema: ScanBillOutputSchema },
-        model: 'googleai/gemini-1.5-flash',
+        model: 'googleai/gemini-pro-vision',
         prompt: `You are a pharmacy inventory assistant. Your task is to read the provided image of a bill or invoice and extract the medicine names and their quantities.
 
 For each item on the bill, identify the medicine name and the quantity purchased. Ignore prices, taxes, and other details.
