@@ -1,6 +1,4 @@
 
-'use server';
-
 import { Medicine, SuggestMedicinesInput, SuggestMedicinesOutput, isTablet } from '@/lib/types';
 
 
