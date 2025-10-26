@@ -23,6 +23,7 @@ export async function analyzeImage(input: AnalyzeImageInput): Promise<AnalyzeIma
 
   } catch (error) {
     console.error('Error executing analyzeImage flow:', error);
-    throw new Error('Failed to analyze the image due to an AI processing error.');
+    // Re-throwing the original error to be caught by the server action
+    throw error;
   }
 }
