@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'genkit';
@@ -18,7 +19,8 @@ export async function analyzeImage(input: AnalyzeImageInput): Promise<AnalyzeIma
   try {
     const { text } = await ai.generate({
       prompt: `You are an expert at describing images. Analyze the provided image and provide a concise, one-paragraph description of what you see.
-Image: {{media url=${input.photoDataUri}}}`,
+Image: {{media url=photoDataUri}}`,
+      input: { photoDataUri: input.photoDataUri }
     });
 
     const description = text || "The AI model did not return a description.";
