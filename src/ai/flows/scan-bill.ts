@@ -3,22 +3,11 @@
 
 import { ai } from '@/ai/genkit';
 import { ScanBillInput, ScanBillInputSchema, ScanBillOutput, ScanBillOutputSchema } from '@/lib/types';
+import { z } from 'zod';
 
 export async function scanBill(input: ScanBillInput): Promise<ScanBillOutput> {
   return scanBillFlow(input);
 }
-
-const scanBillPrompt = ai.definePrompt(
-  {
-    name: 'scanBillPrompt',
-    input: { schema: ScanBillInputSchema },
-    output: { schema: ScanBillOutputSchema },
-    prompt: `Describe the contents of the image.
-
-Image: {{media url=photoDataUri}}`,
-    model: 'googleai/gemini-1.5-flash-latest',
-  },
-);
 
 const scanBillFlow = ai.defineFlow(
   {
@@ -27,7 +16,18 @@ const scanBillFlow = ai.defineFlow(
     outputSchema: ScanBillOutputSchema,
   },
   async (input) => {
-    const { output } = await scanBillPrompt(input);
-    return output!;
+    // Call the model directly instead of using a pre-defined prompt object,
+    // to avoid the issues with responseSchema.
+    const { text } = await ai.generate({
+      model: 'googleai/gemini-1.5-flash-latest',
+      prompt: `Describe the contents of the image.
+
+Image: {{media url=photoDataUri}}`,
+      // Pass the input variables to the prompt template.
+      input: input
+    });
+    
+    // Manually construct the output object to match the expected schema.
+    return { description: text };
   }
 );
