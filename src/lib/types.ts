@@ -85,30 +85,24 @@ export type SaleBillItem = Omit<SaleItem, 'quantity'> & {
   quantity: number;
 }
 
-// AI Flow Schemas
+// Client-side types for non-AI suggestion flow
+export interface SuggestMedicinesInput {
+  patient: {
+    patientType: 'Human' | 'Animal';
+    age?: number;
+    gender?: 'Male' | 'Female' | 'Both';
+    illnesses: string[];
+  };
+  inventory: Medicine[];
+}
 
-// For suggest-medicines flow
-export const SuggestMedicinesInputSchema = z.object({
-  patient: z.object({
-    patientType: z.enum(['Human', 'Animal']),
-    age: z.number().optional(),
-    gender: z.enum(['Male', 'Female', 'Both']).optional(),
-    illnesses: z.array(z.string()),
-  }),
-  inventory: z.array(z.any()), // Using z.any() for the full medicine object
-});
-export type SuggestMedicinesInput = z.infer<typeof SuggestMedicinesInputSchema>;
-
-export const SuggestMedicinesOutputSchema = z.object({
-  suggestions: z.array(
-    z.object({
-      medicineId: z.string(),
-      name: z.string(),
-      reason: z.string(),
-    })
-  ),
-});
-export type SuggestMedicinesOutput = z.infer<typeof SuggestMedicinesOutputSchema>;
+export interface SuggestMedicinesOutput {
+  suggestions: {
+    medicineId: string;
+    name: string;
+    reason: string;
+  }[];
+}
 
 
 // For scan-bill flow
