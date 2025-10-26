@@ -31,7 +31,7 @@ const prompt = ai.definePrompt({
 
 For each item on the bill, identify the medicine name and the quantity purchased. Ignore prices, taxes, and other details.
 
-Return the data as a structured list of items.
+Return the data as a structured list of items. If no valid items are found, return an empty list.
 
 Bill Image: {{media url=photoDataUri}}`,
 });
@@ -43,7 +43,10 @@ const scanBillFlow = ai.defineFlow(
     outputSchema: ScanBillOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
+    const { output } = await prompt({
+      ...input,
+      model: 'googleai/gemini-1.5-flash-latest'
+    });
     return output!;
   }
 );
