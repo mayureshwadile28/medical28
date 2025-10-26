@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table';
 import { isTablet, type Medicine } from '@/lib/types';
 import { Badge } from './ui/badge';
+import { Textarea } from './ui/textarea';
 
 interface BillScannerProps {
   inventory: Medicine[];
@@ -25,19 +26,11 @@ interface BillScannerProps {
 }
 
 type ScanStep = 'requesting' | 'ready' | 'scanning' | 'confirming' | 'error';
-type ScannedItem = ScanBillOutput['items'][0];
-
-interface MappedItem extends ScannedItem {
-  medicineId?: string;
-  currentStock?: number;
-  newStock?: number;
-  status: 'found' | 'not-found' | 'out-of-stock';
-}
 
 export function BillScanner({ inventory, onUpdateInventory, onClose }: BillScannerProps) {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [step, setStep] = useState<ScanStep>('requesting');
-  const [scannedItems, setScannedItems] = useState<MappedItem[]>([]);
+  const [description, setDescription] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,45 +78,25 @@ export function BillScanner({ inventory, onUpdateInventory, onClose }: BillScann
     setStep('scanning');
     try {
       const result = await scanBill({ photoDataUri });
-      if (!result || result.items.length === 0) {
+      if (!result || !result.description) {
         toast({
           variant: 'destructive',
           title: 'Scan Failed',
-          description: 'Could not detect any items on the bill. Please try again.',
+          description: 'Could not get a description from the image. Please try again.',
         });
         setStep('ready');
         return;
       }
-
-      const mappedItems: MappedItem[] = result.items.map(item => {
-        const foundMedicine = inventory.find(
-          med => med.name.toLowerCase() === item.name.toLowerCase()
-        );
-
-        if (foundMedicine) {
-            const currentStock = isTablet(foundMedicine) ? foundMedicine.stock.tablets : foundMedicine.stock.quantity;
-            return {
-                ...item,
-                medicineId: foundMedicine.id,
-                currentStock: currentStock,
-                newStock: currentStock + item.quantity,
-                status: 'found',
-            }
-        } else {
-            return {
-                ...item,
-                status: 'not-found',
-            }
-        }
-      });
-      setScannedItems(mappedItems);
+      
+      setDescription(result.description);
       setStep('confirming');
+
     } catch (e: any) {
       console.error(e);
       toast({
         variant: 'destructive',
         title: 'AI Error',
-        description: e.message || 'The AI model failed to process the bill.',
+        description: e.message || 'The AI model failed to process the image.',
       });
       setStep('ready');
     }
@@ -159,21 +132,6 @@ export function BillScanner({ inventory, onUpdateInventory, onClose }: BillScann
     if(fileInputRef.current) fileInputRef.current.value = "";
   }
   
-  const handleConfirmUpdate = () => {
-    const updates = scannedItems
-        .filter(item => item.status === 'found' && item.medicineId && item.newStock !== undefined)
-        .map(item => ({
-            medicineId: item.medicineId!,
-            newStock: item.newStock!,
-        }));
-    
-    onUpdateInventory(updates);
-    toast({
-        title: 'Inventory Updated',
-        description: `${updates.length} item(s) have been updated successfully.`
-    });
-    onClose();
-  }
 
   const renderContent = () => {
     switch (step) {
@@ -236,44 +194,18 @@ export function BillScanner({ inventory, onUpdateInventory, onClose }: BillScann
       case 'confirming':
         return (
             <div className='space-y-4'>
-                <h3 className='font-semibold text-lg'>Confirm Inventory Updates</h3>
-                <p className='text-sm text-muted-foreground'>The AI has scanned the following items. Please review and confirm the stock updates.</p>
-                <div className="rounded-md border max-h-60 overflow-y-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Medicine</TableHead>
-                                <TableHead>Qty</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Stock Update</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {scannedItems.map((item, index) => (
-                                <TableRow key={index}>
-                                    <TableCell className='font-medium'>{item.name}</TableCell>
-                                    <TableCell>{item.quantity}</TableCell>
-                                    <TableCell>
-                                        {item.status === 'found' && <Badge variant='secondary' className='bg-green-600/20 text-green-200 border-green-600/40'>Found</Badge>}
-                                        {item.status === 'not-found' && <Badge variant='destructive'>Not Found</Badge>}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        {item.status === 'found' ? (
-                                            <span>{item.currentStock} &rarr; {item.newStock}</span>
-                                        ): (
-                                            <span className='text-muted-foreground'>-</span>
-                                        )}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
+                <h3 className='font-semibold text-lg'>Image Description</h3>
+                <p className='text-sm text-muted-foreground'>The AI provided the following description for your image:</p>
+                <Textarea
+                    readOnly
+                    value={description}
+                    className="min-h-[150px] max-h-60"
+                />
                 <div className='flex justify-end gap-2'>
                     <Button variant='ghost' onClick={() => setStep('ready')}>Scan Again</Button>
-                    <Button onClick={handleConfirmUpdate}>
+                    <Button onClick={onClose}>
                         <CheckCircle className='mr-2 h-4 w-4' />
-                        Confirm and Update Stock
+                        Done
                     </Button>
                 </div>
             </div>

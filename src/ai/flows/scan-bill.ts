@@ -13,13 +13,9 @@ const scanBillPrompt = ai.definePrompt(
     name: 'scanBillPrompt',
     input: { schema: ScanBillInputSchema },
     output: { schema: ScanBillOutputSchema },
-    prompt: `You are a pharmacy inventory assistant. Your task is to read the provided image of a bill or invoice and extract the medicine names and their quantities.
+    prompt: `Describe the contents of the image.
 
-For each item on the bill, identify the medicine name and the quantity purchased. Ignore prices, taxes, and other details.
-
-Return the data as a structured list of items. If no valid items are found, return an empty list.
-
-Image of the bill: {{media url=photoDataUri}}`,
+Image: {{media url=photoDataUri}}`,
     model: 'googleai/gemini-1.5-flash-latest',
   },
 );

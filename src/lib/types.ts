@@ -104,14 +104,9 @@ export interface SuggestMedicinesOutput {
 }
 
 
-// For scan-bill flow
-const ScannedItemSchema = z.object({
-  name: z.string().describe('The name of the medicine.'),
-  quantity: z.number().describe('The quantity of the medicine.'),
-});
-
+// For scan-bill flow - Simplified for debugging
 export const ScanBillOutputSchema = z.object({
-  items: z.array(ScannedItemSchema).describe('An array of medicines found on the bill.'),
+  description: z.string().describe('A description of the image contents.'),
 });
 export type ScanBillOutput = z.infer<typeof ScanBillOutputSchema>;
 
