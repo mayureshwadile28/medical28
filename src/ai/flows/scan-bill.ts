@@ -15,21 +15,23 @@ const scanBillFlow = ai.defineFlow(
     outputSchema: ScanBillOutputSchema,
   },
   async (input) => {
-    const prompt = ai.definePrompt({
-        name: 'scanBillPrompt',
-        input: { schema: ScanBillInputSchema },
-        output: { schema: ScanBillOutputSchema },
-        model: 'googleai/gemini-pro',
-        prompt: `You are a pharmacy inventory assistant. Your task is to read the provided image of a bill or invoice and extract the medicine names and their quantities.
+    const prompt = `You are a pharmacy inventory assistant. Your task is to read the provided image of a bill or invoice and extract the medicine names and their quantities.
 
 For each item on the bill, identify the medicine name and the quantity purchased. Ignore prices, taxes, and other details.
 
-Return the data as a structured list of items. If no valid items are found, return an empty list.
+Return the data as a structured list of items. If no valid items are found, return an empty list.`;
 
-Bill Image: {{media url=photoDataUri}}`,
+    const { output } = await ai.generate({
+      model: 'googleai/gemini-1.5-flash',
+      prompt: [
+        { text: prompt },
+        { media: { url: input.photoDataUri } },
+      ],
+      output: {
+        schema: ScanBillOutputSchema,
+      },
     });
-    
-    const { output } = await prompt(input);
-    return output!;
+
+    return output;
   }
 );
