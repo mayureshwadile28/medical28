@@ -104,14 +104,11 @@ export interface SuggestMedicinesOutput {
 }
 
 
-// AI Bill Scanner Types
-export type ScanBillInput = {
+// AI Image Analyzer Types
+export type AnalyzeImageInput = {
   photoDataUri: string;
 };
 
-export type ScanBillOutput = {
-  items: {
-    name: string;
-    quantity: number;
-  }[];
+export type AnalyzeImageOutput = {
+  description: string;
 };

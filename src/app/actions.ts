@@ -1,15 +1,15 @@
 'use server';
 
-import { scanBill } from '@/ai/flows/scan-bill';
-import { ScanBillInput, ScanBillOutput } from '@/lib/types';
+import { analyzeImage } from '@/ai/flows/analyze-image';
+import { AnalyzeImageInput, AnalyzeImageOutput } from '@/lib/types';
 
-export async function analyzeBillAction(input: ScanBillInput): Promise<ScanBillOutput> {
+export async function analyzeImageAction(input: AnalyzeImageInput): Promise<AnalyzeImageOutput> {
   try {
-    const result = await scanBill(input);
+    const result = await analyzeImage(input);
     return result;
   } catch (error) {
-    console.error('Error in analyzeBillAction:', error);
+    console.error('Error in analyzeImageAction:', error);
     // Propagate a user-friendly error message
-    throw new Error('The AI model failed to process the bill. Please try again.');
+    throw new Error('The AI model failed to process the image. Please try again.');
   }
 }

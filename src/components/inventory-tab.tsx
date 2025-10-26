@@ -93,7 +93,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const [pendingMedicine, setPendingMedicine] = useState<Medicine | null>(null);
   const [isImportAlertOpen, setIsImportAlertOpen] = useState(false);
   const [importMode, setImportMode] = useState<ImportMode>('merge');
-  const [showBillScanner, setShowBillScanner] = useState(false);
+  const [showImageAnalyzer, setShowImageAnalyzer] = useState(false);
 
   // State for sequential import with user prompts
   const [importQueue, setImportQueue] = useState<Medicine[]>([]);
@@ -353,32 +353,6 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const triggerFileSelect = () => {
     fileInputRef.current?.click();
   };
-
-  const handleAddScannedItems = (items: SaleItem[]) => {
-    const updatedMedicines = [...medicines];
-    const itemsAdded: string[] = [];
-
-    items.forEach(scannedItem => {
-        const medIndex = updatedMedicines.findIndex(m => m.id === scannedItem.medicineId);
-        if (medIndex !== -1) {
-            const med = updatedMedicines[medIndex];
-            if (isTablet(med)) {
-                med.stock.tablets += scannedItem.quantity as number;
-            } else {
-                med.stock.quantity += scannedItem.quantity as number;
-            }
-            itemsAdded.push(`${scannedItem.name} (x${scannedItem.quantity})`);
-        }
-    });
-
-    if (itemsAdded.length > 0) {
-        setMedicines(updatedMedicines);
-        toast({
-            title: 'Inventory Updated',
-            description: `Stock added for: ${itemsAdded.join(', ')}`,
-        });
-    }
-  };
   
   return (
     <>
@@ -387,9 +361,9 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
            <CardTitle>Inventory ({medicines.length} items)</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowBillScanner(true)}>
+            <Button variant="outline" onClick={() => setShowImageAnalyzer(true)}>
                 <ScanLine className="mr-2 h-4 w-4" />
-                Update from Bill
+                Image Analyzer
             </Button>
             <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
@@ -673,13 +647,9 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     </AlertDialog>
     
     <BillScanner 
-        isOpen={showBillScanner}
-        onClose={() => setShowBillScanner(false)}
-        inventory={medicines}
-        onAddItems={handleAddScannedItems}
+        isOpen={showImageAnalyzer}
+        onClose={() => setShowImageAnalyzer(false)}
     />
     </>
   );
 }
-
-    
