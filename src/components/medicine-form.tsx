@@ -31,7 +31,7 @@ const formSchema = z.object({
     message: 'Expiry date cannot be in the past.',
   }),
   price: z.coerce.number().positive('Price must be a positive number.'),
-  stock_strips: z.coerce.number().int().min(0).optional(),
+  stock_strips: z.coerce.number().min(0).optional(),
   stock_quantity: z.coerce.number().int().min(0).optional(),
   tablets_per_strip: z.coerce.number().int().min(1).optional(),
   // Description fields
@@ -239,11 +239,12 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
 
 
     if (finalCategory === 'Tablet' || finalCategory === 'Capsule') {
+        const totalTablets = Math.round((values.stock_strips || 0) * (values.tablets_per_strip || 10));
         medicineData = {
             ...baseData,
             category: finalCategory,
             tabletsPerStrip: values.tablets_per_strip || 10,
-            stock: { tablets: (values.stock_strips || 0) * (values.tablets_per_strip || 10) }
+            stock: { tablets: totalTablets }
         } as any;
     } else {
         medicineData = {
@@ -360,7 +361,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
                 <FormItem>
                   <FormLabel>Number of Strips</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder={'e.g., 10'} {...field} value={field.value ?? ''} />
+                    <Input type="number" step="0.1" placeholder={'e.g., 10.5'} {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -537,5 +538,3 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
     </Form>
   );
 }
-
-    
