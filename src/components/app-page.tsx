@@ -26,12 +26,13 @@ function LicenseDialog({
   onLicenseValid,
   onLicenseCreated,
   hasLicenseBeenCreated,
+  storedLicenseKey, // Receive the key as a prop
 }: {
   onLicenseValid: () => void;
   onLicenseCreated: (newKey: string) => void;
   hasLicenseBeenCreated: boolean;
+  storedLicenseKey: string | null;
 }) {
-  const [storedLicenseKey] = useLocalStorage<string | null>('vicky-medical-license', null);
   const [dialogState, setDialogState] = useState<DialogState>(
     hasLicenseBeenCreated ? 'request_license' : 'request_master_password'
   );
@@ -71,6 +72,7 @@ function LicenseDialog({
       description: 'The application can now be activated with the new key.',
     });
     setDialogState('request_license');
+    setInput(''); // Clear the input field for the next step
     setNewLicenseKey('');
   };
 
@@ -269,6 +271,7 @@ export default function AppPage() {
           onLicenseValid={handleLicenseValidation}
           onLicenseCreated={handleLicenseCreation}
           hasLicenseBeenCreated={hasLicenseBeenCreated}
+          storedLicenseKey={licenseKey}
         />
       )}
       <main className={`min-h-screen bg-background text-foreground ${!isLicensed ? 'blur-sm pointer-events-none' : ''}`}>
@@ -337,5 +340,3 @@ export default function AppPage() {
     </>
   );
 }
-
-    
