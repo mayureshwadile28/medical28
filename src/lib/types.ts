@@ -103,12 +103,4 @@ export interface SuggestMedicinesOutput {
   }[];
 }
 
-
-// AI Image Analyzer Types
-export type AnalyzeImageInput = {
-  photoDataUri: string;
-};
-
-export type AnalyzeImageOutput = {
-  description: string;
-};
+    

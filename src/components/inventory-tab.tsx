@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock, ScanLine } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock } from 'lucide-react';
 import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
@@ -46,7 +46,6 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { BillScanner } from './bill-scanner';
 import { SaleItem } from '@/lib/types';
 
 interface InventoryTabProps {
@@ -94,7 +93,6 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   const [pendingMedicine, setPendingMedicine] = useState<Medicine | null>(null);
   const [isImportAlertOpen, setIsImportAlertOpen] = useState(false);
   const [importMode, setImportMode] = useState<ImportMode>('merge');
-  const [showImageAnalyzer, setShowImageAnalyzer] = useState(false);
 
   // State for sequential import with user prompts
   const [importQueue, setImportQueue] = useState<Medicine[]>([]);
@@ -362,10 +360,6 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
            <CardTitle>Inventory ({medicines.length} items)</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowImageAnalyzer(true)}>
-                <ScanLine className="mr-2 h-4 w-4" />
-                Image Analyzer
-            </Button>
             <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
                     <Button onClick={() => setEditingMedicine(null)}>
@@ -647,10 +641,8 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
         </AlertDialogContent>
     </AlertDialog>
     
-    <BillScanner 
-        isOpen={showImageAnalyzer}
-        onClose={() => setShowImageAnalyzer(false)}
-    />
     </>
   );
 }
+
+    
