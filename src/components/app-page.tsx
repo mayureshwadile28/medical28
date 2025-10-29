@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,6 +13,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
+import PosTab from '@/components/pos-tab';
+import InventoryTab from '@/components/inventory-tab';
+import HistoryTab from '@/components/history-tab';
 
 // This is the hardcoded MASTER password.
 const MASTER_PASSWORD = 'MAYURESH-VINOD-WADILE-2009';
@@ -333,3 +337,5 @@ export default function AppPage() {
     </>
   );
 }
+
+    
