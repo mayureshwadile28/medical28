@@ -49,6 +49,7 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
     const [isPopoverOpen, setIsPopoverOpen] = useState(false);
     const orderListRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const inventoryItemNames = useMemo(() => {
       return medicines.map(med => med.name);
@@ -62,6 +63,7 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
             setItems([...items, { id: new Date().toISOString(), name: formattedName, quantity: formattedQuantity }]);
             setItemName('');
             setQuantity('');
+            inputRef.current?.focus();
         } else {
             toast({
                 variant: 'destructive',
@@ -144,25 +146,29 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                             <Label htmlFor="item-name">Item Name</Label>
                              <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                                 <PopoverTrigger asChild>
-                                    <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={isPopoverOpen}
-                                    className="w-full justify-between font-normal"
-                                    >
-                                    {itemName || "Select or type item name..."}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
+                                    <div className="relative">
+                                        <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 shrink-0 opacity-50" />
+                                        <Input
+                                            ref={inputRef}
+                                            id="item-name"
+                                            placeholder="Select or type item name..."
+                                            value={itemName}
+                                            onFocus={() => setIsPopoverOpen(true)}
+                                            onChange={(e) => {
+                                                setItemName(e.target.value);
+                                                if(!isPopoverOpen) setIsPopoverOpen(true);
+                                            }}
+                                            className="w-full justify-between font-normal"
+                                        />
+                                    </div>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                                     <Command>
                                         <CommandInput
                                             placeholder="Search or add item..."
-                                            onValueChange={setItemName}
-                                            value={itemName}
                                         />
                                         <CommandList>
-                                            <CommandEmpty>No item found. Type a name to add.</CommandEmpty>
+                                            <CommandEmpty>No item found. Keep typing to add a new item.</CommandEmpty>
                                             <CommandGroup>
                                                 {inventoryItemNames.map((name) => (
                                                     <CommandItem
