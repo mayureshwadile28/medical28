@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
 import { type Medicine, type SaleRecord } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, ShoppingCart, History, Loader2, KeyRound, ShieldCheck, Edit, Unlock } from 'lucide-react';
+import { Package, ShoppingCart, History, Loader2, KeyRound, ShieldCheck, Edit, Unlock, ClipboardList } from 'lucide-react';
 import { initialMedicines, initialSales } from '@/lib/data';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -16,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import PosTab from '@/components/pos-tab';
 import InventoryTab from '@/components/inventory-tab';
 import HistoryTab from '@/components/history-tab';
+import OrderListTab from '@/components/order-list-tab';
 
 // This is the hardcoded MASTER password.
 const MASTER_PASSWORD = 'MAYURESH-VINOD-WADILE-2009';
@@ -310,6 +310,9 @@ export default function AppPage() {
                 <TabsTrigger value="history">
                   <History className="mr-2 h-4 w-4" /> History
                 </TabsTrigger>
+                <TabsTrigger value="order_list">
+                  <ClipboardList className="mr-2 h-4 w-4" /> Order List
+                </TabsTrigger>
               </TabsList>
             </div>
             <div className="mt-6">
@@ -332,6 +335,9 @@ export default function AppPage() {
               </TabsContent>
               <TabsContent value="history" className="mt-0">
                 <HistoryTab sales={sales} setSales={setSales} />
+              </TabsContent>
+               <TabsContent value="order_list" className="mt-0">
+                <OrderListTab />
               </TabsContent>
             </div>
           </Tabs>
