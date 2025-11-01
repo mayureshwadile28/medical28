@@ -42,11 +42,13 @@ export type GenericMedicine = BaseMedicine & {
 export type Medicine = TabletMedicine | GenericMedicine;
 
 // Type guards
-export function isTablet(medicine: Medicine): medicine is TabletMedicine {
+export function isTablet(medicine?: Medicine | null): medicine is TabletMedicine {
+  if (!medicine) return false;
   return medicine.category === 'Tablet' || medicine.category === 'Capsule';
 }
 
-export function isGeneric(medicine: Medicine): medicine is GenericMedicine {
+export function isGeneric(medicine?: Medicine | null): medicine is GenericMedicine {
+  if (!medicine) return false;
   return !isTablet(medicine);
 }
 
