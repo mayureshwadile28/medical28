@@ -18,22 +18,22 @@ interface OrderItem {
 
 export default function OrderListTab() {
     const [items, setItems] = useState<OrderItem[]>([]);
-    const [medicineName, setMedicineName] = useState('');
+    const [itemName, setItemName] = useState('');
     const [quantity, setQuantity] = useState('');
     const orderListRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
 
     const handleAddItem = (e: React.FormEvent) => {
         e.preventDefault();
-        if (medicineName.trim() && quantity.trim()) {
-            setItems([...items, { id: new Date().toISOString(), name: medicineName.trim(), quantity: quantity.trim() }]);
-            setMedicineName('');
+        if (itemName.trim() && quantity.trim()) {
+            setItems([...items, { id: new Date().toISOString(), name: itemName.trim(), quantity: quantity.trim() }]);
+            setItemName('');
             setQuantity('');
         } else {
             toast({
                 variant: 'destructive',
                 title: 'Missing Information',
-                description: 'Please enter both a medicine name and a quantity.',
+                description: 'Please enter both an item name and a quantity.',
             });
         }
     };
@@ -99,28 +99,28 @@ export default function OrderListTab() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <ClipboardList />
-                        Create Retailer Order List
+                        Create Supplier Order
                     </CardTitle>
                     <CardDescription>
-                        Add medicines and quantities you want to order from your supplier. Then, download the list as an image.
+                        Add items and quantities you want to order. Then, download the list as an image to send to your supplier.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleAddItem} className="mb-6 flex flex-col sm:flex-row items-end gap-2">
                         <div className="flex-1 w-full">
-                            <Label htmlFor="medicine-name">Medicine Name</Label>
+                            <Label htmlFor="item-name">Item Name</Label>
                             <Input
-                                id="medicine-name"
-                                placeholder="e.g., Paracetamol 500mg"
-                                value={medicineName}
-                                onChange={(e) => setMedicineName(e.target.value)}
+                                id="item-name"
+                                placeholder="e.g., Paracetamol, Hair Oil, etc."
+                                value={itemName}
+                                onChange={(e) => setItemName(e.target.value)}
                             />
                         </div>
                         <div className="w-full sm:w-48">
                             <Label htmlFor="quantity">Quantity</Label>
                             <Input
                                 id="quantity"
-                                placeholder="e.g., 10 strips"
+                                placeholder="e.g., 10 strips, 2 boxes, 5 bottles"
                                 value={quantity}
                                 onChange={(e) => setQuantity(e.target.value)}
                             />

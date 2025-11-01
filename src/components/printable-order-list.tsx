@@ -21,7 +21,7 @@ export function PrintableOrderList({ items, className }: PrintableOrderListProps
     >
       <header className="text-center mb-8 border-b-2 border-black pb-4">
         <h1 className="text-4xl m-0 font-bold tracking-wider">Vicky Medical</h1>
-        <p className="my-1 text-lg">Medicine Order Request</p>
+        <p className="my-1 text-lg">Order Request</p>
         <p className="my-1 text-sm">Date: {new Date().toLocaleDateString()}</p>
       </header>
       
@@ -30,7 +30,7 @@ export function PrintableOrderList({ items, className }: PrintableOrderListProps
             <thead>
                 <tr className="border-b-2 border-black">
                     <th className="text-left p-2 w-16">Sr. No.</th>
-                    <th className="text-left p-2">Medicine Name</th>
+                    <th className="text-left p-2">Item Name</th>
                     <th className="text-left p-2 w-48">Required Quantity</th>
                 </tr>
             </thead>
