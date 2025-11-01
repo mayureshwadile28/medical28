@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useMemo } from 'react';
@@ -156,7 +157,6 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                                                 setItemName(e.target.value)
                                                 if(!isPopoverOpen) setIsPopoverOpen(true);
                                             }}
-                                            onFocus={() => setIsPopoverOpen(true)}
                                             className="w-full"
                                         />
                                         <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 shrink-0 opacity-50" />
