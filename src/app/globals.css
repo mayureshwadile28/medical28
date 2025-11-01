@@ -65,4 +65,7 @@
   body {
     @apply bg-background text-foreground;
   }
+  .print-preview-bill {
+    @apply bg-white text-black;
+  }
 }

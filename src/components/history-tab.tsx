@@ -224,11 +224,12 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
                         {`
                           @page { size: auto; margin: 0; }
                           body { background-color: #fff; }
-                          .no-print { display: none; }
                           #printable-area { margin: 0; padding: 0; }
+                          .print-preview-bill { color: #000 !important; background-color: #fff !important; }
                         `}
                     </style>
-                    <PrintableBill sale={sale} />
+                    {/* The `print-preview-bill` class inverts the color for on-screen preview in dark mode */}
+                    <PrintableBill sale={sale} className="print-preview-bill bg-white text-black p-4 rounded-md" />
                 </div>
                 <DialogFooter className="print:hidden">
                     <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
