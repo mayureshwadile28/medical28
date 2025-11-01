@@ -144,55 +144,59 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                     <form onSubmit={handleAddItem} className="mb-6 flex flex-col sm:flex-row items-end gap-2">
                         <div className="flex-1 w-full space-y-2">
                             <Label htmlFor="item-name">Item Name</Label>
-                             <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                                <PopoverTrigger asChild>
-                                    <div className="relative">
-                                        <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 shrink-0 opacity-50" />
-                                        <Input
-                                            ref={inputRef}
-                                            id="item-name"
-                                            placeholder="Select or type item name..."
-                                            value={itemName}
-                                            onFocus={() => setIsPopoverOpen(true)}
-                                            onChange={(e) => {
-                                                setItemName(e.target.value);
-                                                if(!isPopoverOpen) setIsPopoverOpen(true);
-                                            }}
-                                            className="w-full justify-between font-normal"
-                                        />
-                                    </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                    <Command>
-                                        <CommandInput
-                                            placeholder="Search or add item..."
-                                        />
-                                        <CommandList>
-                                            <CommandEmpty>No item found. Keep typing to add a new item.</CommandEmpty>
-                                            <CommandGroup>
-                                                {inventoryItemNames.map((name) => (
-                                                    <CommandItem
-                                                        key={name}
-                                                        value={name}
-                                                        onSelect={(currentValue) => {
-                                                            setItemName(currentValue === itemName ? "" : capitalizeWords(currentValue));
-                                                            setIsPopoverOpen(false);
-                                                        }}
-                                                    >
-                                                        <Check
-                                                            className={cn(
-                                                                "mr-2 h-4 w-4",
-                                                                itemName.toLowerCase() === name.toLowerCase() ? "opacity-100" : "opacity-0"
-                                                            )}
-                                                        />
-                                                        {name}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                             <div className="flex gap-2">
+                                <Input
+                                    ref={inputRef}
+                                    id="item-name"
+                                    placeholder="Type or select an item..."
+                                    value={itemName}
+                                    onChange={(e) => setItemName(e.target.value)}
+                                    className="w-full"
+                                />
+                                <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={isPopoverOpen}
+                                            className="w-[50px] justify-center"
+                                        >
+                                            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                        <Command>
+                                            <CommandInput
+                                                placeholder="Search item..."
+                                            />
+                                            <CommandList>
+                                                <CommandEmpty>No item found.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {inventoryItemNames.map((name) => (
+                                                        <CommandItem
+                                                            key={name}
+                                                            value={name}
+                                                            onSelect={(currentValue) => {
+                                                                setItemName(capitalizeWords(currentValue));
+                                                                setIsPopoverOpen(false);
+                                                                inputRef.current?.focus();
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    itemName.toLowerCase() === name.toLowerCase() ? "opacity-100" : "opacity-0"
+                                                                )}
+                                                            />
+                                                            {name}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                             </div>
                         </div>
                         <div className="w-full sm:w-48 space-y-2">
                             <Label htmlFor="quantity">Quantity</Label>
