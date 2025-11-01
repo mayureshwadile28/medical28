@@ -52,7 +52,6 @@ import * as z from 'zod';
 import { suggestMedicines } from '@/ai/flows/suggest-medicines';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { MedicineForm } from './medicine-form';
 
 
 interface PosTabProps {
@@ -404,7 +403,6 @@ const MultiSelect = ({
 export default function PosTab({ medicines, setMedicines, sales, setSales }: PosTabProps) {
   const [isMedicinePopoverOpen, setIsMedicinePopoverOpen] = useState(false);
   const [isDoctorPopoverOpen, setIsDoctorPopoverOpen] = useState(false);
-  const [isAddMedicineFormOpen, setIsAddMedicineFormOpen] = useState(false);
   const [selectedMedicineId, setSelectedMedicineId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [doctorName, setDoctorName] = useState('');
@@ -416,12 +414,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
 
   const [deletingDoctorName, setDeletingDoctorName] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
-  
-  const categories = useMemo(() => {
-    const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
-    const customCategories = medicines.map(m => m.category);
-    return Array.from(new Set([...baseCategories, ...customCategories])).sort();
-  }, [medicines]);
 
   const availableMedicines = useMemo(() => {
     const now = new Date();
@@ -479,12 +471,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       if (selectedMedicine) {
           addMedicineToBill(selectedMedicine);
       }
-  }
-
-  const handleSaveAndAddToBill = (newMedicine: Medicine) => {
-    setMedicines(currentMedicines => [...currentMedicines, newMedicine]);
-    addMedicineToBill(newMedicine);
-    setIsAddMedicineFormOpen(false);
   }
 
   const updateItemQuantity = (medicineId: string, quantityStr: string) => {
@@ -653,26 +639,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                     </PopoverContent>
                 </Popover>
                 <Button onClick={handleSelectAndAdd} disabled={!selectedMedicineId}>Add to Bill</Button>
-                
-                <Dialog open={isAddMedicineFormOpen} onOpenChange={setIsAddMedicineFormOpen}>
-                    <DialogTrigger asChild>
-                        <Button variant="secondary"><PlusCircle className="mr-2 h-4 w-4" /> New Medicine</Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px] md:max-w-lg max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                            <DialogTitle>Add New Medicine to Inventory</DialogTitle>
-                            <DialogDescription>
-                                Add a new medicine and it will be automatically added to the current bill.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <MedicineForm
-                            medicineToEdit={null}
-                            onSave={handleSaveAndAddToBill}
-                            onCancel={() => setIsAddMedicineFormOpen(false)}
-                            categories={categories}
-                        />
-                    </DialogContent>
-                </Dialog>
 
                 <Suspense fallback={<p>Loading...</p>}>
                     <MedicineSuggestionDialog inventory={medicines} onAddToBill={addMedicineToBill} />
@@ -854,8 +820,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
                       </div>
                       <div className="flex items-center space-x-2">
                           <RadioGroupItem value="Card" id="payment-card" />
-                          <Label htmlFor="payment-card">Card</Label>
-                      </div>
+                          <Label htmlFor="payment-card">Card</Label>                      </div>
                        <div className="flex items-center space-x-2">
                           <RadioGroupItem value="Pending" id="payment-pending" />
                           <Label htmlFor="payment-pending">Pending</Label>
