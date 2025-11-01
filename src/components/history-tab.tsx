@@ -202,38 +202,41 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
 
     const handlePrint = () => {
         window.print();
-    }
+    };
 
     return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                 <Button variant="outline" size="sm">
-                    <Printer className="mr-2 h-4 w-4" />
-                    Print Bill
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-xl print:shadow-none print:border-0 print:p-0">
-                <div id="printable-area" className="print-preview-bill print:block">
-                    <PrintableBill sale={sale} />
-                </div>
-                <DialogHeader className="print:hidden">
-                    <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
-                     <DialogDescription>
-                        This is a preview of the bill for {sale.customerName}.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="print:hidden">
-                    <PrintableBill sale={sale} className="print-preview-bill" />
-                </div>
-                <DialogFooter className="print:hidden">
-                    <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-                    <Button onClick={handlePrint}>
+        <>
+            <div className="printable-area">
+                <PrintableBill sale={sale} />
+            </div>
+
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
                         <Printer className="mr-2 h-4 w-4" />
-                        Print
+                        Print Bill
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </DialogTrigger>
+                <DialogContent className="max-w-xl no-print">
+                    <DialogHeader>
+                        <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
+                        <DialogDescription>
+                            This is a preview of the bill for {sale.customerName}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="print-preview-bill">
+                        <PrintableBill sale={sale} />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+                        <Button onClick={handlePrint}>
+                            <Printer className="mr-2 h-4 w-4" />
+                            Print
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
 
@@ -334,7 +337,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   };
 
   return (
-    <Card>
+    <Card className="no-print">
       <CardHeader>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Sales History</CardTitle>

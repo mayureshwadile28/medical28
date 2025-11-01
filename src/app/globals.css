@@ -72,20 +72,19 @@
 
 @layer utilities {
   @media print {
-    body > * {
-      @apply hidden;
+    body {
+      background-color: white;
     }
-
-    #printable-area, #printable-area * {
-      visibility: visible;
+    .printable-area {
       display: block;
-    }
-
-    #printable-area {
       position: absolute;
       left: 0;
       top: 0;
       width: 100%;
+      height: 100%;
+    }
+    .no-print {
+      display: none;
     }
   }
 }
