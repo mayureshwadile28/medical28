@@ -242,39 +242,33 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
   };
   
   return (
-    <>
-       <div style={{ display: 'none' }}>
-        <div ref={printableContentRef} className="print-preview-bill">
-          <PrintableBill sale={sale} />
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="print:hidden">
+          <Printer className="mr-2 h-4 w-4" />
+          Print Bill
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-xl print:hidden">
+        <DialogHeader>
+          <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
+          <DialogDescription>
+            This is a preview of the bill for {sale.customerName}.
+          </DialogDescription>
+        </DialogHeader>
+        <div ref={printableContentRef} className="print-preview-bill my-4 max-h-[60vh] overflow-y-auto rounded-lg border p-4">
+           <PrintableBill sale={sale} />
         </div>
-      </div>
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="print:hidden">
-            <Printer className="mr-2 h-4 w-4" />
-            Print Bill
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsOpen(false)}>
+            Cancel
           </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-xl print:hidden">
-          <DialogHeader>
-            <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
-            <DialogDescription>
-              This is a preview of the bill for {sale.customerName}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="print-preview-bill my-4 max-h-[60vh] overflow-y-auto rounded-lg border p-4">
-             <PrintableBill sale={sale} />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handlePrint}>
-              <Printer className="mr-2 h-4 w-4" /> Print
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </>
+          <Button onClick={handlePrint}>
+            <Printer className="mr-2 h-4 w-4" /> Print
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
