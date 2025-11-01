@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -200,11 +199,8 @@ function PendingPaymentsDialog({ sales, setSales }: HistoryTabProps) {
 
 function PrintBillDialog({ sale }: { sale: SaleRecord }) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const printableContentRef = React.useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
-    // This is a more robust way to print that should work better in .exe wrappers.
-    // It avoids opening a new window.
     window.print();
   };
   
@@ -216,15 +212,15 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
           Print Bill
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-xl print:max-w-full print:border-0 print:bg-transparent print:p-0 print:shadow-none">
+      <DialogContent className="max-w-xl print:max-w-full print:border-0 print:bg-transparent print:p-0 print:shadow-none print-dialog-content">
         <DialogHeader className="print:hidden">
           <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
           <DialogDescription>
             This is a preview of the bill for {sale.customerName}.
           </DialogDescription>
         </DialogHeader>
-        <div className="my-4 max-h-[60vh] overflow-y-auto rounded-lg border p-4 print:my-0 print:max-h-none print:overflow-visible print:border-0 print:p-0 print-preview-bill">
-           <div ref={printableContentRef}>
+        <div className="my-4 max-h-[60vh] overflow-y-auto rounded-lg border p-4 print:my-0 print:max-h-none print:overflow-visible print:border-0 print:p-0">
+           <div className="print-preview-bill">
              <PrintableBill sale={sale} />
            </div>
         </div>
@@ -583,5 +579,3 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     </Card>
   );
 }
-
-    
