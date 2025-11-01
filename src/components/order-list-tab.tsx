@@ -1,27 +1,15 @@
-
 'use client';
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2, Download, ClipboardList, ChevronsUpDown, Check } from 'lucide-react';
+import { PlusCircle, Trash2, Download, ClipboardList } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { PrintableOrderList } from './printable-order-list';
 import { type Medicine } from '@/lib/types';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import { cn } from '@/lib/utils';
-
 
 interface OrderItem {
     id: string;
@@ -47,14 +35,35 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
     const [items, setItems] = useState<OrderItem[]>([]);
     const [itemName, setItemName] = useState('');
     const [quantity, setQuantity] = useState('');
-    const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+    const [showSuggestions, setShowSuggestions] = useState(false);
     const orderListRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
-    const inputRef = useRef<HTMLInputElement>(null);
+    const itemNameInputRef = useRef<HTMLInputElement>(null);
+    const suggestionBoxRef = useRef<HTMLDivElement>(null);
 
-    const inventoryItemNames = useMemo(() => {
-      return medicines.map(med => med.name);
-    }, [medicines]);
+    const suggestedMedicines = useMemo(() => {
+      if (!itemName) return [];
+      return medicines
+        .map(med => med.name)
+        .filter(name => name.toLowerCase().includes(itemName.toLowerCase()));
+    }, [medicines, itemName]);
+    
+    // Effect to handle clicks outside of the suggestion box
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (
+                itemNameInputRef.current && !itemNameInputRef.current.contains(event.target as Node) &&
+                suggestionBoxRef.current && !suggestionBoxRef.current.contains(event.target as Node)
+            ) {
+                setShowSuggestions(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
 
     const handleAddItem = (e: React.FormEvent) => {
         e.preventDefault();
@@ -64,7 +73,8 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
             setItems([...items, { id: new Date().toISOString(), name: formattedName, quantity: formattedQuantity }]);
             setItemName('');
             setQuantity('');
-            inputRef.current?.focus();
+            setShowSuggestions(false);
+            itemNameInputRef.current?.focus();
         } else {
             toast({
                 variant: 'destructive',
@@ -76,6 +86,12 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
 
     const handleRemoveItem = (id: string) => {
         setItems(items.filter(item => item.id !== id));
+    };
+
+    const handleSuggestionClick = (name: string) => {
+        setItemName(name);
+        setShowSuggestions(false);
+        itemNameInputRef.current?.focus();
     };
 
     const handleDownloadImage = async () => {
@@ -143,58 +159,32 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleAddItem} className="mb-6 flex flex-col sm:flex-row items-end gap-2">
-                        <div className="flex-1 w-full space-y-2">
+                        <div className="relative flex-1 w-full space-y-2">
                             <Label htmlFor="item-name">Item Name</Label>
-                             <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                                <PopoverTrigger asChild>
-                                    <div className="relative">
-                                         <Input
-                                            ref={inputRef}
-                                            id="item-name"
-                                            placeholder="Type or select an item..."
-                                            value={itemName}
-                                            onChange={(e) => {
-                                                setItemName(e.target.value)
-                                                if(!isPopoverOpen) setIsPopoverOpen(true);
-                                            }}
-                                            className="w-full"
-                                        />
-                                        <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 shrink-0 opacity-50" />
-                                    </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                    <Command>
-                                        <CommandInput
-                                            placeholder="Search item..."
-                                            value={itemName}
-                                            onValueChange={setItemName}
-                                        />
-                                        <CommandList>
-                                            <CommandEmpty>No item found.</CommandEmpty>
-                                            <CommandGroup>
-                                                {inventoryItemNames.map((name) => (
-                                                    <CommandItem
-                                                        key={name}
-                                                        value={name}
-                                                        onSelect={(currentValue) => {
-                                                            setItemName(capitalizeWords(currentValue));
-                                                            setIsPopoverOpen(false);
-                                                        }}
-                                                    >
-                                                        <Check
-                                                            className={cn(
-                                                                "mr-2 h-4 w-4",
-                                                                itemName.toLowerCase() === name.toLowerCase() ? "opacity-100" : "opacity-0"
-                                                            )}
-                                                        />
-                                                        {name}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                            <Input
+                                ref={itemNameInputRef}
+                                id="item-name"
+                                placeholder="Type an item name..."
+                                value={itemName}
+                                onChange={(e) => setItemName(e.target.value)}
+                                onFocus={() => setShowSuggestions(true)}
+                                autoComplete="off"
+                            />
+                            {showSuggestions && suggestedMedicines.length > 0 && (
+                                <div ref={suggestionBoxRef} className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                    <ul>
+                                        {suggestedMedicines.map(name => (
+                                            <li
+                                                key={name}
+                                                className="px-3 py-2 cursor-pointer hover:bg-accent"
+                                                onClick={() => handleSuggestionClick(name)}
+                                            >
+                                                {name}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
                         </div>
                         <div className="w-full sm:w-48 space-y-2">
                             <Label htmlFor="quantity">Quantity</Label>
