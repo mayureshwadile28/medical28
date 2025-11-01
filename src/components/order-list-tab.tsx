@@ -16,6 +16,16 @@ interface OrderItem {
     quantity: string;
 }
 
+// Helper function to capitalize the first letter of each word
+const capitalizeWords = (str: string): string => {
+  if (!str) return '';
+  return str
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+
 export default function OrderListTab() {
     const [items, setItems] = useState<OrderItem[]>([]);
     const [itemName, setItemName] = useState('');
@@ -26,7 +36,9 @@ export default function OrderListTab() {
     const handleAddItem = (e: React.FormEvent) => {
         e.preventDefault();
         if (itemName.trim() && quantity.trim()) {
-            setItems([...items, { id: new Date().toISOString(), name: itemName.trim(), quantity: quantity.trim() }]);
+            const formattedName = capitalizeWords(itemName.trim());
+            const formattedQuantity = capitalizeWords(quantity.trim());
+            setItems([...items, { id: new Date().toISOString(), name: formattedName, quantity: formattedQuantity }]);
             setItemName('');
             setQuantity('');
         } else {
