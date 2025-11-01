@@ -199,19 +199,52 @@ function PendingPaymentsDialog({ sales, setSales }: HistoryTabProps) {
 
 function PrintBillDialog({ sale }: { sale: SaleRecord }) {
   const [isOpen, setIsOpen] = React.useState(false);
+  const printableContentRef = React.useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
-    // This will trigger the browser's print dialog
-    window.print();
+    const content = printableContentRef.current;
+    if (!content) return;
+    
+    const printWindow = window.open('', '', 'height=800,width=800');
+    if (!printWindow) {
+        alert('Could not open print window. Please disable your pop-up blocker.');
+        return;
+    }
+
+    printWindow.document.write('<html><head><title>Print Bill</title>');
+    // Important: We need to copy over the stylesheets for the bill to be styled correctly.
+    Array.from(document.styleSheets).forEach(styleSheet => {
+        try {
+            if (styleSheet.cssRules) {
+                const rules = Array.from(styleSheet.cssRules)
+                    .map(rule => rule.cssText)
+                    .join('');
+                printWindow.document.write(`<style>${rules}</style>`);
+            }
+        } catch (e) {
+            console.log('Could not read stylesheet', e);
+        }
+    });
+    printWindow.document.write('</head><body >');
+    printWindow.document.write(content.innerHTML);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+
+    // Use a small timeout to ensure content is loaded before printing
+    setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+    }, 250);
   };
 
   return (
     <>
-      {/* This gets rendered into a portal, but is only visible for printing */}
-      <div className="printable-area">
-        <PrintableBill sale={sale} />
+      <div style={{ display: 'none' }}>
+        <div ref={printableContentRef}>
+          <PrintableBill sale={sale} />
+        </div>
       </div>
-
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
           <Button variant="outline" size="sm" className="no-print">
@@ -226,8 +259,7 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
               This is a preview of the bill for {sale.customerName}.
             </DialogDescription>
           </DialogHeader>
-          {/* This is the on-screen preview */}
-          <div className="print-preview-bill">
+          <div className="print-preview-bill my-4 max-h-[60vh] overflow-y-auto rounded-lg border p-4">
              <PrintableBill sale={sale} />
           </div>
           <DialogFooter>
@@ -476,31 +508,33 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <div className="flex justify-end mb-2">
-                    <PrintBillDialog sale={sale} />
-                  </div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Item</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead className="text-right">Units</TableHead>
-                        <TableHead className="text-right">Price/Unit</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sale.items.map((item, index) => (
-                        <TableRow key={`${sale.id}-${item.medicineId}-${index}`}>
-                          <TableCell>{item.name}</TableCell>
-                          <TableCell>{item.category}</TableCell>
-                          <TableCell className="text-right">{item.quantity}</TableCell>
-                          <TableCell className="text-right font-mono">{formatToINR(item.pricePerUnit)}</TableCell>
-                          <TableCell className="text-right font-mono">{formatToINR(item.total)}</TableCell>
+                  <div className="space-y-4">
+                    <div className="flex justify-end">
+                      <PrintBillDialog sale={sale} />
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Item</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead className="text-right">Units</TableHead>
+                          <TableHead className="text-right">Price/Unit</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {sale.items.map((item, index) => (
+                          <TableRow key={`${sale.id}-${item.medicineId}-${index}`}>
+                            <TableCell>{item.name}</TableCell>
+                            <TableCell>{item.category}</TableCell>
+                            <TableCell className="text-right">{item.quantity}</TableCell>
+                            <TableCell className="text-right font-mono">{formatToINR(item.pricePerUnit)}</TableCell>
+                            <TableCell className="text-right font-mono">{formatToINR(item.total)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </AccordionContent>
               </AccordionItem>
             ))}

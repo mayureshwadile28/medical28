@@ -66,27 +66,6 @@
     @apply bg-background text-foreground;
   }
   .print-preview-bill {
-    @apply bg-white text-black p-4 rounded-md;
-  }
-}
-
-@layer utilities {
-  @media print {
-    body {
-      background-color: white !important;
-      -webkit-print-color-adjust: exact;
-    }
-    .printable-area {
-      display: block !important;
-      position: absolute !important;
-      left: 0 !important;
-      top: 0 !important;
-      width: 100% !important;
-      height: 100% !important;
-      z-index: 9999 !important;
-    }
-    .no-print {
-      display: none !important;
-    }
+    @apply bg-white text-black;
   }
 }
