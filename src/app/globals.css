@@ -69,3 +69,23 @@
     @apply bg-white text-black p-4 rounded-md;
   }
 }
+
+@layer utilities {
+  @media print {
+    body > * {
+      @apply hidden;
+    }
+
+    #printable-area, #printable-area * {
+      visibility: visible;
+      display: block;
+    }
+
+    #printable-area {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+    }
+  }
+}
