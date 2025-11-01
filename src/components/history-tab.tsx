@@ -43,7 +43,6 @@ import {
 import { ClientOnly } from './client-only';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { formatToINR } from '@/lib/currency';
-import { createRoot } from 'react-dom/client';
 import { PrintableBill } from './printable-bill';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -198,6 +197,51 @@ function PendingPaymentsDialog({ sales, setSales }: HistoryTabProps) {
     );
 }
 
+function PrintBillDialog({ sale }: { sale: SaleRecord }) {
+    const [isOpen, setIsOpen] = React.useState(false);
+
+    const handlePrint = () => {
+        window.print();
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                 <Button variant="outline" size="sm">
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print Bill
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-xl print:max-w-full print:border-0 print:p-0">
+                <DialogHeader className="print:hidden">
+                    <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
+                     <DialogDescription>
+                        This is a preview of the bill for {sale.customerName}.
+                    </DialogDescription>
+                </DialogHeader>
+                <div id="printable-area" className="p-2">
+                    <style type="text/css" media="print">
+                        {`
+                          @page { size: auto; margin: 0; }
+                          body { background-color: #fff; }
+                          .no-print { display: none; }
+                          #printable-area { margin: 0; padding: 0; }
+                        `}
+                    </style>
+                    <PrintableBill sale={sale} />
+                </div>
+                <DialogFooter className="print:hidden">
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+                    <Button onClick={handlePrint}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Print
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
@@ -292,42 +336,6 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     setSales([]);
     setIsClearHistoryOpen(false);
     setDeleteConfirmation('');
-  };
-
-  const handlePrintBill = (sale: SaleRecord) => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write('<html><head><title>Print Bill</title>');
-      // A basic stylesheet for the print view
-      printWindow.document.write(`
-        <style>
-          body { font-family: 'PT Sans', sans-serif; margin: 0; padding: 20px; }
-          @media print {
-            @page { 
-              size: auto;
-              margin: 20mm; 
-            }
-            body { margin: 0; }
-            .no-print { display: none; }
-          }
-        </style>
-      `);
-      printWindow.document.write('<link rel="preconnect" href="https://fonts.googleapis.com">');
-      printWindow.document.write('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');
-      printWindow.document.write('<link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Space+Grotesk:wght@300..700&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">');
-      printWindow.document.write('</head><body><div id="print-root"></div></body></html>');
-      printWindow.document.close();
-      
-      const printRoot = printWindow.document.getElementById('print-root');
-      if (printRoot) {
-          const root = createRoot(printRoot);
-          root.render(<PrintableBill sale={sale} />);
-          setTimeout(() => { // Timeout to ensure content is rendered
-              printWindow.print();
-              printWindow.close();
-          }, 500);
-      }
-    }
   };
 
   return (
@@ -467,10 +475,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="flex justify-end mb-2">
-                    <Button variant="outline" size="sm" onClick={() => handlePrintBill(sale)}>
-                      <Printer className="mr-2 h-4 w-4" />
-                      Print Bill
-                    </Button>
+                    <PrintBillDialog sale={sale} />
                   </div>
                   <Table>
                     <TableHeader>
