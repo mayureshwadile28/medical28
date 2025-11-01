@@ -203,46 +203,9 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
   const printableContentRef = React.useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
-    const content = printableContentRef.current;
-    if (!content) return;
-    
-    const printWindow = window.open('', '', 'height=800,width=800');
-    if (!printWindow) {
-        alert('Could not open print window. Please disable your pop-up blocker.');
-        return;
-    }
-
-    const printDocument = printWindow.document;
-    printDocument.write('<html><head><title>Print Bill</title>');
-    
-    // This is a workaround to include Tailwind styles in the print window.
-    // It's not perfect and might miss some styles, but works for most cases.
-    const stylesheets = Array.from(document.styleSheets);
-    stylesheets.forEach(styleSheet => {
-        try {
-            // Check for CORS restriction
-            if (styleSheet.cssRules) {
-                const rules = Array.from(styleSheet.cssRules)
-                    .map(rule => rule.cssText)
-                    .join('\n');
-                printDocument.write(`<style>${rules}</style>`);
-            }
-        } catch (e) {
-            console.warn('Could not read stylesheet due to CORS. This is expected for external stylesheets like Google Fonts.', e);
-        }
-    });
-
-    printDocument.write('</head><body class="print-preview-bill">');
-    printDocument.write(content.innerHTML);
-    printDocument.write('</body></html>');
-    printDocument.close();
-    
-    // A timeout is needed to allow the content to render before printing
-    setTimeout(() => {
-        printWindow.focus();
-        printWindow.print();
-        printWindow.close();
-    }, 250);
+    // This is a more robust way to print that should work better in .exe wrappers.
+    // It avoids opening a new window.
+    window.print();
   };
   
   return (
@@ -253,19 +216,19 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
           Print Bill
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-xl print:hidden">
-        <DialogHeader>
+      <DialogContent className="max-w-xl print:max-w-full print:border-0 print:bg-transparent print:p-0 print:shadow-none">
+        <DialogHeader className="print:hidden">
           <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
           <DialogDescription>
             This is a preview of the bill for {sale.customerName}.
           </DialogDescription>
         </DialogHeader>
-        <div className="print-preview-bill my-4 max-h-[60vh] overflow-y-auto rounded-lg border p-4">
+        <div className="my-4 max-h-[60vh] overflow-y-auto rounded-lg border p-4 print:my-0 print:max-h-none print:overflow-visible print:border-0 print:p-0 print-preview-bill">
            <div ref={printableContentRef}>
              <PrintableBill sale={sale} />
            </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="print:hidden">
           <Button variant="outline" onClick={() => setIsOpen(false)}>
             Cancel
           </Button>
@@ -290,7 +253,7 @@ function DownloadBillButton({ sale }: { sale: SaleRecord }) {
         quality: 1,
         backgroundColor: '#ffffff',
         pixelRatio: 2,
-        skipFonts: true, // This will skip embedding fonts and avoid CORS errors
+        skipFonts: true, 
       });
 
       const link = document.createElement('a');
@@ -561,10 +524,6 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-4">
-                    <div className="flex justify-end gap-2">
-                      <DownloadBillButton sale={sale} />
-                      <PrintBillDialog sale={sale} />
-                    </div>
                     <div className="rounded-lg border">
                       <Table>
                         <TableHeader>
@@ -588,6 +547,10 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                           ))}
                         </TableBody>
                       </Table>
+                    </div>
+                     <div className="flex justify-end gap-2">
+                        <DownloadBillButton sale={sale} />
+                        <PrintBillDialog sale={sale} />
                     </div>
                   </div>
                 </AccordionContent>
