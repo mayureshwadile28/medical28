@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { type SaleRecord, type PaymentMode } from '@/lib/types';
+import * as htmlToImage from 'html-to-image';
 import {
   Accordion,
   AccordionContent,
@@ -211,48 +212,50 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
         return;
     }
 
-    printWindow.document.write('<html><head><title>Print Bill</title>');
-    // Important: We need to copy over the stylesheets for the bill to be styled correctly.
-    Array.from(document.styleSheets).forEach(styleSheet => {
+    const printDocument = printWindow.document;
+    printDocument.write('<html><head><title>Print Bill</title>');
+    
+    const stylesheets = Array.from(document.styleSheets);
+    stylesheets.forEach(styleSheet => {
         try {
             if (styleSheet.cssRules) {
                 const rules = Array.from(styleSheet.cssRules)
                     .map(rule => rule.cssText)
-                    .join('');
-                printWindow.document.write(`<style>${rules}</style>`);
+                    .join('\n');
+                printDocument.write(`<style>${rules}</style>`);
             }
         } catch (e) {
-            console.log('Could not read stylesheet', e);
+            console.warn('Could not read stylesheet', e);
         }
     });
-    printWindow.document.write('</head><body >');
-    printWindow.document.write(content.innerHTML);
-    printWindow.document.write('</body></html>');
-    printWindow.document.close();
 
-    // Use a small timeout to ensure content is loaded before printing
+    printDocument.write('</head><body class="print-preview-bill">');
+    printDocument.write(content.innerHTML);
+    printDocument.write('</body></html>');
+    printDocument.close();
+    
     setTimeout(() => {
         printWindow.focus();
         printWindow.print();
         printWindow.close();
     }, 250);
   };
-
+  
   return (
     <>
-      <div style={{ display: 'none' }}>
-        <div ref={printableContentRef}>
+       <div style={{ display: 'none' }}>
+        <div ref={printableContentRef} className="print-preview-bill">
           <PrintableBill sale={sale} />
         </div>
       </div>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="no-print">
+          <Button variant="outline" size="sm" className="print:hidden">
             <Printer className="mr-2 h-4 w-4" />
             Print Bill
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-xl no-print">
+        <DialogContent className="max-w-xl print:hidden">
           <DialogHeader>
             <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
             <DialogDescription>
@@ -271,10 +274,58 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </>
+  );
+}
+
+function DownloadBillButton({ sale }: { sale: SaleRecord }) {
+  const { toast } = useToast();
+  const billRef = React.useRef<HTMLDivElement>(null);
+
+  const handleDownload = async () => {
+    if (!billRef.current) return;
+
+    try {
+      const dataUrl = await htmlToImage.toPng(billRef.current, {
+        quality: 1,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+      });
+
+      const link = document.createElement('a');
+      const saleDate = new Date(sale.saleDate).toISOString().split('T')[0];
+      link.download = `${sale.customerName.replace(/ /g, '_')}-${saleDate}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast({
+        title: 'Download Started',
+        description: 'Your bill is being downloaded as a PNG image.',
+      });
+    } catch (error) {
+      console.error('oops, something went wrong!', error);
+      toast({
+        variant: 'destructive',
+        title: 'Download Failed',
+        description: 'Could not generate the bill image. Please try again.',
+      });
+    }
+  };
+
+  return (
+    <>
+      <div className="fixed -left-[9999px] top-0">
+        <div ref={billRef}>
+          <PrintableBill sale={sale} />
+        </div>
+      </div>
+      <Button variant="outline" size="sm" onClick={handleDownload} className="print:hidden">
+        <Download className="mr-2 h-4 w-4" />
+        Download
+      </Button>
     </>
   );
 }
+
 
 export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
@@ -373,7 +424,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   };
 
   return (
-    <Card className="no-print">
+    <Card className="print:hidden">
       <CardHeader>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Sales History</CardTitle>
@@ -509,31 +560,34 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-4">
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                      <DownloadBillButton sale={sale} />
                       <PrintBillDialog sale={sale} />
                     </div>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Item</TableHead>
-                          <TableHead>Category</TableHead>
-                          <TableHead className="text-right">Units</TableHead>
-                          <TableHead className="text-right">Price/Unit</TableHead>
-                          <TableHead className="text-right">Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sale.items.map((item, index) => (
-                          <TableRow key={`${sale.id}-${item.medicineId}-${index}`}>
-                            <TableCell>{item.name}</TableCell>
-                            <TableCell>{item.category}</TableCell>
-                            <TableCell className="text-right">{item.quantity}</TableCell>
-                            <TableCell className="text-right font-mono">{formatToINR(item.pricePerUnit)}</TableCell>
-                            <TableCell className="text-right font-mono">{formatToINR(item.total)}</TableCell>
+                    <div className="rounded-lg border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Item</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead className="text-right">Units</TableHead>
+                            <TableHead className="text-right">Price/Unit</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {sale.items.map((item, index) => (
+                            <TableRow key={`${sale.id}-${item.medicineId}-${index}`}>
+                              <TableCell>{item.name}</TableCell>
+                              <TableCell>{item.category}</TableCell>
+                              <TableCell className="text-right">{item.quantity}</TableCell>
+                              <TableCell className="text-right font-mono">{formatToINR(item.pricePerUnit)}</TableCell>
+                              <TableCell className="text-right font-mono">{formatToINR(item.total)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>
