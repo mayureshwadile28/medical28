@@ -4,7 +4,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { type Medicine } from '@/lib/types';
+import { type Medicine, isTablet, TabletMedicine } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -121,9 +121,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
       location: medicineToEdit?.location || '',
       expiry: getFormattedExpiry(medicineToEdit?.expiry),
       price: medicineToEdit?.price || 0,
-      stock_strips: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).stock.tablets / ((medicineToEdit as any).tabletsPerStrip || 10) : undefined,
-      stock_quantity: (medicineToEdit?.category !== 'Tablet' && medicineToEdit?.category !== 'Capsule') ? (medicineToEdit?.stock as any)?.quantity || undefined : undefined,
-      tablets_per_strip: (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit as any).tabletsPerStrip : 10,
+      stock_strips: isTablet(medicineToEdit as Medicine) ? (medicineToEdit as TabletMedicine).stock.tablets / ((medicineToEdit as TabletMedicine).tabletsPerStrip || 10) : undefined,
+      stock_quantity: !isTablet(medicineToEdit as Medicine) ? (medicineToEdit?.stock as any)?.quantity : undefined,
+      tablets_per_strip: isTablet(medicineToEdit as Medicine) ? (medicineToEdit as TabletMedicine).tabletsPerStrip : 10,
       description_patientType: medicineToEdit?.description?.patientType,
       description_illness: medicineToEdit?.description?.illness || '',
       description_minAge: medicineToEdit?.description?.minAge === 0 ? undefined : medicineToEdit?.description?.minAge,
