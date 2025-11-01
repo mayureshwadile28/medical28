@@ -1,19 +1,35 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2, Download, ClipboardList } from 'lucide-react';
+import { PlusCircle, Trash2, Download, ClipboardList, ChevronsUpDown, Check } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { PrintableOrderList } from './printable-order-list';
+import { type Medicine } from '@/lib/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+
 
 interface OrderItem {
     id: string;
     name: string;
     quantity: string;
+}
+
+interface OrderListTabProps {
+    medicines: Medicine[];
 }
 
 // Helper function to capitalize the first letter of each word
@@ -26,12 +42,17 @@ const capitalizeWords = (str: string): string => {
 };
 
 
-export default function OrderListTab() {
+export default function OrderListTab({ medicines }: OrderListTabProps) {
     const [items, setItems] = useState<OrderItem[]>([]);
     const [itemName, setItemName] = useState('');
     const [quantity, setQuantity] = useState('');
+    const [isPopoverOpen, setIsPopoverOpen] = useState(false);
     const orderListRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
+
+    const inventoryItemNames = useMemo(() => {
+      return medicines.map(med => med.name);
+    }, [medicines]);
 
     const handleAddItem = (e: React.FormEvent) => {
         e.preventDefault();
@@ -119,20 +140,59 @@ export default function OrderListTab() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleAddItem} className="mb-6 flex flex-col sm:flex-row items-end gap-2">
-                        <div className="flex-1 w-full">
+                        <div className="flex-1 w-full space-y-2">
                             <Label htmlFor="item-name">Item Name</Label>
-                            <Input
-                                id="item-name"
-                                placeholder="e.g., Paracetamol, Hair Oil, etc."
-                                value={itemName}
-                                onChange={(e) => setItemName(e.target.value)}
-                            />
+                             <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={isPopoverOpen}
+                                    className="w-full justify-between font-normal"
+                                    >
+                                    {itemName || "Select or type item name..."}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                    <Command>
+                                        <CommandInput
+                                            placeholder="Search or add item..."
+                                            onValueChange={setItemName}
+                                            value={itemName}
+                                        />
+                                        <CommandList>
+                                            <CommandEmpty>No item found. Type a name to add.</CommandEmpty>
+                                            <CommandGroup>
+                                                {inventoryItemNames.map((name) => (
+                                                    <CommandItem
+                                                        key={name}
+                                                        value={name}
+                                                        onSelect={(currentValue) => {
+                                                            setItemName(currentValue === itemName ? "" : capitalizeWords(currentValue));
+                                                            setIsPopoverOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-4 w-4",
+                                                                itemName.toLowerCase() === name.toLowerCase() ? "opacity-100" : "opacity-0"
+                                                            )}
+                                                        />
+                                                        {name}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                         </div>
-                        <div className="w-full sm:w-48">
+                        <div className="w-full sm:w-48 space-y-2">
                             <Label htmlFor="quantity">Quantity</Label>
                             <Input
                                 id="quantity"
-                                placeholder="e.g., 10 strips, 2 boxes, 5 bottles"
+                                placeholder="e.g., 10 strips, 2 boxes"
                                 value={quantity}
                                 onChange={(e) => setQuantity(e.target.value)}
                             />

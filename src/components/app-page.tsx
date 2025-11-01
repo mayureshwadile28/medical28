@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -337,7 +338,7 @@ export default function AppPage() {
                 <HistoryTab sales={sales} setSales={setSales} />
               </TabsContent>
                <TabsContent value="order_list" className="mt-0">
-                <OrderListTab />
+                <OrderListTab medicines={medicines} />
               </TabsContent>
             </div>
           </Tabs>
@@ -346,3 +347,5 @@ export default function AppPage() {
     </>
   );
 }
+
+    
