@@ -69,17 +69,3 @@
     @apply bg-white text-black;
   }
 }
-
-@media print {
-    body > * {
-        @apply print:hidden;
-    }
-
-    .print-dialog-content {
-        @apply print:block print:p-0 print:m-0;
-    }
-    
-    .print-dialog-content > * {
-        @apply print:block;
-    }
-}

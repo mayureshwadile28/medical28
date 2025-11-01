@@ -62,6 +62,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
+import ReactDOMServer from 'react-dom/server';
 
 interface HistoryTabProps {
   sales: SaleRecord[];
@@ -199,32 +200,87 @@ function PendingPaymentsDialog({ sales, setSales }: HistoryTabProps) {
 
 function PrintBillDialog({ sale }: { sale: SaleRecord }) {
   const [isOpen, setIsOpen] = React.useState(false);
+  const printFrameRef = React.useRef<HTMLIFrameElement>(null);
 
   const handlePrint = () => {
-    window.print();
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+        // Render React component to HTML string
+        const billHtml = ReactDOMServer.renderToStaticMarkup(<PrintableBill sale={sale} />);
+        
+        // Get tailwind styles
+        const styles = Array.from(document.styleSheets)
+            .map(s => {
+                try {
+                    return Array.from(s.cssRules).map(r => r.cssText).join('\n');
+                } catch (e) {
+                    // Ignore cross-origin stylesheets
+                    return '';
+                }
+            })
+            .filter(Boolean)
+            .join('\n');
+
+        doc.open();
+        doc.write(`
+            <html>
+                <head>
+                    <title>Print Bill</title>
+                    <style>${styles}</style>
+                    <style>
+                        @media print {
+                           body {
+                                margin: 0;
+                                padding: 0;
+                           }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="print-preview-bill">${billHtml}</div>
+                </body>
+            </html>
+        `);
+        doc.close();
+        
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        
+        // Clean up the iframe after a short delay
+        setTimeout(() => {
+            document.body.removeChild(iframe);
+        }, 1000);
+    }
   };
   
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="print:hidden">
+        <Button variant="outline" size="sm">
           <Printer className="mr-2 h-4 w-4" />
           Print Bill
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-xl print:max-w-full print:border-0 print:bg-transparent print:p-0 print:shadow-none print-dialog-content">
-        <DialogHeader className="print:hidden">
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
           <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
           <DialogDescription>
             This is a preview of the bill for {sale.customerName}.
           </DialogDescription>
         </DialogHeader>
-        <div className="my-4 max-h-[60vh] overflow-y-auto rounded-lg border p-4 print:my-0 print:max-h-none print:overflow-visible print:border-0 print:p-0">
+        <div className="my-4 max-h-[60vh] overflow-y-auto rounded-lg border p-4">
            <div className="print-preview-bill">
              <PrintableBill sale={sale} />
            </div>
         </div>
-        <DialogFooter className="print:hidden">
+        <DialogFooter>
           <Button variant="outline" onClick={() => setIsOpen(false)}>
             Cancel
           </Button>
@@ -278,7 +334,7 @@ function DownloadBillButton({ sale }: { sale: SaleRecord }) {
           <PrintableBill sale={sale} />
         </div>
       </div>
-      <Button variant="outline" size="sm" onClick={handleDownload} className="print:hidden">
+      <Button variant="outline" size="sm" onClick={handleDownload}>
         <Download className="mr-2 h-4 w-4" />
         Download
       </Button>
@@ -384,7 +440,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
   };
 
   return (
-    <Card className="print:hidden">
+    <Card>
       <CardHeader>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Sales History</CardTitle>
