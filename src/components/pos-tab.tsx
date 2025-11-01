@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, Suspense } from 'react';
@@ -286,17 +285,23 @@ function MedicineSuggestionDialog({ inventory, onAddToBill }: { inventory: Medic
             <div className="mt-4 space-y-2">
                 <h3 className="font-semibold">Suggestions:</h3>
                 <ul className="max-h-60 overflow-y-auto rounded-lg border p-2 space-y-2">
-                    {suggestions.map(suggestion => (
-                        <li key={suggestion.medicineId} className="p-2 rounded-md hover:bg-muted">
-                           <div className='flex items-start justify-between'>
-                             <div>
-                                <p className="font-bold">{suggestion.name}</p>
-                                <p className="text-sm text-muted-foreground">{suggestion.reason}</p>
-                             </div>
-                             <Button size="sm" onClick={() => handleAddToBill(suggestion.medicineId)}>Add</Button>
-                           </div>
-                        </li>
-                    ))}
+                    {suggestions.map(suggestion => {
+                        const medicine = inventory.find(m => m.id === suggestion.medicineId);
+                        return (
+                            <li key={suggestion.medicineId} className="p-2 rounded-md hover:bg-muted">
+                               <div className='flex items-start justify-between'>
+                                 <div>
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-bold">{suggestion.name}</p>
+                                        {medicine?.location && <Badge variant="outline">{medicine.location}</Badge>}
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">{suggestion.reason}</p>
+                                 </div>
+                                 <Button size="sm" onClick={() => handleAddToBill(suggestion.medicineId)}>Add</Button>
+                               </div>
+                            </li>
+                        )
+                    })}
                 </ul>
             </div>
         )}
