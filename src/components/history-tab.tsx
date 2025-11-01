@@ -220,16 +220,22 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
                     </DialogDescription>
                 </DialogHeader>
                 <div id="printable-area" className="p-2">
-                    <style type="text/css" media="print">
+                     <style type="text/css" media="print">
                         {`
                           @page { size: auto; margin: 0; }
                           body { background-color: #fff; }
-                          #printable-area { margin: 0; padding: 0; }
+                          body > :not(#printable-area) { display: none; }
+                          #printable-area {
+                              top: 0;
+                              left: 0;
+                              position: absolute;
+                              width: 100%;
+                          }
                           .print-preview-bill { color: #000 !important; background-color: #fff !important; }
                         `}
                     </style>
                     {/* The `print-preview-bill` class inverts the color for on-screen preview in dark mode */}
-                    <PrintableBill sale={sale} className="print-preview-bill bg-white text-black p-4 rounded-md" />
+                    <PrintableBill sale={sale} className="print-preview-bill" />
                 </div>
                 <DialogFooter className="print:hidden">
                     <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
@@ -530,3 +536,5 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     </Card>
   );
 }
+
+    

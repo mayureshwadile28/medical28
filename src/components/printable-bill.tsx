@@ -83,3 +83,5 @@ export function PrintableBill({ sale, className }: PrintableBillProps) {
     </div>
   );
 }
+
+    
