@@ -212,29 +212,31 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
                     Print Bill
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-xl print:max-w-full print:border-0 print:p-0">
+            <DialogContent className="max-w-xl print:max-w-full print:border-0 print:p-0 print:bg-white print:shadow-none" id="print-dialog-content">
                 <DialogHeader className="print:hidden">
                     <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
                      <DialogDescription>
                         This is a preview of the bill for {sale.customerName}.
                     </DialogDescription>
                 </DialogHeader>
-                <div id="printable-area" className="p-2">
+                <div id="printable-area">
                      <style type="text/css" media="print">
                         {`
                           @page { size: auto; margin: 0; }
                           body { background-color: #fff; }
-                          body > :not(#printable-area) { display: none; }
-                          #printable-area {
-                              top: 0;
-                              left: 0;
-                              position: absolute;
-                              width: 100%;
+                          main, header, footer, [data-radix-popper-content-wrapper] {
+                              display: none !important;
                           }
-                          .print-preview-bill { color: #000 !important; background-color: #fff !important; }
+                          #print-dialog-content {
+                              display: block !important;
+                              position: absolute !important;
+                              top: 0 !important;
+                              left: 0 !important;
+                              width: 100% !important;
+                              height: 100% !important;
+                          }
                         `}
                     </style>
-                    {/* The `print-preview-bill` class inverts the color for on-screen preview in dark mode */}
                     <PrintableBill sale={sale} className="print-preview-bill" />
                 </div>
                 <DialogFooter className="print:hidden">
@@ -536,5 +538,3 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     </Card>
   );
 }
-
-    
