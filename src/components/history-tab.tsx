@@ -215,9 +215,12 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
     const printDocument = printWindow.document;
     printDocument.write('<html><head><title>Print Bill</title>');
     
+    // This is a workaround to include Tailwind styles in the print window.
+    // It's not perfect and might miss some styles, but works for most cases.
     const stylesheets = Array.from(document.styleSheets);
     stylesheets.forEach(styleSheet => {
         try {
+            // Check for CORS restriction
             if (styleSheet.cssRules) {
                 const rules = Array.from(styleSheet.cssRules)
                     .map(rule => rule.cssText)
@@ -225,7 +228,7 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
                 printDocument.write(`<style>${rules}</style>`);
             }
         } catch (e) {
-            console.warn('Could not read stylesheet', e);
+            console.warn('Could not read stylesheet due to CORS. This is expected for external stylesheets like Google Fonts.', e);
         }
     });
 
@@ -234,6 +237,7 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
     printDocument.write('</body></html>');
     printDocument.close();
     
+    // A timeout is needed to allow the content to render before printing
     setTimeout(() => {
         printWindow.focus();
         printWindow.print();
@@ -256,8 +260,10 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
             This is a preview of the bill for {sale.customerName}.
           </DialogDescription>
         </DialogHeader>
-        <div ref={printableContentRef} className="print-preview-bill my-4 max-h-[60vh] overflow-y-auto rounded-lg border p-4">
-           <PrintableBill sale={sale} />
+        <div className="print-preview-bill my-4 max-h-[60vh] overflow-y-auto rounded-lg border p-4">
+           <div ref={printableContentRef}>
+             <PrintableBill sale={sale} />
+           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setIsOpen(false)}>
@@ -284,6 +290,7 @@ function DownloadBillButton({ sale }: { sale: SaleRecord }) {
         quality: 1,
         backgroundColor: '#ffffff',
         pixelRatio: 2,
+        skipFonts: true, // This will skip embedding fonts and avoid CORS errors
       });
 
       const link = document.createElement('a');
@@ -308,7 +315,7 @@ function DownloadBillButton({ sale }: { sale: SaleRecord }) {
   return (
     <>
       <div className="fixed -left-[9999px] top-0">
-        <div ref={billRef}>
+        <div ref={billRef} className="bg-white p-4">
           <PrintableBill sale={sale} />
         </div>
       </div>
@@ -613,3 +620,5 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     </Card>
   );
 }
+
+    
