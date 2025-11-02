@@ -44,8 +44,10 @@ export async function suggestMedicines(input: SuggestMedicinesInput): Promise<Su
         if (!illnessMatch) return false;
 
         if (desc.patientType === 'Human') {
+            // For humans, all description fields are mandatory for a safe suggestion.
             if (!patient.age || !patient.gender) return false;
-            if (!desc.minAge || !desc.maxAge || desc.minAge === 0 || desc.maxAge === 0) return false;
+            if (!desc.minAge || !desc.maxAge || !desc.gender || desc.minAge <= 0 || desc.maxAge <= 0) return false;
+
             // Check age: patient's age must be within the medicine's min/max age range.
             const ageMatch = patient.age >= desc.minAge && patient.age <= desc.maxAge;
             
