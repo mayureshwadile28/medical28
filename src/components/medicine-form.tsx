@@ -146,7 +146,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
           stock_quantity: !isTabletCategory ? b.stock.quantity : undefined,
     })) || [];
     
-    if (isEditing && startWithNewBatch && !batches.some(b => !b.batchNumber)) {
+    if (isEditing && startWithNewBatch && medicineToEdit?.id && !batches.some(b => !b.batchNumber)) {
         batches.push({ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 });
     }
 
@@ -465,7 +465,13 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
                                 <FormItem>
                                     <FormLabel>Min Age</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="e.g., 5" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} />
+                                        <Input
+                                            type="number"
+                                            placeholder="e.g., 5"
+                                            {...field}
+                                            value={field.value ?? ''}
+                                            onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -478,7 +484,13 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
                                 <FormItem>
                                     <FormLabel>Max Age</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="e.g., 60" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}/>
+                                        <Input
+                                            type="number"
+                                            placeholder="e.g., 60"
+                                            {...field}
+                                            value={field.value ?? ''}
+                                            onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
