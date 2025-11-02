@@ -84,18 +84,19 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
     const uniqueSymptoms = useMemo(() => {
         const allSymptoms = inventory.flatMap(med => {
             if (med.description?.illness) {
-                return med.description.illness.split(',').map(s => s.trim().toLowerCase());
+                return med.description.illness.split(',').map(s => s.trim());
             }
             return [];
-        });
+        }).map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase());
         return [...new Set(allSymptoms)].filter(Boolean).sort();
     }, [inventory]);
 
     const handleSymptomClick = (symptom: string) => {
         setIllnesses(prev => {
             const parts = prev.split(',').map(p => p.trim()).filter(Boolean);
-            if (parts.includes(symptom)) {
-                return parts.filter(p => p !== symptom).join(', ');
+            const lowerSymptom = symptom.toLowerCase();
+            if (parts.map(p => p.toLowerCase()).includes(lowerSymptom)) {
+                return parts.filter(p => p.toLowerCase() !== lowerSymptom).join(', ');
             } else {
                 return [...parts, symptom].join(', ');
             }
@@ -137,6 +138,7 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
         if(medicineToAdd) {
             onAddMedicine(medicineToAdd);
             toast({ title: `${medicineToAdd.name} added to bill.`});
+            setIsOpen(false); // Close dialog on successful add
         }
     }
 
@@ -194,8 +196,8 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
                                 onChange={e => setIllnesses(e.target.value)}
                             />
                             {uniqueSymptoms.length > 0 && (
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground">Suggestions</Label>
+                                <div className="space-y-2 pt-2">
+                                    <Label className="text-xs text-muted-foreground">Click to add/remove symptoms</Label>
                                     <div className="flex flex-wrap gap-2">
                                         {uniqueSymptoms.map(symptom => (
                                             <Badge 
@@ -227,19 +229,27 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
                                 <Card className="max-h-[400px] overflow-y-auto">
                                     <CardContent className="p-0">
                                         <ul className="divide-y">
-                                            {suggestions.suggestions.map(s => (
+                                            {suggestions.suggestions.map(s => {
+                                                const med = inventory.find(m => m.id === s.medicineId);
+                                                return (
                                                 <li key={s.medicineId} className="p-3">
                                                     <div className="flex justify-between items-start">
                                                         <div>
                                                             <p className="font-semibold">{s.name}</p>
                                                             <p className="text-sm text-muted-foreground">{s.reason}</p>
+                                                            {med?.location && (
+                                                                <div className="mt-1 flex items-center gap-1.5 text-xs text-primary">
+                                                                    <MapPin className="h-3 w-3" />
+                                                                    <span>Location: <span className="font-bold">{med.location}</span></span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <Button variant="ghost" size="icon" onClick={() => handleAddClick(s.medicineId)}>
                                                             <PlusCircle className="h-5 w-5 text-primary" />
                                                         </Button>
                                                     </div>
                                                 </li>
-                                            ))}
+                                            )})}
                                         </ul>
                                     </CardContent>
                                 </Card>
