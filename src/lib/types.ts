@@ -103,6 +103,7 @@ export interface SupplierOrder {
     orderDate: string; // ISO date string
     items: OrderItem[];
     status: 'Pending' | 'Completed' | 'Cancelled';
+    receivedDate?: string; // ISO date string
 }
 
 

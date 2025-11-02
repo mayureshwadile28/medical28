@@ -60,10 +60,18 @@ function OrderHistoryDialog({ orders, onMerge }: { orders: SupplierOrder[], onMe
                                         <div className="flex flex-col sm:flex-row w-full items-start sm:items-center justify-between pr-4 gap-2">
                                             <div className="flex flex-col text-left flex-1">
                                                 <span className="font-semibold">{order.supplierName}</span>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                     <span className="text-xs text-muted-foreground">{new Date(order.orderDate).toLocaleDateString()}</span>
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
-                                                <span className="text-muted-foreground">{new Date(order.orderDate).toLocaleDateString()}</span>
-                                                <Badge variant={order.status === 'Pending' ? 'secondary' : order.status === 'Completed' ? 'default' : 'destructive'}>{order.status}</Badge>
+                                                {order.status === 'Completed' && order.receivedDate ? (
+                                                     <Badge variant="default" className="text-xs">
+                                                        Received: {new Date(order.receivedDate).toLocaleDateString()}
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant={order.status === 'Pending' ? 'secondary' : 'destructive'}>{order.status}</Badge>
+                                                )}
                                             </div>
                                         </div>
                                     </AccordionTrigger>
@@ -224,11 +232,11 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
             }
         }
         
-        const completedOrder = { ...order, status: 'Completed' as const };
+        const completedOrder = { ...order, status: 'Completed' as const, receivedDate: new Date().toISOString() };
         await service.saveSupplierOrder(completedOrder);
         setOrders(currentOrders => currentOrders.map(o => o.id === order.id ? completedOrder : o));
 
-        toast({ title: "Order Merged", description: `Order ${order.id} has been merged into inventory.` });
+        toast({ title: "Order Merged", description: `Order from ${order.supplierName} has been merged into inventory.` });
         setProcessingOrder(null);
         sessionStorage.removeItem(`lastProcessed_${order.id}`);
     };
