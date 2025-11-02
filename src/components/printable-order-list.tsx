@@ -29,7 +29,6 @@ export function PrintableOrderList({ order, className }: PrintableOrderListProps
                 <p className="my-1 text-lg">Order Request</p>
             </div>
             <div className="text-right">
-                <p className="font-semibold">Order ID: {order.id}</p>
                 <p>Date: {new Date(order.orderDate).toLocaleDateString()}</p>
             </div>
         </div>
@@ -76,5 +75,3 @@ export function PrintableOrderList({ order, className }: PrintableOrderListProps
     </div>
   );
 }
-
-    

@@ -60,9 +60,6 @@ function OrderHistoryDialog({ orders, onMerge }: { orders: SupplierOrder[], onMe
                                         <div className="flex flex-col sm:flex-row w-full items-start sm:items-center justify-between pr-4 gap-2">
                                             <div className="flex flex-col text-left flex-1">
                                                 <span className="font-semibold">{order.supplierName}</span>
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">Order: {order.id}</span>
-                                                </div>
                                             </div>
                                             <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
                                                 <span className="text-muted-foreground">{new Date(order.orderDate).toLocaleDateString()}</span>
@@ -369,7 +366,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                         skipFonts: true,
                     });
                     const link = document.createElement('a');
-                    link.download = `${orderForPrint.supplierName.replace(/\s+/g, '-')}-Order-${orderForPrint.id}.png`;
+                    link.download = `${orderForPrint.supplierName.replace(/\s+/g, '-')}-Order-${new Date(orderForPrint.orderDate).toISOString().split('T')[0]}.png`;
                     link.href = dataUrl;
                     link.click();
                     toast({ title: 'Order Saved & Downloaded', description: `Order for ${orderForPrint.supplierName} has been saved.` });
