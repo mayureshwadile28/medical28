@@ -87,7 +87,7 @@ export type SaleBillItem = Omit<SaleItem, 'quantity'> & {
   quantity: number;
 }
 
-// Supplier Order Types
+// Wholesaler Order Types
 export interface OrderItem {
     id: string;
     name: string;
@@ -97,9 +97,9 @@ export interface OrderItem {
     unitName?: string;
 }
 
-export interface SupplierOrder {
+export interface WholesalerOrder {
     id: string;
-    supplierName: string;
+    wholesalerName: string;
     orderDate: string; // ISO date string
     items: OrderItem[];
     status: 'Pending' | 'Completed' | 'Cancelled';

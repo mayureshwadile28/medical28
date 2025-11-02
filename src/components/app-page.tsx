@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
-import { type Medicine, type SaleRecord, type SupplierOrder } from '@/lib/types';
+import { type Medicine, type SaleRecord, type WholesalerOrder } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, ShoppingCart, History, KeyRound, ShieldCheck, Unlock, ClipboardList } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -203,7 +203,7 @@ export default function AppPage() {
   const [service] = useState(() => new AppService());
   const [medicines, setMedicines, medicinesLoading] = useLocalStorage<Medicine[]>('medicines', []);
   const [sales, setSales, salesLoading] = useLocalStorage<SaleRecord[]>('sales', []);
-  const [supplierOrders, setSupplierOrders, ordersLoading] = useLocalStorage<SupplierOrder[]>('supplierOrders', []);
+  const [wholesalerOrders, setWholesalerOrders, ordersLoading] = useLocalStorage<WholesalerOrder[]>('wholesalerOrders', []);
 
   const [licenseKey, setLicenseKey, licenseLoading] = useLocalStorage<string | null>('vicky-medical-license', null);
   const [isActivated, setIsActivated, isActivatedLoading] = useLocalStorage<boolean>('vicky-medical-activated', false);
@@ -216,8 +216,8 @@ export default function AppPage() {
   const [activeTab, setActiveTab] = useState('pos');
   
   useEffect(() => {
-    service.initialize(medicines, sales, supplierOrders);
-  }, [service, medicines, sales, supplierOrders]);
+    service.initialize(medicines, sales, wholesalerOrders);
+  }, [service, medicines, sales, wholesalerOrders]);
 
 
   useEffect(() => {
@@ -234,7 +234,7 @@ export default function AppPage() {
   }, [openOrderTab, router]);
   
   const [orderItemToProcess, setOrderItemToProcess] = useState<{orderId: string, item: any} | null>(null);
-  const [processingOrder, setProcessingOrder] = useState<SupplierOrder | null>(null);
+  const [processingOrder, setProcessingOrder] = useState<WholesalerOrder | null>(null);
 
   useEffect(() => {
     if (orderItemToProcess) {
@@ -308,7 +308,7 @@ export default function AppPage() {
     setActiveTab('order_list');
   };
 
-  const handleStartOrderMerge = (order: SupplierOrder) => {
+  const handleStartOrderMerge = (order: WholesalerOrder) => {
     setProcessingOrder(order);
     // Dispatch an event to start the merge process in the OrderListTab
     const startEvent = new CustomEvent('start-merge', { detail: order });
@@ -396,8 +396,8 @@ export default function AppPage() {
                 <OrderListTab 
                   medicines={medicines}
                   setMedicines={setMedicines}
-                  orders={supplierOrders}
-                  setOrders={setSupplierOrders}
+                  orders={wholesalerOrders}
+                  setOrders={setWholesalerOrders}
                   service={service}
                   onProcessOrderItem={setOrderItemToProcess}
                   onStartOrderMerge={handleStartOrderMerge}

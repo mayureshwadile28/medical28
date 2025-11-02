@@ -3,14 +3,14 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { type SupplierOrder } from '@/lib/types';
+import { type WholesalerOrder } from '@/lib/types';
 
 interface PrintableOrderListProps {
-  order: SupplierOrder;
+  order: WholesalerOrder;
   className?: string;
 }
 
-const getDisplayQuantity = (item: SupplierOrder['items'][0]) => {
+const getDisplayQuantity = (item: WholesalerOrder['items'][0]) => {
     if (item.unitsPerPack && item.unitName) {
         return `${item.quantity} (${item.unitsPerPack} ${item.unitName}/pack)`;
     }
@@ -34,7 +34,7 @@ export function PrintableOrderList({ order, className }: PrintableOrderListProps
             </div>
         </div>
         <div className="mt-4">
-            <p className="text-lg"><strong>Supplier:</strong> {order.supplierName}</p>
+            <p className="text-lg"><strong>To Wholesaler:</strong> {order.wholesalerName}</p>
         </div>
       </header>
       

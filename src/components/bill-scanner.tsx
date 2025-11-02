@@ -10,12 +10,12 @@ import { useToast } from '@/hooks/use-toast';
 import { analyzeImage, AnalyzeImageOutput } from '@/ai/flows/analyze-image';
 import { type AppService } from '@/lib/service';
 import { useRouter } from 'next/navigation';
-import { SupplierOrder } from '@/lib/types';
+import { WholesalerOrder } from '@/lib/types';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface BillScannerTabProps {
     service: AppService;
-    onOrderCreated: (newOrder: SupplierOrder) => void;
+    onOrderCreated: (newOrder: WholesalerOrder) => void;
 }
 
 const BillScannerTab: React.FC<BillScannerTabProps> = ({ service, onOrderCreated }) => {
@@ -61,8 +61,8 @@ const BillScannerTab: React.FC<BillScannerTabProps> = ({ service, onOrderCreated
                 return;
             }
 
-            const newOrder = await service.addSupplierOrder({
-                supplierName: result.supplierName || 'Scanned Order',
+            const newOrder = await service.addWholesalerOrder({
+                wholesalerName: result.wholesalerName || 'Scanned Order',
                 items: result.items,
             });
 
@@ -70,7 +70,7 @@ const BillScannerTab: React.FC<BillScannerTabProps> = ({ service, onOrderCreated
 
             toast({
                 title: 'Analysis Complete!',
-                description: `Created new order with ${result.items.length} items from supplier "${newOrder.supplierName}".`,
+                description: `Created new order with ${result.items.length} items from wholesaler "${newOrder.wholesalerName}".`,
             });
             
             // Navigate to the order list tab to show the new order
@@ -106,7 +106,7 @@ const BillScannerTab: React.FC<BillScannerTabProps> = ({ service, onOrderCreated
             <CardHeader>
                 <CardTitle>AI Bill Scanner</CardTitle>
                 <CardDescription>
-                    Upload a photo of a supplier bill, and the AI will automatically create an order list for you.
+                    Upload a photo of a wholesaler bill, and the AI will automatically create an order list for you.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">

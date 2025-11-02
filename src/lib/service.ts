@@ -1,30 +1,30 @@
-import { type Medicine, type SaleRecord, type SupplierOrder, type OrderItem } from './types';
+import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem } from './types';
 
 // Helper to get all data from localStorage
 const getLocalStorageData = () => {
     if (typeof window === 'undefined') {
-        return { medicines: [], sales: [], supplierOrders: [] };
+        return { medicines: [], sales: [], wholesalerOrders: [] };
     }
     const medicines = JSON.parse(localStorage.getItem('medicines') || '[]');
     const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-    const supplierOrders = JSON.parse(localStorage.getItem('supplierOrders') || '[]');
-    return { medicines, sales, supplierOrders };
+    const wholesalerOrders = JSON.parse(localStorage.getItem('wholesalerOrders') || '[]');
+    return { medicines, sales, wholesalerOrders };
 };
 
 export class AppService {
     private medicines: Medicine[] = [];
     private sales: SaleRecord[] = [];
-    private supplierOrders: SupplierOrder[] = [];
+    private wholesalerOrders: WholesalerOrder[] = [];
 
     constructor() {
         // Data is now initialized via the initialize method to ensure it's in sync with React state
     }
     
     // This method is called from AppPage to pass the current state from useLocalStorage
-    initialize(medicines: Medicine[], sales: SaleRecord[], supplierOrders: SupplierOrder[]): void {
+    initialize(medicines: Medicine[], sales: SaleRecord[], wholesalerOrders: WholesalerOrder[]): void {
         this.medicines = medicines;
         this.sales = sales;
-        this.supplierOrders = supplierOrders;
+        this.wholesalerOrders = wholesalerOrders;
     }
 
     private async simulateLatency<T>(data?: T): Promise<T | void> {
@@ -87,33 +87,33 @@ export class AppService {
         return this.simulateLatency();
     }
 
-    // --- Supplier Order Management ---
-    async getSupplierOrders(): Promise<SupplierOrder[]> {
-        return this.simulateLatency(this.supplierOrders);
+    // --- Wholesaler Order Management ---
+    async getWholesalerOrders(): Promise<WholesalerOrder[]> {
+        return this.simulateLatency(this.wholesalerOrders);
     }
 
-    async saveSupplierOrder(order: SupplierOrder): Promise<SupplierOrder> {
-        this.supplierOrders = this.supplierOrders.map(o => o.id === order.id ? order : o);
-        localStorage.setItem('supplierOrders', JSON.stringify(this.supplierOrders));
+    async saveWholesalerOrder(order: WholesalerOrder): Promise<WholesalerOrder> {
+        this.wholesalerOrders = this.wholesalerOrders.map(o => o.id === order.id ? order : o);
+        localStorage.setItem('wholesalerOrders', JSON.stringify(this.wholesalerOrders));
         return this.simulateLatency(order);
     }
 
-    async addSupplierOrder(data: { supplierName: string, items: Omit<OrderItem, 'id'>[] }): Promise<SupplierOrder> {
-        const newOrder: SupplierOrder = {
+    async addWholesalerOrder(data: { wholesalerName: string, items: Omit<OrderItem, 'id'>[] }): Promise<WholesalerOrder> {
+        const newOrder: WholesalerOrder = {
             id: new Date().toISOString(),
-            supplierName: data.supplierName.trim(),
+            wholesalerName: data.wholesalerName.trim(),
             orderDate: new Date().toISOString(),
             items: data.items.map(item => ({ ...item, id: `${new Date().toISOString()}-${Math.random()}` })),
             status: 'Pending',
         };
-        this.supplierOrders = [newOrder, ...this.supplierOrders];
-        localStorage.setItem('supplierOrders', JSON.stringify(this.supplierOrders));
+        this.wholesalerOrders = [newOrder, ...this.wholesalerOrders];
+        localStorage.setItem('wholesalerOrders', JSON.stringify(this.wholesalerOrders));
         return this.simulateLatency(newOrder);
     }
 
-    async deleteAllSupplierOrders(): Promise<void> {
-        this.supplierOrders = [];
-        localStorage.setItem('supplierOrders', JSON.stringify(this.supplierOrders));
+    async deleteAllWholesalerOrders(): Promise<void> {
+        this.wholesalerOrders = [];
+        localStorage.setItem('wholesalerOrders', JSON.stringify(this.wholesalerOrders));
         return this.simulateLatency();
     }
 }

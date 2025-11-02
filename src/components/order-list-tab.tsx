@@ -9,7 +9,7 @@ import { PlusCircle, Trash2, Download, ClipboardList, Info, History, PackagePlus
 import * as htmlToImage from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { PrintableOrderList } from './printable-order-list';
-import { type Medicine, type OrderItem, type SupplierOrder, isTablet, isGeneric } from '@/lib/types';
+import { type Medicine, type OrderItem, type WholesalerOrder, isTablet, isGeneric } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
@@ -21,11 +21,11 @@ import { AppService } from '@/lib/service';
 interface OrderListTabProps {
     medicines: Medicine[];
     setMedicines: React.Dispatch<React.SetStateAction<Medicine[]>>;
-    orders: SupplierOrder[];
-    setOrders: React.Dispatch<React.SetStateAction<SupplierOrder[]>>;
+    orders: WholesalerOrder[];
+    setOrders: React.Dispatch<React.SetStateAction<WholesalerOrder[]>>;
     service: AppService;
     onProcessOrderItem: (data: { orderId: string, item: any }) => void;
-    onStartOrderMerge: (order: SupplierOrder) => void;
+    onStartOrderMerge: (order: WholesalerOrder) => void;
 }
 
 const getDisplayQuantity = (item: OrderItem) => {
@@ -35,7 +35,7 @@ const getDisplayQuantity = (item: OrderItem) => {
     return item.quantity;
 };
 
-function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: SupplierOrder[], onMerge: (order: SupplierOrder) => void, onClearHistory: () => void }) {
+function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: WholesalerOrder[], onMerge: (order: WholesalerOrder) => void, onClearHistory: () => void }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
@@ -59,7 +59,7 @@ function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: Suppl
                 <DialogHeader>
                     <div className="flex justify-between items-center">
                         <div>
-                            <DialogTitle>Saved Supplier Orders</DialogTitle>
+                            <DialogTitle>Saved Wholesaler Orders</DialogTitle>
                             <DialogDescription>Review your past orders here.</DialogDescription>
                         </div>
                         <AlertDialog open={isClearHistoryOpen} onOpenChange={(open) => { setIsClearHistoryOpen(open); if (!open) setDeleteConfirmation(''); }}>
@@ -73,7 +73,7 @@ function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: Suppl
                                 <AlertDialogHeader>
                                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                    This will permanently delete all supplier order history. This action cannot be undone.
+                                    This will permanently delete all wholesaler order history. This action cannot be undone.
                                     <br />
                                     To confirm, please type <strong>delete</strong> in the box below.
                                 </AlertDialogDescription>
@@ -105,7 +105,7 @@ function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: Suppl
                                     <AccordionTrigger>
                                         <div className="flex flex-col sm:flex-row w-full items-start sm:items-center justify-between pr-4 gap-2">
                                             <div className="flex flex-col text-left flex-1">
-                                                <span className="font-semibold">{order.supplierName}</span>
+                                                <span className="font-semibold">{order.wholesalerName}</span>
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                      <span className="text-xs text-muted-foreground">{new Date(order.orderDate).toLocaleDateString()}</span>
                                                 </div>
@@ -169,7 +169,7 @@ function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: Suppl
                     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-10 text-center">
                         <Info className="h-10 w-10 text-muted-foreground mb-4" />
                         <h3 className="text-xl font-semibold">No Saved Orders</h3>
-                        <p className="text-muted-foreground">Your saved supplier orders will appear here.</p>
+                        <p className="text-muted-foreground">Your saved wholesaler orders will appear here.</p>
                     </div>
                 )}
                 <DialogFooter>
@@ -194,7 +194,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
     const [itemCategory, setItemCategory] = useState('');
     const [customCategory, setCustomCategory] = useState('');
     const [quantity, setQuantity] = useState('');
-    const [supplierName, setSupplierName] = useState('');
+    const [wholesalerName, setWholesalerName] = useState('');
     
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -205,8 +205,8 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
     const [pendingItem, setPendingItem] = useState<Omit<OrderItem, 'id'> | null>(null);
     const [clarificationPrompt, setClarificationPrompt] = useState<{ title: string; label: string } | null>(null);
     const [unitsPerPackInput, setUnitsPerPackInput] = useState('');
-    const [orderForPrint, setOrderForPrint] = useState<SupplierOrder | null>(null);
-    const [processingOrder, setProcessingOrder] = useState<SupplierOrder | null>(null);
+    const [orderForPrint, setOrderForPrint] = useState<WholesalerOrder | null>(null);
+    const [processingOrder, setProcessingOrder] = useState<WholesalerOrder | null>(null);
 
     const categories = useMemo(() => {
         const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
@@ -238,7 +238,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         };
     }, []);
     
-    const handleMergeOrder = async (order: SupplierOrder) => {
+    const handleMergeOrder = async (order: WholesalerOrder) => {
         let currentItems = [...order.items];
         
         const lastProcessedName = sessionStorage.getItem(`lastProcessed_${order.id}`);
@@ -281,20 +281,20 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         }
         
         const completedOrder = { ...order, status: 'Completed' as const, receivedDate: new Date().toISOString() };
-        await service.saveSupplierOrder(completedOrder);
+        await service.saveWholesalerOrder(completedOrder);
         setOrders(currentOrders => currentOrders.map(o => o.id === order.id ? completedOrder : o));
 
-        toast({ title: "Order Merged", description: `Order from ${order.supplierName} has been merged into inventory.` });
+        toast({ title: "Order Merged", description: `Order from ${order.wholesalerName} has been merged into inventory.` });
         setProcessingOrder(null);
         sessionStorage.removeItem(`lastProcessed_${order.id}`);
     };
     
     useEffect(() => {
         const startMergeHandler = (event: Event) => {
-            handleMergeOrder((event as CustomEvent<SupplierOrder>).detail);
+            handleMergeOrder((event as CustomEvent<WholesalerOrder>).detail);
         };
         const continueMergeHandler = (event: Event) => {
-            handleMergeOrder((event as CustomEvent<SupplierOrder>).detail);
+            handleMergeOrder((event as CustomEvent<WholesalerOrder>).detail);
         };
 
         window.addEventListener('start-merge', startMergeHandler);
@@ -422,10 +422,10 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                         skipFonts: true,
                     });
                     const link = document.createElement('a');
-                    link.download = `${orderForPrint.supplierName.replace(/\s+/g, '-')}-Order-${new Date(orderForPrint.orderDate).toISOString().split('T')[0]}.png`;
+                    link.download = `${orderForPrint.wholesalerName.replace(/\s+/g, '-')}-Order-${new Date(orderForPrint.orderDate).toISOString().split('T')[0]}.png`;
                     link.href = dataUrl;
                     link.click();
-                    toast({ title: 'Order Saved & Downloaded', description: `Order for ${orderForPrint.supplierName} has been saved.` });
+                    toast({ title: 'Order Saved & Downloaded', description: `Order for ${orderForPrint.wholesalerName} has been saved.` });
                 } catch (error) {
                     console.error("Failed to download image", error);
                     toast({ variant: 'destructive', title: 'Download Failed', description: 'Could not generate the order image.' });
@@ -443,13 +443,13 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
             toast({ variant: 'destructive', title: 'Empty Order', description: 'Please add items to the list before saving.' });
             return;
         }
-        if (!supplierName.trim()) {
-            toast({ variant: 'destructive', title: 'Missing Supplier', description: 'Please enter a supplier name.' });
+        if (!wholesalerName.trim()) {
+            toast({ variant: 'destructive', title: 'Missing Wholesaler Name', description: 'Please enter a wholesaler name.' });
             return;
         }
 
-        const newOrder = await service.addSupplierOrder({
-            supplierName: supplierName.trim(),
+        const newOrder = await service.addWholesalerOrder({
+            wholesalerName: wholesalerName.trim(),
             items: items,
         });
 
@@ -458,13 +458,13 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         setOrderForPrint(newOrder);
 
         setItems([]);
-        setSupplierName('');
+        setWholesalerName('');
     };
 
     const handleClearOrderHistory = async () => {
-        await service.deleteAllSupplierOrders();
+        await service.deleteAllWholesalerOrders();
         setOrders([]);
-        toast({ title: 'Supplier Order History Cleared' });
+        toast({ title: 'Wholesaler Order History Cleared' });
     }
 
     return (
@@ -488,7 +488,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <ClipboardList />
-                        Create Supplier Order
+                        Create Wholesaler Order
                     </CardTitle>
                     <CardDescription>
                         Add items you need to order. The system will ask for more details if you order in packs or boxes.
@@ -598,19 +598,19 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                         )}
                         {items.length > 0 && (
                             <div className="w-full space-y-2 pt-4">
-                                <Label htmlFor="supplier-name">Supplier Name</Label>
+                                <Label htmlFor="wholesaler-name">Wholesaler Name</Label>
                                 <Input
-                                    id="supplier-name"
-                                    placeholder="Enter the supplier's name"
-                                    value={supplierName}
-                                    onChange={(e) => setSupplierName(e.target.value)}
+                                    id="wholesaler-name"
+                                    placeholder="Enter the wholesaler's name"
+                                    value={wholesalerName}
+                                    onChange={(e) => setWholesalerName(e.target.value)}
                                 />
                             </div>
                         )}
                     </div>
                 </CardContent>
                 <CardFooter className="flex-wrap gap-2">
-                    <Button onClick={handleSaveOrder} disabled={items.length === 0 || !supplierName.trim()} className="w-full sm:w-auto">
+                    <Button onClick={handleSaveOrder} disabled={items.length === 0 || !wholesalerName.trim()} className="w-full sm:w-auto">
                         <Download className="mr-2" /> Save & Download Order
                     </Button>
                     <OrderHistoryDialog orders={orders} onMerge={onStartOrderMerge} onClearHistory={handleClearOrderHistory} />
@@ -645,5 +645,3 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         </>
     );
 }
-
-    
