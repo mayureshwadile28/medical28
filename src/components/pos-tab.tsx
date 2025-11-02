@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2, BrainCircuit } from 'lucide-react';
+import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
@@ -67,42 +67,6 @@ const generateNewBillNumber = (sales: SaleRecord[]): string => {
   const newBillNum = highestBillNum + 1;
   return `VM-${newBillNum.toString().padStart(5, '0')}`;
 };
-
-function SuggestionDialog({ medicines, onSelect, onCancel }: { medicines: Medicine[], onSelect: (medicine: Medicine) => void, onCancel: () => void }) {
-    return (
-        <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
-            <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Suggested Medicines</DialogTitle>
-                    <DialogDescription>
-                        Based on the provided description, here are some possible medicines. Select one to add to the bill.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="py-4 max-h-[60vh] overflow-y-auto">
-                    <ul className="space-y-2">
-                        {medicines.map(med => (
-                            <li key={med.id}>
-                                <Button
-                                    variant="outline"
-                                    className="w-full justify-start h-auto"
-                                    onClick={() => onSelect(med)}
-                                >
-                                    <div className="text-left">
-                                        <p className="font-semibold">{med.name}</p>
-                                        <p className="text-xs text-muted-foreground">{med.description?.illness}</p>
-                                    </div>
-                                </Button>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={onCancel}>Cancel</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
 
 
 function BatchSelectorDialog({ medicine, onSelect, onCancel }: { medicine: Medicine, onSelect: (batch: Batch) => void, onCancel: () => void }) {
@@ -194,10 +158,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
 
   const [deletingDoctorName, setDeletingDoctorName] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
-  
-  const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
-  const [suggestedMedicines, setSuggestedMedicines] = useState<Medicine[]>([]);
-  const [descriptionForm, setDescriptionForm] = useState<Partial<MedicineDescription>>({});
 
 
   const availableMedicines = useMemo(() => {
@@ -257,12 +217,15 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
 
       const availableBatches = med.batches.filter(b => (b.stock.tablets || b.stock.quantity || 0) > 0);
       
+      if (availableBatches.length === 0) {
+           toast({ title: 'Out of Stock', description: `${med.name} is currently out of stock.`});
+           return;
+      }
+      
       if (availableBatches.length > 1) {
           setPendingBatchSelection(med);
       } else if (availableBatches.length === 1) {
           addMedicineToBill(med, availableBatches[0]);
-      } else {
-          toast({ title: 'Out of Stock', description: `${med.name} is out of stock.`});
       }
   }
 
@@ -402,41 +365,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
         setDiscount(numValue);
     }
   }
-  
-  const handleFindSuggestions = () => {
-    const { illness, minAge, maxAge, gender, patientType } = descriptionForm;
-    if (!illness) {
-        toast({ variant: 'destructive', title: 'Illness required', description: 'Please enter an illness to find suggestions.' });
-        return;
-    }
-
-    const keywords = illness.toLowerCase().split(/[\s,]+/).filter(Boolean);
-
-    const matches = availableMedicines.filter(med => {
-        if (!med.description) return false;
-        
-        const desc = med.description;
-        
-        const illnessMatch = keywords.some(kw => desc.illness.toLowerCase().includes(kw));
-        if(!illnessMatch) return false;
-
-        const patientMatch = !patientType || desc.patientType === patientType;
-        if(!patientMatch) return false;
-
-        if (patientType === 'Human') {
-            const ageMatch = (!minAge || !desc.maxAge || minAge < desc.maxAge) && (!maxAge || !desc.minAge || maxAge > desc.minAge);
-            if(!ageMatch) return false;
-
-            const genderMatch = !gender || desc.gender === 'Both' || desc.gender === gender;
-            if(!genderMatch) return false;
-        }
-
-        return true;
-    });
-
-    setSuggestedMedicines(matches);
-    setIsSuggestionDialogOpen(true);
-};
 
 
   return (
@@ -448,16 +376,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
             onCancel={() => setPendingBatchSelection(null)}
         />
     )}
-     {isSuggestionDialogOpen && (
-            <SuggestionDialog
-                medicines={suggestedMedicines}
-                onCancel={() => setIsSuggestionDialogOpen(false)}
-                onSelect={(med) => {
-                    handleSelectMedicine(med.id);
-                    setIsSuggestionDialogOpen(false);
-                }}
-            />
-     )}
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
       <div className="lg:col-span-2 space-y-4">
         <Card>
@@ -509,85 +427,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
                         </Command>
                     </PopoverContent>
                 </Popover>
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button variant="outline">
-                            <BrainCircuit className="mr-2 h-4 w-4" />
-                            Find by Description
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Find Medicine by Description</DialogTitle>
-                            <DialogDescription>
-                                Fill in the patient's details to get relevant medicine suggestions.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label>Patient Type</Label>
-                                 <RadioGroup
-                                    value={descriptionForm.patientType}
-                                    onValueChange={(val: 'Human' | 'Animal') => setDescriptionForm(p => ({...p, patientType: val, gender: undefined, minAge: undefined, maxAge: undefined}))}
-                                    className="flex space-x-4"
-                                >
-                                    <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="Human" id="desc-human" />
-                                        <Label htmlFor="desc-human">Human</Label>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="Animal" id="desc-animal" />
-                                        <Label htmlFor="desc-animal">Animal</Label>
-                                    </div>
-                                </RadioGroup>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="desc-illness">Illness / Symptom</Label>
-                                <Input id="desc-illness" placeholder="e.g., Fever, Cold" value={descriptionForm.illness || ''} onChange={e => setDescriptionForm(p => ({...p, illness: e.target.value}))}/>
-                            </div>
-                             {descriptionForm.patientType === 'Human' && (
-                                <>
-                                <div className="grid grid-cols-2 gap-4">
-                                     <div className="space-y-2">
-                                        <Label htmlFor="desc-min-age">Min Age</Label>
-                                        <Input id="desc-min-age" type="number" placeholder="5" value={descriptionForm.minAge || ''} onChange={e => setDescriptionForm(p => ({...p, minAge: parseInt(e.target.value, 10) || undefined}))} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="desc-max-age">Max Age</Label>
-                                        <Input id="desc-max-age" type="number" placeholder="60" value={descriptionForm.maxAge || ''} onChange={e => setDescriptionForm(p => ({...p, maxAge: parseInt(e.target.value, 10) || undefined}))} />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Gender</Label>
-                                     <RadioGroup
-                                        value={descriptionForm.gender}
-                                        onValueChange={(val: 'Male' | 'Female' | 'Both') => setDescriptionForm(p => ({...p, gender: val}))}
-                                        className="flex space-x-4"
-                                    >
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="Both" id="desc-both" />
-                                            <Label htmlFor="desc-both">Both</Label>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="Male" id="desc-male" />
-                                            <Label htmlFor="desc-male">Male</Label>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="Female" id="desc-female" />
-                                            <Label htmlFor="desc-female">Female</Label>
-                                        </div>
-                                    </RadioGroup>
-                                </div>
-                                </>
-                             )}
-                        </div>
-                        <DialogFooter>
-                            <DialogTrigger asChild>
-                                <Button onClick={handleFindSuggestions}>Find Suggestions</Button>
-                            </DialogTrigger>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
 
             </div>
 
@@ -861,3 +700,5 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     </>
   );
 }
+
+    

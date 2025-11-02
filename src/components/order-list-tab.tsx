@@ -241,49 +241,43 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
     };
     
     const handleSelectiveMerge = async () => {
-        if (!mergeOrder || selectedItemsToMerge.length === 0) {
-            toast({
-                variant: 'destructive',
-                title: 'No Items Selected',
-                description: 'Please select items to merge.',
-            });
+        if (!mergeOrder) return;
+        
+        // Find the first selected item that is still pending
+        const itemToProcessId = selectedItemsToMerge.find(id => {
+            const item = mergeOrder.items.find(i => i.id === id);
+            return item && item.status === 'Pending';
+        });
+
+        if (!itemToProcessId) {
+            setMergeOrder(null);
+            toast({ title: "No New Items to Merge", description: "All selected items have already been received." });
             return;
         }
 
-        const orderToUpdate = { ...mergeOrder };
+        const item = mergeOrder.items.find(i => i.id === itemToProcessId)!;
         
-        for (const itemId of selectedItemsToMerge) {
-            const itemIndex = orderToUpdate.items.findIndex(i => i.id === itemId);
-            if (itemIndex > -1) {
-                const item = orderToUpdate.items[itemIndex];
-                if (item.status === 'Pending') {
-                    // Check if medicine exists
-                    const existingMedicine = medicines.find(m =>
-                        m && item.name && m.name && m.category && item.category &&
-                        m.name.toLowerCase() === item.name.toLowerCase() &&
-                        m.category.toLowerCase() === item.category.toLowerCase()
-                    );
-                    
-                    onProcessOrderItem({ 
-                        orderId: orderToUpdate.id, 
-                        item: item,
-                        existingMedicine: existingMedicine 
-                    });
-
-                    setMergeOrder(null);
-                    return; // Process one at a time
-                }
-            }
-        }
+        // Check if medicine exists
+        const existingMedicine = medicines.find(m =>
+            m && m.name && m.category && item.name && item.category &&
+            m.name.toLowerCase() === item.name.toLowerCase() &&
+            m.category.toLowerCase() === item.category.toLowerCase()
+        );
+        
+        onProcessOrderItem({ 
+            orderId: mergeOrder.id, 
+            item: item,
+            existingMedicine: existingMedicine 
+        });
 
         setMergeOrder(null);
-        toast({ title: "No New Items to Merge", description: "All selected items have already been received." });
     };
     
     useEffect(() => {
         const continueMergeHandler = (event: Event) => {
              const order = (event as CustomEvent<WholesalerOrder>).detail;
              if (order) {
+                // This will re-open the merge dialog and continue the process
                 startMergeProcess(order);
              }
         };
@@ -293,6 +287,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         return () => {
             window.removeEventListener('continue-merge', continueMergeHandler);
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [medicines, orders, service]);
 
     const finalizeAddItem = (item: Omit<OrderItem, 'id' | 'status'>) => {
@@ -673,3 +668,5 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         </>
     );
 }
+
+    

@@ -4,7 +4,7 @@
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { type Medicine, isTablet, type Batch } from '@/lib/types';
+import { type Medicine, isTablet, type Batch, type TabletMedicine } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -124,45 +124,48 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      id: medicineToEdit?.id,
-      name: medicineToEdit?.name || '',
-      category: isCustomCategory ? 'Other' : (medicineToEdit?.category || ''),
-      customCategory: isCustomCategory ? medicineToEdit.category : '',
-      location: medicineToEdit?.location || '',
-      tablets_per_strip: isTablet(medicineToEdit as Medicine) ? (medicineToEdit as TabletMedicine).tabletsPerStrip : 10,
-      batches: medicineToEdit?.batches?.map(b => ({
-          id: b.id,
-          batchNumber: b.batchNumber,
-          expiry: getFormattedExpiry(b.expiry),
-          price: b.price,
-          stock_strips: isTablet(medicineToEdit as Medicine) ? (b.stock.tablets || 0) / ((medicineToEdit as TabletMedicine).tabletsPerStrip || 10) : undefined,
-          stock_quantity: !isTablet(medicineToEdit as Medicine) ? b.stock.quantity : undefined,
-      })) || [],
-      description_patientType: medicineToEdit?.description?.patientType,
-      description_illness: medicineToEdit?.description?.illness || '',
-      description_minAge: medicineToEdit?.description?.minAge === 0 ? undefined : medicineToEdit?.description?.minAge,
-      description_maxAge: medicineToEdit?.description?.maxAge === 0 ? undefined : medicineToEdit?.description?.maxAge,
-      description_gender: medicineToEdit?.description?.gender,
-    },
+    defaultValues: {},
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "batches",
   });
   
   useEffect(() => {
-    if (startWithNewBatch) {
-      const formBatches = form.getValues('batches');
-      const medicineBatches = medicineToEdit?.batches || [];
-      // Only append if the form doesn't already have the extra batch row
-      if (formBatches.length === medicineBatches.length) {
-          append({ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 }, { shouldFocus: true });
-      }
+    const isEditing = !!medicineToEdit?.id;
+    const isTabletCategory = medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule';
+    const tabletsPerStrip = (isTabletCategory && (medicineToEdit as TabletMedicine).tabletsPerStrip) || 10;
+    
+    let batches = medicineToEdit?.batches?.map(b => ({
+          id: b.id,
+          batchNumber: b.batchNumber,
+          expiry: getFormattedExpiry(b.expiry),
+          price: b.price,
+          stock_strips: isTabletCategory ? (b.stock.tablets || 0) / tabletsPerStrip : undefined,
+          stock_quantity: !isTabletCategory ? b.stock.quantity : undefined,
+    })) || [];
+    
+    if (isEditing && startWithNewBatch) {
+        batches.push({ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [medicineToEdit, startWithNewBatch, append]);
+
+    form.reset({
+      id: medicineToEdit?.id,
+      name: medicineToEdit?.name || '',
+      category: isCustomCategory ? 'Other' : (medicineToEdit?.category || ''),
+      customCategory: isCustomCategory ? medicineToEdit.category : '',
+      location: medicineToEdit?.location || '',
+      tablets_per_strip: tabletsPerStrip,
+      batches: batches,
+      description_patientType: medicineToEdit?.description?.patientType,
+      description_illness: medicineToEdit?.description?.illness || '',
+      description_minAge: medicineToEdit?.description?.minAge === 0 ? undefined : medicineToEdit?.description?.minAge,
+      description_maxAge: medicineToEdit?.description?.maxAge === 0 ? undefined : medicineToEdit?.description?.maxAge,
+      description_gender: medicineToEdit?.description?.gender,
+    });
+    
+  }, [medicineToEdit, startWithNewBatch, form, isCustomCategory]);
 
 
   const selectedCategory = form.watch('category');
@@ -257,7 +260,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
             render={({ field }) => (
                 <FormItem>
                 <FormLabel>Category</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isFromOrder}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isFromOrder}>
                     <FormControl>
                     <SelectTrigger>
                         <SelectValue placeholder={'Category'} />
@@ -540,3 +543,5 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
     </Form>
   );
 }
+
+    

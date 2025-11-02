@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
@@ -54,9 +55,13 @@ export default function ExpiryReportPage() {
     const allBatches: MedicineWithExpiryInfo[] = [];
 
     medicines.forEach(med => {
+        if (!med || !med.batches) return;
         med.batches.forEach(batch => {
             const stock = getTotalStockInBatch(batch);
             if (stock <= 0) return;
+
+            // Safety check for invalid expiry date
+            if (!batch.expiry || isNaN(new Date(batch.expiry).getTime())) return;
 
             const expiryDateUTC = new Date(batch.expiry);
             const expiryDate = new Date(Date.UTC(expiryDateUTC.getUTCFullYear(), expiryDateUTC.getUTCMonth(), expiryDateUTC.getUTCDate()));
@@ -208,3 +213,5 @@ export default function ExpiryReportPage() {
     </main>
   );
 }
+
+    

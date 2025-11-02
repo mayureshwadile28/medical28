@@ -294,6 +294,7 @@ export default function AppPage() {
     setOrderItemToProcess(null); // Clear the item being processed
 
     // Only update the order if a medicine was actually saved (not cancelled).
+    // The medicine object will have an ID if it's a real, saved medicine.
     if (medicine && medicine.id) {
         const orderToUpdate = wholesalerOrders.find(o => o.id === orderId);
         if (orderToUpdate) {
@@ -316,7 +317,7 @@ export default function AppPage() {
             await service.saveWholesalerOrder(orderToUpdate);
             setWholesalerOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate.id ? orderToUpdate : o));
 
-            // Resume the merge process
+            // Resume the merge process by dispatching an event
             setTimeout(() => {
                 const continueEvent = new CustomEvent('continue-merge', { detail: orderToUpdate });
                 window.dispatchEvent(continueEvent);
@@ -438,3 +439,5 @@ export default function AppPage() {
     </>
   );
 }
+
+    
