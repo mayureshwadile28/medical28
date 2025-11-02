@@ -82,16 +82,22 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
     const { toast } = useToast();
 
     const uniqueSymptoms = useMemo(() => {
-        const allSymptoms = inventory.flatMap(med => {
+        const allSymptoms = new Set<string>();
+        inventory.forEach(med => {
             if (med.description?.illness) {
-                return med.description.illness.split(',').map(s => s.trim().toLowerCase());
+                med.description.illness
+                    .split(',')
+                    .map(s => s.trim())
+                    .filter(Boolean)
+                    .forEach(symptom => {
+                        allSymptoms.add(symptom.toLowerCase());
+                    });
             }
-            return [];
-        }).filter(Boolean);
-    
-        const unique = [...new Set(allSymptoms)];
+        });
         
-        return unique.map(s => s.charAt(0).toUpperCase() + s.slice(1)).sort();
+        return Array.from(allSymptoms)
+            .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+            .sort();
     }, [inventory]);
 
     const handleSymptomClick = (symptom: string) => {
