@@ -153,10 +153,14 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
   });
   
   useEffect(() => {
-    if (startWithNewBatch) {
-      append({ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 });
+    // Only run this logic when the component mounts for a specific "start with new batch" scenario
+    if (medicineToEdit && startWithNewBatch) {
+      append({ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 }, { shouldFocus: false });
     }
-  }, [startWithNewBatch, append]);
+    // This effect should only run once when the form is opened for editing/restocking.
+    // We remove dependencies to prevent it from running on re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [medicineToEdit, startWithNewBatch]);
 
 
   const selectedCategory = form.watch('category');
