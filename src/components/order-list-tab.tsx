@@ -259,14 +259,16 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
             
             if (existingMed) {
                 const qtyValue = parseInt(item.quantity.match(/\d+/)?.[0] || '0', 10);
-                let stockToAdd = 0;
                 
                 if (isTablet(existingMed)) {
-                    stockToAdd = (item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue) * existingMed.tabletsPerStrip;
-                    existingMed.stock.tablets += stockToAdd;
+                    // For tablets, quantity is in strips. Convert strips to tablets.
+                    const stripsToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
+                    const tabletsToAdd = stripsToAdd * existingMed.tabletsPerStrip;
+                    existingMed.stock.tablets += tabletsToAdd;
                 } else if(isGeneric(existingMed)) {
-                    stockToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
-                    existingMed.stock.quantity += stockToAdd;
+                    // For other items, quantity is in units.
+                    const unitsToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
+                    existingMed.stock.quantity += unitsToAdd;
                 }
 
                 await service.saveMedicine(existingMed);
@@ -643,3 +645,5 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         </>
     );
 }
+
+    
