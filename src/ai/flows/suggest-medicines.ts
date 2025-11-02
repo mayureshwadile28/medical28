@@ -29,16 +29,19 @@ export async function suggestMedicines(input: SuggestMedicinesInput): Promise<Su
 
     const matchingMedicines = availableInventory.filter((med: Medicine) => {
         // Only consider medicines that have a valid description
-        if (!med.description) return false;
+        if (!med.description?.illness) return false;
         
         const desc = med.description;
+        const medicineIllnesses = desc.illness.toLowerCase().split(',').map(s => s.trim());
+        const patientIllnesses = patient.illnesses.map(s => s.toLowerCase().trim());
+
 
         // Match patient type
         if (desc.patientType !== patient.patientType) return false;
         
         // Basic keyword match for illness: check if the medicine's illness description includes any of the patient's symptoms.
-        const illnessMatch = patient.illnesses.some(symptom => 
-            desc.illness.toLowerCase().includes(symptom.toLowerCase())
+        const illnessMatch = patientIllnesses.some(symptom => 
+            medicineIllnesses.includes(symptom)
         );
 
         if (!illnessMatch) return false;

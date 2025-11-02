@@ -87,11 +87,9 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
             if (med.description?.illness) {
                 med.description.illness
                     .split(',')
-                    .map(s => s.trim())
+                    .map(s => s.trim().toLowerCase())
                     .filter(Boolean)
-                    .forEach(symptom => {
-                        allSymptoms.add(symptom.toLowerCase());
-                    });
+                    .forEach(symptom => allSymptoms.add(symptom));
             }
         });
         
