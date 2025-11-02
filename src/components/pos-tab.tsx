@@ -84,11 +84,14 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
     const uniqueSymptoms = useMemo(() => {
         const allSymptoms = inventory.flatMap(med => {
             if (med.description?.illness) {
-                return med.description.illness.split(',').map(s => s.trim());
+                return med.description.illness.split(',').map(s => s.trim().toLowerCase());
             }
             return [];
-        }).map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase());
-        return [...new Set(allSymptoms)].filter(Boolean).sort();
+        }).filter(Boolean);
+    
+        const unique = [...new Set(allSymptoms)];
+        
+        return unique.map(s => s.charAt(0).toUpperCase() + s.slice(1)).sort();
     }, [inventory]);
 
     const handleSymptomClick = (symptom: string) => {
@@ -138,7 +141,7 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
         if(medicineToAdd) {
             onAddMedicine(medicineToAdd);
             toast({ title: `${medicineToAdd.name} added to bill.`});
-            setIsOpen(false); // Close dialog on successful add
+            setIsOpen(false);
         }
     }
 
@@ -202,7 +205,7 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
                                         {uniqueSymptoms.map(symptom => (
                                             <Badge 
                                                 key={symptom}
-                                                variant={illnesses.toLowerCase().includes(symptom.toLowerCase()) ? 'default' : 'secondary'}
+                                                variant={illnesses.toLowerCase().split(', ').includes(symptom.toLowerCase()) ? 'default' : 'secondary'}
                                                 onClick={() => handleSymptomClick(symptom)}
                                                 className="cursor-pointer text-center justify-center truncate"
                                             >
