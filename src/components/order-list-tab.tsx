@@ -119,13 +119,13 @@ function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: Whole
                                                 <span className="font-semibold">{order.wholesalerName}</span>
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                      <span className="text-xs text-muted-foreground">{new Date(order.orderDate).toLocaleDateString()}</span>
+                                                    {order.receivedDate && <Badge variant="outline" className="text-xs">
+                                                        Received: {new Date(order.receivedDate).toLocaleDateString()}
+                                                    </Badge>}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
                                                 {getStatusBadge(order.status)}
-                                                {order.receivedDate && <Badge variant="outline" className="text-xs">
-                                                    Last Received: {new Date(order.receivedDate).toLocaleDateString()}
-                                                </Badge>}
                                             </div>
                                         </div>
                                     </AccordionTrigger>
@@ -249,56 +249,26 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         }
 
         const orderToUpdate = { ...mergeOrder };
-        let itemsProcessedCount = 0;
-
+        
+        // This is a sequential process. We process one item at a time.
+        // The event listener will re-trigger this flow.
         for (const itemId of selectedItemsToMerge) {
             const itemIndex = orderToUpdate.items.findIndex(i => i.id === itemId);
-            if (itemIndex === -1) continue;
-
-            const item = orderToUpdate.items[itemIndex];
-            if (item.status === 'Received') continue;
-
-            const existingMed = medicines.find(m => 
-                m.name?.toLowerCase() === item.name.toLowerCase() && 
-                m.category?.toLowerCase() === item.category.toLowerCase()
-            );
-
-            if (existingMed) {
-                const qtyValue = parseInt(item.quantity.match(/\d+/)?.[0] || '0', 10);
-                
-                if (isTablet(existingMed)) {
-                    const tabletsPerStrip = existingMed.tabletsPerStrip || 10;
-                    const stripsToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
-                    const tabletsToAdd = stripsToAdd * tabletsPerStrip;
-                    existingMed.stock.tablets += tabletsToAdd;
-                } else if(isGeneric(existingMed)) {
-                    const unitsToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
-                    existingMed.stock.quantity += unitsToAdd;
+            if (itemIndex > -1) {
+                const item = orderToUpdate.items[itemIndex];
+                if(item.status === 'Pending') {
+                    // Trigger the processing for this one item.
+                    // This will pause the loop and wait for user input in the inventory tab.
+                    onProcessOrderItem({ orderId: orderToUpdate.id, item: item });
+                    setMergeOrder(null);
+                    return; 
                 }
-
-                await service.saveMedicine(existingMed);
-                setMedicines(currentMeds => currentMeds.map(m => m.id === existingMed.id ? existingMed : m));
-                
-                orderToUpdate.items[itemIndex].status = 'Received';
-                itemsProcessedCount++;
-            } else {
-                onProcessOrderItem({ orderId: orderToUpdate.id, item: item });
-                setMergeOrder(null);
-                return; // Pausing the merge to add new item. It will resume.
             }
         }
 
-        // Update order status
-        const allItemsReceived = orderToUpdate.items.every(i => i.status === 'Received');
-        orderToUpdate.status = allItemsReceived ? 'Completed' : 'Partially Received';
-        orderToUpdate.receivedDate = new Date().toISOString();
-
-        await service.saveWholesalerOrder(orderToUpdate);
-        setOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate.id ? orderToUpdate : o));
-
-        toast({ title: "Merge Complete", description: `${itemsProcessedCount} item(s) have been merged into inventory.` });
+        // If we get here, it means all selected items were already received.
         setMergeOrder(null);
-        setSelectedItemsToMerge([]);
+        toast({ title: "No Items to Merge", description: "All selected items have already been received." });
     };
     
     // This effect is to resume merge after a new item is added via the InventoryTab
@@ -695,3 +665,5 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         </>
     );
 }
+
+    
