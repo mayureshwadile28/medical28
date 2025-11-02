@@ -100,7 +100,7 @@ function OrderHistoryDialog({ orders, setOrders, onMerge }: { orders: SupplierOr
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
                                                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => onMerge(order)}>
+                                                            <AlertDialogAction onClick={() => { onMerge(order); setIsDialogOpen(false); }}>
                                                                 Yes, Receive & Merge
                                                             </AlertDialogAction>
                                                         </AlertDialogFooter>
@@ -158,7 +158,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
 
     const categories = useMemo(() => {
         const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
-        const medicineCategories = medicines.map(m => m.category && typeof m.category === 'string' ? m.category.trim() : null);
+        const medicineCategories = medicines.map(m => m && m.category && typeof m.category === 'string' ? m.category.trim() : null);
         return Array.from(new Set([...baseCategories, ...medicineCategories]))
             .filter((c): c is string => !!c) // Filter out any undefined/null/empty values
             .sort((a, b) => a.localeCompare(b));
@@ -168,7 +168,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
       if (!itemName) return [];
       const lowerCaseItemName = itemName.toLowerCase();
       return medicines
-        .filter(med => med.name && typeof med.name === 'string' && med.name.toLowerCase().includes(lowerCaseItemName))
+        .filter(med => med && med.name && typeof med.name === 'string' && med.name.toLowerCase().includes(lowerCaseItemName))
         .map(med => ({ name: med.name, category: med.category }));
     }, [medicines, itemName]);
 
@@ -200,7 +200,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
 
         for (const item of currentItems) {
             const existingMed = medicines.find(m =>
-              m && typeof m.name === 'string' && typeof m.category === 'string' &&
+              m && m.name && m.category && typeof m.name === 'string' && typeof m.category === 'string' &&
               m.name.toLowerCase() === item.name.toLowerCase() &&
               m.category.toLowerCase() === item.category.toLowerCase()
             );
@@ -588,3 +588,5 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         </>
     );
 }
+
+    

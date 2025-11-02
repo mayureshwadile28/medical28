@@ -69,19 +69,18 @@ const getStockString = (med: Medicine) => {
 };
 
 const isLowStock = (med: Medicine) => {
-    if (!med.stock) return false;
+    if (!med || !med.stock) return false;
     if (isTablet(med)) {
         return med.stock.tablets > 0 && med.stock.tablets < 50; // Low stock if less than 50 tabs (5 strips)
     }
-    return med.stock.quantity > 0 && med.stock.quantity < 10;
+    return (med.stock as GenericMedicine['stock'])?.quantity > 0 && (med.stock as GenericMedicine['stock'])?.quantity < 10;
 }
 
 const isOutOfStock = (med: Medicine) => {
-    if (!med.stock) return true;
+    if (!med || !med.stock) return true;
     if (isTablet(med)) {
         return med.stock.tablets <= 0;
     }
-    // This check needs to be safe for when stock is not fully defined yet.
     return (med.stock as GenericMedicine['stock'])?.quantity <= 0;
 }
 
@@ -174,7 +173,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
 
   const categories = useMemo(() => {
     const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
-    const customCategories = medicines.map(m => m.category);
+    const customCategories = medicines.map(m => m.category).filter(c => typeof c === 'string' && c.trim() !== '');
     return Array.from(new Set([...baseCategories, ...customCategories])).sort();
   }, [medicines]);
 
@@ -682,5 +681,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     </>
   );
 }
+
+    
 
     
