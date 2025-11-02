@@ -17,7 +17,6 @@ import InventoryTab from '@/components/inventory-tab';
 import HistoryTab from '@/components/history-tab';
 import OrderListTab from '@/components/order-list-tab';
 import { AppService } from '@/lib/service';
-import BillScannerTab from '@/components/bill-scanner';
 
 // This is the hardcoded MASTER password.
 const MASTER_PASSWORD = 'MAYURESH-VINOD-WADILE-2009';
@@ -341,10 +340,6 @@ export default function AppPage() {
     // This function can be kept for legacy purposes or removed if no longer used.
   };
   
-   const handleOrderCreated = (newOrder: WholesalerOrder) => {
-        setWholesalerOrders(currentOrders => [newOrder, ...currentOrders]);
-    };
-
   return (
     <>
       {!isLicensed && (
@@ -381,7 +376,7 @@ export default function AppPage() {
         <div className="container mx-auto p-4 sm:p-6 lg:p-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex justify-center md:justify-start">
-              <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto">
+              <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
                 <TabsTrigger value="pos">
                   <ShoppingCart className="mr-2 h-4 w-4" /> POS
                 </TabsTrigger>
@@ -393,9 +388,6 @@ export default function AppPage() {
                 </TabsTrigger>
                 <TabsTrigger value="order_list">
                   <ClipboardList className="mr-2 h-4 w-4" /> Order List
-                </TabsTrigger>
-                 <TabsTrigger value="bill_scanner">
-                  <ClipboardList className="mr-2 h-4 w-4" /> Bill Scanner
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -437,9 +429,6 @@ export default function AppPage() {
                   onStartOrderMerge={handleStartOrderMerge}
                 />
               </TabsContent>
-               <TabsContent value="bill_scanner" className="mt-0">
-                  <BillScannerTab service={service} onOrderCreated={handleOrderCreated} />
-              </TabsContent>
             </div>
           </Tabs>
         </div>
@@ -447,6 +436,3 @@ export default function AppPage() {
     </>
   );
 }
-
-
-    

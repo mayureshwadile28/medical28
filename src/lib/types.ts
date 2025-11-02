@@ -1,5 +1,4 @@
 
-
 export type Stock = {
   tablets?: number; // Total number of tablets/capsules
   quantity?: number; // for generic items
@@ -134,24 +133,4 @@ export interface WholesalerOrder {
     items: OrderItem[];
     status: 'Pending' | 'Partially Received' | 'Completed' | 'Cancelled';
     receivedDate?: string; // ISO date string
-}
-
-
-// Client-side types for non-AI suggestion flow
-export interface SuggestMedicinesInput {
-  patient: {
-    patientType: 'Human' | 'Animal';
-    age?: number;
-    gender?: 'Male' | 'Female' | 'Both';
-    illnesses: string[];
-  };
-  inventory: Medicine[];
-}
-
-export interface SuggestMedicinesOutput {
-  suggestions: {
-    medicineId: string;
-    name: string;
-    reason: string;
-  }[];
 }

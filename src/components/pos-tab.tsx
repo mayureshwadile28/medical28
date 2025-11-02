@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { type Medicine, type SaleRecord, type PaymentMode, type SaleItem, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, SuggestMedicinesOutput, getTotalStock, Batch } from '@/lib/types';
+import { type Medicine, type SaleRecord, type PaymentMode, type SaleItem, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, getTotalStock, Batch } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -38,17 +38,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2, Wand2, PlusCircle, Lightbulb, Loader2 } from 'lucide-react';
+import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
 import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/lib/hooks';
 import { AppService } from '@/lib/service';
-import { suggestMedicines } from '@/ai/flows/suggest-medicines';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 
 interface PosTabProps {
   medicines: Medicine[];
@@ -71,224 +67,6 @@ const generateNewBillNumber = (sales: SaleRecord[]): string => {
   const newBillNum = highestBillNum + 1;
   return `VM-${newBillNum.toString().padStart(5, '0')}`;
 };
-
-function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[], onAddMedicine: (medicine: Medicine, batch: Batch) => void }) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [patientType, setPatientType] = useState<'Human' | 'Animal'>('Human');
-    const [age, setAge] = useState('');
-    const [gender, setGender] = useState<'Male' | 'Female' | 'Both' | ''>('');
-    const [illnesses, setIllnesses] = useState('');
-    const [suggestions, setSuggestions] = useState<SuggestMedicinesOutput | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const { toast } = useToast();
-
-    const uniqueSymptoms = useMemo(() => {
-        const allSymptoms = new Set<string>();
-        inventory.forEach(med => {
-            if (med.description?.illness) {
-                med.description.illness
-                    .split(',')
-                    .map(s => s.trim().toLowerCase())
-                    .filter(Boolean)
-                    .forEach(symptom => allSymptoms.add(symptom));
-            }
-        });
-        
-        return Array.from(allSymptoms)
-            .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-            .sort();
-    }, [inventory]);
-
-    const handleSymptomClick = (symptom: string) => {
-        setIllnesses(prev => {
-            const parts = prev.split(',').map(p => p.trim()).filter(Boolean);
-            const lowerSymptom = symptom.toLowerCase();
-            if (parts.map(p => p.toLowerCase()).includes(lowerSymptom)) {
-                return parts.filter(p => p.toLowerCase() !== lowerSymptom).join(', ');
-            } else {
-                return [...parts, symptom].join(', ');
-            }
-        });
-    };
-
-    const handleFindMedicines = async () => {
-        if (!illnesses.trim()) {
-            toast({ variant: 'destructive', title: 'Symptom required', description: 'Please enter at least one symptom or illness.'});
-            return;
-        }
-
-        setIsLoading(true);
-        setSuggestions(null);
-        try {
-            const results = await suggestMedicines({
-                patient: {
-                    patientType,
-                    age: age ? parseInt(age) : undefined,
-                    gender: gender || undefined,
-                    illnesses: illnesses.split(',').map(s => s.trim()).filter(Boolean),
-                },
-                inventory,
-            });
-            setSuggestions(results);
-            if(results.suggestions.length === 0) {
-                toast({ title: 'No matches found', description: 'Could not find any suitable medicines in your inventory.'})
-            }
-        } catch (error) {
-            console.error('Error getting suggestions:', error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch suggestions.' });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleAddClick = (medicineId: string) => {
-        const medicineToAdd = inventory.find(m => m.id === medicineId);
-        if(medicineToAdd) {
-            // Find batch that expires soonest
-            const soonestBatch = medicineToAdd.batches
-                .filter(b => (b.stock.tablets || b.stock.quantity || 0) > 0)
-                .sort((a, b) => new Date(a.expiry).getTime() - new Date(b.expiry).getTime())[0];
-
-            if (soonestBatch) {
-                onAddMedicine(medicineToAdd, soonestBatch);
-                toast({ title: `${medicineToAdd.name} added to bill.`});
-                setIsOpen(false);
-            } else {
-                toast({ variant: 'destructive', title: 'Out of Stock', description: `${medicineToAdd.name} is out of stock.` });
-            }
-        }
-    }
-
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline"><Wand2 className="mr-2 h-4 w-4" /> Find by Description</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Find Medicine by Description</DialogTitle>
-                    <DialogDescription>
-                        Describe the patient and their symptoms to get medicine suggestions from your inventory.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Patient Type</Label>
-                            <Select value={patientType} onValueChange={(v: 'Human' | 'Animal') => setPatientType(v)}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Human">Human</SelectItem>
-                                    <SelectItem value="Animal">Animal</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        {patientType === 'Human' && (
-                            <>
-                                <div className="space-y-2">
-                                    <Label htmlFor="age">Patient Age</Label>
-                                    <Input id="age" type="number" placeholder="e.g., 35" value={age} onChange={e => setAge(e.target.value)} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Patient Gender</Label>
-                                    <Select value={gender} onValueChange={(v: any) => setGender(v)}>
-                                        <SelectTrigger><SelectValue placeholder="Select gender"/></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Male">Male</SelectItem>
-                                            <SelectItem value="Female">Female</SelectItem>
-                                            <SelectItem value="Both">Both/Any</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </>
-                        )}
-                        <div className="space-y-2">
-                            <Label htmlFor="illnesses">Symptoms / Illnesses</Label>
-                            <Textarea
-                                id="illnesses"
-                                placeholder="Type symptoms or select from suggestions..."
-                                value={illnesses}
-                                onChange={e => setIllnesses(e.target.value)}
-                            />
-                            {uniqueSymptoms.length > 0 && (
-                                <div className="space-y-2 pt-2">
-                                    <Label className="text-xs text-muted-foreground">Click to add/remove symptoms</Label>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                                        {uniqueSymptoms.map(symptom => (
-                                            <Badge 
-                                                key={symptom}
-                                                variant={illnesses.toLowerCase().split(', ').includes(symptom.toLowerCase()) ? 'default' : 'secondary'}
-                                                onClick={() => handleSymptomClick(symptom)}
-                                                className="cursor-pointer text-center justify-center truncate"
-                                            >
-                                                {symptom}
-                                            </Badge>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                         <Button onClick={handleFindMedicines} disabled={isLoading}>
-                            {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Searching...</> : 'Find Medicines'}
-                        </Button>
-                    </div>
-                    <div className="space-y-4">
-                         <h3 className="font-semibold">Suggestions</h3>
-                        {isLoading && (
-                            <div className="flex justify-center items-center h-full">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            </div>
-                        )}
-                         {suggestions && (
-                             suggestions.suggestions.length > 0 ? (
-                                <Card className="max-h-[400px] overflow-y-auto">
-                                    <CardContent className="p-0">
-                                        <ul className="divide-y">
-                                            {suggestions.suggestions.map(s => {
-                                                const med = inventory.find(m => m.id === s.medicineId);
-                                                return (
-                                                <li key={s.medicineId} className="p-3">
-                                                    <div className="flex justify-between items-start">
-                                                        <div>
-                                                            <p className="font-semibold">{s.name}</p>
-                                                            <p className="text-sm text-muted-foreground">{s.reason}</p>
-                                                            {med?.location && (
-                                                                <div className="mt-1 flex items-center gap-1.5 text-xs text-primary">
-                                                                    <MapPin className="h-3 w-3" />
-                                                                    <span>Location: <span className="font-bold">{med.location}</span></span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <Button variant="ghost" size="icon" onClick={() => handleAddClick(s.medicineId)}>
-                                                            <PlusCircle className="h-5 w-5 text-primary" />
-                                                        </Button>
-                                                    </div>
-                                                </li>
-                                            )})}
-                                        </ul>
-                                    </CardContent>
-                                </Card>
-                             ) : (
-                                !isLoading && (
-                                <div className="flex flex-col items-center justify-center text-center p-6 border rounded-lg">
-                                    <Lightbulb className="h-8 w-8 text-muted-foreground mb-2"/>
-                                    <p className="font-semibold">No Matches Found</p>
-                                    <p className="text-sm text-muted-foreground">Try broadening your search criteria.</p>
-                                </div>
-                                )
-                             )
-                         )}
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsOpen(false)}>Close</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
-}
 
 function BatchSelectorDialog({ medicine, onSelect, onCancel }: { medicine: Medicine, onSelect: (batch: Batch) => void, onCancel: () => void }) {
     const sortedBatches = useMemo(() => {
@@ -643,8 +421,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
                         </Command>
                     </PopoverContent>
                 </Popover>
-                {/* <Button onClick={handleSelectAndAdd} disabled={!selectedMedicineId}>Add to Bill</Button> */}
-                <SuggestionDialog inventory={medicines} onAddMedicine={addMedicineToBill} />
             </div>
 
             {selectedMedicine && (
