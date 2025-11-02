@@ -98,12 +98,12 @@ export class AppService {
         return this.simulateLatency(order);
     }
 
-    async addWholesalerOrder(data: { wholesalerName: string, items: Omit<OrderItem, 'id'>[] }): Promise<WholesalerOrder> {
+    async addWholesalerOrder(data: { wholesalerName: string, items: Omit<OrderItem, 'id' | 'status'>[] }): Promise<WholesalerOrder> {
         const newOrder: WholesalerOrder = {
             id: new Date().toISOString(),
             wholesalerName: data.wholesalerName.trim(),
             orderDate: new Date().toISOString(),
-            items: data.items.map(item => ({ ...item, id: `${new Date().toISOString()}-${Math.random()}` })),
+            items: data.items.map(item => ({ ...item, id: `${new Date().toISOString()}-${Math.random()}`, status: 'Pending' })),
             status: 'Pending',
         };
         this.wholesalerOrders = [newOrder, ...this.wholesalerOrders];

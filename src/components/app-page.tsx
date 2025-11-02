@@ -234,7 +234,6 @@ export default function AppPage() {
   }, [openOrderTab, router]);
   
   const [orderItemToProcess, setOrderItemToProcess] = useState<{orderId: string, item: any} | null>(null);
-  const [processingOrder, setProcessingOrder] = useState<WholesalerOrder | null>(null);
 
   useEffect(() => {
     if (orderItemToProcess) {
@@ -286,33 +285,53 @@ export default function AppPage() {
       setMedicines(allMedicines);
   }
 
-  const handleItemProcessed = async (medicine: Medicine) => {
-    if (!orderItemToProcess || !service) return;
-
-    // The saving is now handled by handleSaveMedicine, which updates the state.
-    // We just need to check if a valid medicine was saved to continue the flow.
-    if (medicine.id) { 
-        // The medicine state is already updated via onSaveMedicine.
-    }
+  const handleItemProcessed = async (medicine: Medicine | null) => {
+    if (!orderItemToProcess) return;
+    
+    const { orderId, item } = orderItemToProcess;
 
     setOrderItemToProcess(null); // Clear the item being processed
-    // Set the order to continue processing in the OrderListTab
-    if(processingOrder) {
-      // We are in a merge flow, continue it.
-      // A small delay to ensure state updates propagate before re-triggering merge
-      setTimeout(() => {
-        const continueEvent = new CustomEvent('continue-merge', { detail: processingOrder });
-        window.dispatchEvent(continueEvent);
-      }, 100);
+
+    if (medicine && medicine.id) { // User saved the new medicine
+        // Update the order item status
+        const orderToUpdate = wholesalerOrders.find(o => o.id === orderId);
+        if (orderToUpdate) {
+            const itemIndex = orderToUpdate.items.findIndex(i => i.id === item.id);
+            if(itemIndex > -1) {
+                orderToUpdate.items[itemIndex].status = 'Received';
+            }
+            // Now, determine the overall order status
+            const allItemsReceived = orderToUpdate.items.every(i => i.status === 'Received');
+            orderToUpdate.status = allItemsReceived ? 'Completed' : 'Partially Received';
+            orderToUpdate.receivedDate = new Date().toISOString();
+
+            await service.saveWholesalerOrder(orderToUpdate);
+            setWholesalerOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate.id ? orderToUpdate : o));
+
+            // Resume the merge process
+            setTimeout(() => {
+                const continueEvent = new CustomEvent('continue-merge', { detail: orderToUpdate });
+                window.dispatchEvent(continueEvent);
+            }, 100);
+        }
+    } else { // User cancelled adding the new medicine
+        // Find the order and just re-trigger the merge to show the dialog again
+        const orderToContinue = wholesalerOrders.find(o => o.id === orderId);
+        if (orderToContinue) {
+             setTimeout(() => {
+                const continueEvent = new CustomEvent('continue-merge', { detail: orderToContinue });
+                window.dispatchEvent(continueEvent);
+            }, 100);
+        }
     }
+    
     setActiveTab('order_list');
-  };
+};
 
   const handleStartOrderMerge = (order: WholesalerOrder) => {
-    setProcessingOrder(order);
-    // Dispatch an event to start the merge process in the OrderListTab
-    const startEvent = new CustomEvent('start-merge', { detail: order });
-    window.dispatchEvent(startEvent);
+    // This is now handled by a custom event which the order list tab listens for.
+    // The dialog in the OrderListTab now controls the start of the merge.
+    // This function can be kept for legacy purposes or removed if no longer used.
   };
 
   return (

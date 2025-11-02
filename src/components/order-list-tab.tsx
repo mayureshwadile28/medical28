@@ -5,18 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2, Download, ClipboardList, Info, History, PackagePlus, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, Download, ClipboardList, Info, History, PackagePlus, Loader2, CheckCircle2 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { PrintableOrderList } from './printable-order-list';
 import { type Medicine, type OrderItem, type WholesalerOrder, isTablet, isGeneric } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { AppService } from '@/lib/service';
+import { Checkbox } from '@/components/ui/checkbox';
+
 
 interface OrderListTabProps {
     medicines: Medicine[];
@@ -46,6 +48,15 @@ function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: Whole
         setDeleteConfirmation('');
         // Let main component handle closing the main dialog if needed.
     };
+    
+    const getStatusBadge = (status: WholesalerOrder['status']) => {
+        switch (status) {
+            case 'Completed': return <Badge variant="default">Completed</Badge>;
+            case 'Partially Received': return <Badge variant="secondary" className="bg-amber-500 text-black">Partially Received</Badge>;
+            case 'Pending': return <Badge variant="secondary">Pending</Badge>;
+            case 'Cancelled': return <Badge variant="destructive">Cancelled</Badge>;
+        }
+    }
 
     return (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -111,22 +122,19 @@ function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: Whole
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
-                                                {order.status === 'Completed' && order.receivedDate ? (
-                                                     <Badge variant="default" className="text-xs">
-                                                        Received: {new Date(order.receivedDate).toLocaleDateString()}
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge variant={order.status === 'Pending' ? 'secondary' : 'destructive'}>{order.status}</Badge>
-                                                )}
+                                                {getStatusBadge(order.status)}
+                                                {order.receivedDate && <Badge variant="outline" className="text-xs">
+                                                    Last Received: {new Date(order.receivedDate).toLocaleDateString()}
+                                                </Badge>}
                                             </div>
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent>
                                         <ul className="divide-y divide-border rounded-md border mb-4">
-                                            {order.items.map((item, index) => (
-                                                <li key={item.id} className="flex items-center justify-between p-3 gap-4">
+                                            {order.items.map((item) => (
+                                                <li key={item.id} className={cn("flex items-center justify-between p-3 gap-4", item.status === 'Received' && 'bg-muted/50')}>
                                                     <div className="flex items-center gap-4">
-                                                        <span className="text-sm font-bold text-muted-foreground">{index + 1}.</span>
+                                                        {item.status === 'Received' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <PackagePlus className="h-5 w-5 text-muted-foreground" />}
                                                         <div>
                                                             <p className="font-semibold">{item.name} <span className="text-xs text-muted-foreground">({item.category})</span></p>
                                                             <p className="text-sm text-muted-foreground">Quantity: <span className="font-medium text-foreground">{getDisplayQuantity(item)}</span></p>
@@ -135,29 +143,12 @@ function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: Whole
                                                 </li>
                                             ))}
                                         </ul>
-                                        {order.status === 'Pending' && (
+                                        {order.status !== 'Completed' && (
                                             <div className="flex justify-end">
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button>
-                                                            <PackagePlus className="mr-2 h-4 w-4" /> Merge & Receive Order
-                                                        </Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Receive Order?</AlertDialogTitle>
-                                                            <AlertDialogDescription>
-                                                                This will update your inventory based on this order. Stock for existing items will be increased, and you'll be prompted to add details for new items. This cannot be undone.
-                                                            </AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => { onMerge(order); setIsDialogOpen(false); }}>
-                                                                Yes, Receive & Merge
-                                                            </AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
+                                                <Button onClick={() => { onMerge(order); setIsDialogOpen(false); }}>
+                                                    <PackagePlus className="mr-2 h-4 w-4" /> 
+                                                    Receive Items
+                                                </Button>
                                             </div>
                                         )}
                                     </AccordionContent>
@@ -189,7 +180,7 @@ const capitalizeWords = (str: string): string => {
 };
 
 export default function OrderListTab({ medicines, setMedicines, orders, setOrders, service, onProcessOrderItem, onStartOrderMerge }: OrderListTabProps) {
-    const [items, setItems] = useState<OrderItem[]>([]);
+    const [items, setItems] = useState<(Omit<OrderItem, 'id' | 'status'>)[]>([]);
     const [itemName, setItemName] = useState('');
     const [itemCategory, setItemCategory] = useState('');
     const [customCategory, setCustomCategory] = useState('');
@@ -202,11 +193,15 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
     const { toast } = useToast();
     const itemNameInputRef = useRef<HTMLInputElement>(null);
     
-    const [pendingItem, setPendingItem] = useState<Omit<OrderItem, 'id'> | null>(null);
+    const [pendingItem, setPendingItem] = useState<Omit<OrderItem, 'id' | 'status'> | null>(null);
     const [clarificationPrompt, setClarificationPrompt] = useState<{ title: string; label: string } | null>(null);
     const [unitsPerPackInput, setUnitsPerPackInput] = useState('');
     const [orderForPrint, setOrderForPrint] = useState<WholesalerOrder | null>(null);
     const [processingOrder, setProcessingOrder] = useState<WholesalerOrder | null>(null);
+    
+    const [mergeOrder, setMergeOrder] = useState<WholesalerOrder | null>(null);
+    const [selectedItemsToMerge, setSelectedItemsToMerge] = useState<string[]>([]);
+
 
     const categories = useMemo(() => {
         const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
@@ -238,76 +233,92 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         };
     }, []);
     
-    const handleMergeOrder = async (order: WholesalerOrder) => {
-        let currentItems = [...order.items];
-        
-        const lastProcessedName = sessionStorage.getItem(`lastProcessed_${order.id}`);
-        if (lastProcessedName) {
-            const lastIndex = currentItems.findIndex(i => i.name === lastProcessedName);
-            if (lastIndex > -1) {
-                currentItems.splice(0, lastIndex + 1);
-            }
+    const startMergeProcess = (order: WholesalerOrder) => {
+        setMergeOrder(order);
+        setSelectedItemsToMerge([]);
+    };
+    
+    const handleSelectiveMerge = async () => {
+        if (!mergeOrder || selectedItemsToMerge.length === 0) {
+            toast({
+                variant: 'destructive',
+                title: 'No Items Selected',
+                description: 'Please select items to merge.',
+            });
+            return;
         }
-        
-        setProcessingOrder(order);
 
-        for (const item of currentItems) {
+        const orderToUpdate = { ...mergeOrder };
+        let itemsProcessedCount = 0;
+
+        for (const itemId of selectedItemsToMerge) {
+            const itemIndex = orderToUpdate.items.findIndex(i => i.id === itemId);
+            if (itemIndex === -1) continue;
+
+            const item = orderToUpdate.items[itemIndex];
+            if (item.status === 'Received') continue;
+
             const existingMed = medicines.find(m => 
                 m.name?.toLowerCase() === item.name.toLowerCase() && 
                 m.category?.toLowerCase() === item.category.toLowerCase()
             );
-            
+
             if (existingMed) {
                 const qtyValue = parseInt(item.quantity.match(/\d+/)?.[0] || '0', 10);
                 
                 if (isTablet(existingMed)) {
-                    // For tablets, quantity is in strips. Convert strips to tablets.
+                    const tabletsPerStrip = existingMed.tabletsPerStrip || 10;
                     const stripsToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
-                    const tabletsToAdd = stripsToAdd * existingMed.tabletsPerStrip;
+                    const tabletsToAdd = stripsToAdd * tabletsPerStrip;
                     existingMed.stock.tablets += tabletsToAdd;
                 } else if(isGeneric(existingMed)) {
-                    // For other items, quantity is in units.
                     const unitsToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
                     existingMed.stock.quantity += unitsToAdd;
                 }
 
                 await service.saveMedicine(existingMed);
                 setMedicines(currentMeds => currentMeds.map(m => m.id === existingMed.id ? existingMed : m));
+                
+                orderToUpdate.items[itemIndex].status = 'Received';
+                itemsProcessedCount++;
             } else {
-                sessionStorage.setItem(`lastProcessed_${order.id}`, item.name);
-                onProcessOrderItem({ orderId: order.id, item: item });
-                return;
+                onProcessOrderItem({ orderId: orderToUpdate.id, item: item });
+                setMergeOrder(null);
+                return; // Pausing the merge to add new item. It will resume.
             }
         }
-        
-        const completedOrder = { ...order, status: 'Completed' as const, receivedDate: new Date().toISOString() };
-        await service.saveWholesalerOrder(completedOrder);
-        setOrders(currentOrders => currentOrders.map(o => o.id === order.id ? completedOrder : o));
 
-        toast({ title: "Order Merged", description: `Order from ${order.wholesalerName} has been merged into inventory.` });
-        setProcessingOrder(null);
-        sessionStorage.removeItem(`lastProcessed_${order.id}`);
+        // Update order status
+        const allItemsReceived = orderToUpdate.items.every(i => i.status === 'Received');
+        orderToUpdate.status = allItemsReceived ? 'Completed' : 'Partially Received';
+        orderToUpdate.receivedDate = new Date().toISOString();
+
+        await service.saveWholesalerOrder(orderToUpdate);
+        setOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate.id ? orderToUpdate : o));
+
+        toast({ title: "Merge Complete", description: `${itemsProcessedCount} item(s) have been merged into inventory.` });
+        setMergeOrder(null);
+        setSelectedItemsToMerge([]);
     };
     
+    // This effect is to resume merge after a new item is added via the InventoryTab
     useEffect(() => {
-        const startMergeHandler = (event: Event) => {
-            handleMergeOrder((event as CustomEvent<WholesalerOrder>).detail);
-        };
         const continueMergeHandler = (event: Event) => {
-            handleMergeOrder((event as CustomEvent<WholesalerOrder>).detail);
+             const order = (event as CustomEvent<WholesalerOrder>).detail;
+             if (order) {
+                startMergeProcess(order);
+             }
         };
 
-        window.addEventListener('start-merge', startMergeHandler);
         window.addEventListener('continue-merge', continueMergeHandler);
 
         return () => {
-            window.removeEventListener('start-merge', startMergeHandler);
             window.removeEventListener('continue-merge', continueMergeHandler);
         };
     }, [medicines, orders, service]);
 
-    const finalizeAddItem = (item: Omit<OrderItem, 'id'>) => {
-        setItems(prevItems => [...prevItems, { ...item, id: 'temp-' + new Date().toISOString() + Math.random() }]);
+    const finalizeAddItem = (item: Omit<OrderItem, 'id' | 'status'>) => {
+        setItems(prevItems => [...prevItems, item]);
         setItemName('');
         setItemCategory('');
         setCustomCategory('');
@@ -340,7 +351,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         const formattedName = capitalizeWords(itemName.trim());
         const formattedQuantity = quantity.trim().toLowerCase();
 
-        const newItem: Omit<OrderItem, 'id'> = {
+        const newItem: Omit<OrderItem, 'id' | 'status'> = {
             name: formattedName,
             category: finalCategory,
             quantity: quantity.trim(),
@@ -371,7 +382,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         const isTabletOrCapsule = pendingItem.category === 'Tablet' || pendingItem.category === 'Capsule';
         const unitName = isTabletOrCapsule ? 'strips' : 'units';
 
-        const itemWithDetails: Omit<OrderItem, 'id'> = {
+        const itemWithDetails: Omit<OrderItem, 'id' | 'status'> = {
             ...pendingItem,
             unitsPerPack: units,
             unitName: unitName,
@@ -380,8 +391,8 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         finalizeAddItem(itemWithDetails);
     };
 
-    const handleRemoveItem = (id: string) => {
-        setItems(items.filter(item => item.id !== id));
+    const handleRemoveItem = (index: number) => {
+        setItems(items.filter((_, i) => i !== index));
     };
 
     const handleSuggestionClick = (suggestion: {name: string, category: string}) => {
@@ -476,14 +487,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                     </div>
                 )}
             </div>
-            {processingOrder && !sessionStorage.getItem(`lastProcessed_${processingOrder.id}`) && (
-                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
-                    <div className="bg-background p-6 rounded-lg flex items-center gap-4">
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                        <p>Processing order... Please wait.</p>
-                    </div>
-                </div>
-            )}
+            
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -574,7 +578,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                             <div className="max-h-[50vh] overflow-y-auto rounded-lg border">
                                 <ul className="divide-y">
                                     {items.map((item, index) => (
-                                        <li key={item.id} className="flex items-center justify-between p-3 gap-4">
+                                        <li key={`${item.name}-${index}`} className="flex items-center justify-between p-3 gap-4">
                                             <div className="flex items-center gap-4">
                                                 <span className="text-sm font-bold text-muted-foreground">{index + 1}.</span>
                                                 <div>
@@ -582,7 +586,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                                                     <p className="text-sm text-muted-foreground">Quantity: <span className="font-medium text-foreground">{getDisplayQuantity(item)}</span></p>
                                                 </div>
                                             </div>
-                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(item.id)}>
+                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
                                                 <Trash2 className="h-4 w-4 text-destructive" />
                                             </Button>
                                         </li>
@@ -613,9 +617,55 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                     <Button onClick={handleSaveOrder} disabled={items.length === 0 || !wholesalerName.trim()} className="w-full sm:w-auto">
                         <Download className="mr-2" /> Save & Download Order
                     </Button>
-                    <OrderHistoryDialog orders={orders} onMerge={onStartOrderMerge} onClearHistory={handleClearOrderHistory} />
+                    <OrderHistoryDialog orders={orders} onMerge={startMergeProcess} onClearHistory={handleClearOrderHistory} />
                 </CardFooter>
             </Card>
+
+            <Dialog open={!!mergeOrder} onOpenChange={open => !open && setMergeOrder(null)}>
+                <DialogContent className="sm:max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>Receive Items for Order</DialogTitle>
+                        <DialogDescription>
+                            Select the items you have received from {mergeOrder?.wholesalerName}. Checked items will be merged into your inventory.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 max-h-[60vh] overflow-y-auto">
+                        <div className="space-y-3">
+                            {mergeOrder?.items.filter(item => item.status === 'Pending').map(item => (
+                                <div key={item.id} className="flex items-center space-x-3 rounded-md border p-4">
+                                    <Checkbox 
+                                        id={`merge-${item.id}`}
+                                        checked={selectedItemsToMerge.includes(item.id)}
+                                        onCheckedChange={(checked) => {
+                                            setSelectedItemsToMerge(prev => 
+                                                checked ? [...prev, item.id] : prev.filter(id => id !== item.id)
+                                            );
+                                        }}
+                                    />
+                                    <Label htmlFor={`merge-${item.id}`} className="flex-1 cursor-pointer">
+                                        <p className="font-semibold">{item.name} <span className="text-xs text-muted-foreground">({item.category})</span></p>
+                                        <p className="text-sm text-muted-foreground">Ordered: <span className="font-medium text-foreground">{getDisplayQuantity(item)}</span></p>
+                                    </Label>
+                                </div>
+                            ))}
+                        </div>
+                         {mergeOrder?.items.filter(item => item.status === 'Pending').length === 0 && (
+                            <div className="text-center text-muted-foreground py-8">
+                                All items from this order have been received.
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setMergeOrder(null)}>Cancel</Button>
+                        <Button 
+                            onClick={handleSelectiveMerge}
+                            disabled={selectedItemsToMerge.length === 0}
+                        >
+                            Confirm & Merge Selected ({selectedItemsToMerge.length})
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <AlertDialog open={!!pendingItem} onOpenChange={(isOpen) => !isOpen && setPendingItem(null)}>
                 <AlertDialogContent>

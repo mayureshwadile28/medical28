@@ -53,7 +53,7 @@ interface InventoryTabProps {
   restockId?: string | null;
   onRestockComplete?: () => void;
   orderItemToProcess?: OrderItem | null;
-  onItemProcessed?: (medicine: Medicine) => void;
+  onItemProcessed?: (medicine: Medicine | null) => void;
   onSaveMedicine: (medicine: Medicine) => Promise<void>;
   onDeleteMedicine: (id: string) => Promise<void>;
   onSaveAllMedicines: (medicines: Medicine[]) => Promise<void>;
@@ -261,7 +261,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     setEditingMedicine(null);
     setIsFormOpen(false);
     if(onRestockComplete) onRestockComplete();
-    if(onItemProcessed) onItemProcessed({} as Medicine); // Send empty object to signal cancellation
+    if(onItemProcessed) onItemProcessed(null); // Send empty object to signal cancellation
   }
 
   const handleOpenChange = (open: boolean) => {

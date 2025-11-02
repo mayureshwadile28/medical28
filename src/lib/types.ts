@@ -95,6 +95,7 @@ export interface OrderItem {
     quantity: string;
     unitsPerPack?: number;
     unitName?: string;
+    status: 'Pending' | 'Received';
 }
 
 export interface WholesalerOrder {
@@ -102,7 +103,7 @@ export interface WholesalerOrder {
     wholesalerName: string;
     orderDate: string; // ISO date string
     items: OrderItem[];
-    status: 'Pending' | 'Completed' | 'Cancelled';
+    status: 'Pending' | 'Partially Received' | 'Completed' | 'Cancelled';
     receivedDate?: string; // ISO date string
 }
 
