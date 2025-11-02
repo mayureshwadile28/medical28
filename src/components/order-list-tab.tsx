@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
@@ -475,8 +476,8 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                                     <SelectValue placeholder="Select Category" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {categories.map(cat => (
-                                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                    {categories.map((cat, index) => (
+                                        <SelectItem key={`${cat}-${index}`} value={cat}>{cat}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -584,3 +585,5 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         </>
     );
 }
+
+    
