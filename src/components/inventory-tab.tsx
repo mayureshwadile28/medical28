@@ -111,6 +111,10 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
   const [currentDuplicate, setCurrentDuplicate] = useState<{ imported: Medicine, existing: Medicine } | null>(null);
   const [newInventoryState, setNewInventoryState] = useState<Medicine[] | null>(null);
   const importStats = useRef({ added: 0, updated: 0, skipped: 0 });
+  
+  const validMedicines = useMemo(() => {
+    return medicines.filter(med => med && med.name && med.id);
+  }, [medicines]);
 
   const getExpiryInfo = (expiry: string) => {
     const now = new Date();
@@ -148,13 +152,13 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
 
   useEffect(() => {
     if (restockId) {
-      const medicineToRestock = medicines.find(m => m.id === restockId);
+      const medicineToRestock = validMedicines.find(m => m.id === restockId);
       if (medicineToRestock) {
         setEditingMedicine(medicineToRestock);
         setIsFormOpen(true);
       }
     }
-  }, [restockId, medicines]);
+  }, [restockId, validMedicines]);
   
   useEffect(() => {
       if (orderItemToProcess) {
@@ -180,19 +184,19 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
 
 
   const categories = useMemo(() => {
-    const allCategories = medicines
+    const allCategories = validMedicines
         .map(m => m.category)
         .filter((c): c is string => typeof c === 'string' && c.trim() !== '');
     const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
     return Array.from(new Set([...baseCategories, ...allCategories])).sort((a,b) => a.localeCompare(b));
-  }, [medicines]);
+  }, [validMedicines]);
 
   const outOfStockMedicines = useMemo(() => {
-    return medicines.filter(med => isOutOfStock(med));
-  }, [medicines]);
+    return validMedicines.filter(med => isOutOfStock(med));
+  }, [validMedicines]);
 
   const filteredMedicines = useMemo(() => {
-    let sortedMeds = [...medicines];
+    let sortedMeds = [...validMedicines];
 
     sortedMeds.sort((a, b) => {
         switch (sortOption) {
@@ -210,7 +214,7 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
     return sortedMeds
       .filter(med => med && med.name && typeof med.name === 'string' && med.name.toLowerCase().includes(searchTerm.toLowerCase()))
       .filter(med => categoryFilters.length === 0 || (med.category && categoryFilters.includes(med.category)));
-  }, [medicines, searchTerm, categoryFilters, sortOption]);
+  }, [validMedicines, searchTerm, categoryFilters, sortOption]);
 
   const proceedWithSave = async (medicine: Medicine) => {
     if (onItemProcessed) {
@@ -242,7 +246,7 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
 
   const handleSaveMedicine = (medicine: Medicine) => {
     if (!editingMedicine && !orderItemToProcess) {
-      const existingMedicine = medicines.find(m => m.name.toLowerCase() === medicine.name.toLowerCase());
+      const existingMedicine = validMedicines.find(m => m.name.toLowerCase() === medicine.name.toLowerCase());
       if (existingMedicine) {
         setPendingMedicine(medicine);
         return; // Stop execution and wait for user confirmation
@@ -273,7 +277,7 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
   }
 
   const handleExportInventory = () => {
-    const dataStr = JSON.stringify(medicines, null, 2);
+    const dataStr = JSON.stringify(validMedicines, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -394,7 +398,7 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
                 });
             } else { // 'merge'
                 importStats.current = { added: 0, updated: 0, skipped: 0 };
-                setNewInventoryState([...medicines]);
+                setNewInventoryState([...validMedicines]);
                 setImportQueue(importedMedicines);
             }
 
@@ -417,7 +421,7 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-           <CardTitle>Inventory ({medicines.length} items)</CardTitle>
+           <CardTitle>Inventory ({validMedicines.length} items)</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
             <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
@@ -447,7 +451,7 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={`Search in ${medicines.length} items...`}
+              placeholder={`Search in ${validMedicines.length} items...`}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="pl-10"
