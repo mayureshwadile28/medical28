@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -80,7 +81,8 @@ const isOutOfStock = (med: Medicine) => {
     if (isTablet(med)) {
         return med.stock.tablets <= 0;
     }
-    return med.stock.quantity <= 0;
+    // This check needs to be safe for when stock is not fully defined yet.
+    return (med.stock as GenericMedicine['stock'])?.quantity <= 0;
 }
 
 export default function InventoryTab({ medicines, setMedicines, sales, restockId, onRestockComplete, orderItemToProcess, onItemProcessed }: InventoryTabProps) {
@@ -197,8 +199,8 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     });
 
     return sortedMeds
-      .filter(med => med.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      .filter(med => categoryFilters.length === 0 || categoryFilters.includes(med.category));
+      .filter(med => med.name && typeof med.name === 'string' && med.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .filter(med => categoryFilters.length === 0 || (med.category && categoryFilters.includes(med.category)));
   }, [medicines, searchTerm, categoryFilters, sortOption]);
 
   const proceedWithSave = (medicine: Medicine) => {
@@ -680,3 +682,5 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     </>
   );
 }
+
+    
