@@ -157,13 +157,11 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
     const [processingOrder, setProcessingOrder] = useState<SupplierOrder | null>(null);
 
     const categories = useMemo(() => {
-      const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection'];
-      const customCategories = medicines.map(m => m.category);
-      const all = Array.from(new Set([...baseCategories, ...customCategories])).sort();
-      if (!all.includes('Other')) {
-        all.push('Other');
-      }
-      return all;
+        const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
+        const medicineCategories = medicines.map(m => m.category.trim());
+        return Array.from(new Set([...baseCategories, ...medicineCategories]))
+            .filter(c => c) // Remove any empty strings
+            .sort((a, b) => a.localeCompare(b));
     }, [medicines]);
 
     const suggestedMedicines = useMemo(() => {
@@ -476,8 +474,8 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                                     <SelectValue placeholder="Select Category" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {categories.map((cat, index) => (
-                                        <SelectItem key={`${cat}-${index}`} value={cat}>{cat}</SelectItem>
+                                    {categories.map(cat => (
+                                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
