@@ -199,7 +199,11 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         setProcessingOrder(order);
 
         for (const item of currentItems) {
-            const existingMed = medicines.find(m => m.name.toLowerCase() === item.name.toLowerCase() && m.category.toLowerCase() === item.category.toLowerCase());
+            const existingMed = medicines.find(m =>
+              m && typeof m.name === 'string' && typeof m.category === 'string' &&
+              m.name.toLowerCase() === item.name.toLowerCase() &&
+              m.category.toLowerCase() === item.category.toLowerCase()
+            );
             
             if (existingMed) {
                 setMedicines(currentMeds => currentMeds.map(med => {
