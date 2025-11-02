@@ -23,11 +23,13 @@ const formSchema = z.object({
   expiry: z.string().refine((val) => {
     if (!val) return false;
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
-    const selectedDate = new Date(val);
-    return selectedDate.getTime() >= today.getTime();
+    today.setHours(0, 0, 0, 0); 
+    const firstDayOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    const selectedDate = new Date(`${val}-01T00:00:00Z`); // Treat as UTC
+    return selectedDate.getTime() >= firstDayOfCurrentMonth.getTime();
   }, {
-    message: 'Expiry date cannot be in the past.',
+    message: 'Expiry month cannot be in the past.',
   }),
   price: z.coerce.number().positive('Price must be a positive number.'),
   stock_strips: z.coerce.number().min(0).optional(),
@@ -102,9 +104,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
   const getFormattedExpiry = (expiry?: string) => {
     if (!expiry) return '';
     try {
-        const date = new Date(expiry);
-        // Returns date in 'YYYY-MM-DD' format, which is what the input[type="date"] expects
-        return date.toISOString().split('T')[0];
+        const date = new date(expiry);
+        // Returns date in 'YYYY-MM' format for the input[type="month"]
+        return date.toISOString().substring(0, 7);
     } catch(e) {
         return '';
     }
@@ -211,7 +213,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
         hasFullDescription = true;
     }
 
-    const expiryDate = new Date(values.expiry);
+    const expiryDate = new Date(`${values.expiry}-01T00:00:00Z`);
 
 
     let medicineData: Medicine;
@@ -331,7 +333,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
                 <FormItem>
                 <FormLabel>Expiry Date</FormLabel>
                 <FormControl>
-                    <Input type="date" {...field} />
+                    <Input type="month" {...field} />
                 </FormControl>
                 <FormMessage />
                 </FormItem>
@@ -538,5 +540,3 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
     </Form>
   );
 }
-
-    
