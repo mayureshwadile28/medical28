@@ -258,7 +258,11 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                 const item = orderToUpdate.items[itemIndex];
                 if (item.status === 'Pending') {
                     // Check if medicine exists
-                    const existingMedicine = medicines.find(m => m.name.toLowerCase() === item.name.toLowerCase() && m.category.toLowerCase() === item.category.toLowerCase());
+                    const existingMedicine = medicines.find(m =>
+                        m && item.name && m.name && m.category && item.category &&
+                        m.name.toLowerCase() === item.name.toLowerCase() &&
+                        m.category.toLowerCase() === item.category.toLowerCase()
+                    );
                     
                     onProcessOrderItem({ 
                         orderId: orderToUpdate.id, 
@@ -669,7 +673,3 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         </>
     );
 }
-
-    
-
-    
