@@ -79,6 +79,7 @@ export interface SaleRecord {
     total: number;
   }[];
   totalAmount: number;
+  discountPercentage?: number;
   paymentMode: PaymentMode;
   paymentSettledDate?: string; // ISO date string, set when a 'Pending' payment is cleared
 }
@@ -126,3 +127,5 @@ export interface SuggestMedicinesOutput {
     reason: string;
   }[];
 }
+
+    

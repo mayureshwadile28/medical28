@@ -10,6 +10,9 @@ interface PrintableBillProps {
 }
 
 export function PrintableBill({ sale, className }: PrintableBillProps) {
+  const subtotal = sale.items.reduce((acc, item) => acc + item.total, 0);
+  const discountAmount = (subtotal * (sale.discountPercentage || 0)) / 100;
+  
   return (
     <div 
         className={cn("font-sans text-xs w-full max-w-[80mm] mx-auto text-black", className)}
@@ -69,6 +72,16 @@ export function PrintableBill({ sale, className }: PrintableBillProps) {
       <hr className="border-none border-t border-solid border-black my-2.5" />
       
       <div className="text-right">
+        {sale.discountPercentage && sale.discountPercentage > 0 && (
+          <>
+            <p className="my-1">
+              Subtotal: {formatToINR(subtotal)}
+            </p>
+            <p className="my-1">
+              Discount ({sale.discountPercentage}%): -{formatToINR(discountAmount)}
+            </p>
+          </>
+        )}
         <p className="my-1 text-sm font-bold">
           Total: {formatToINR(sale.totalAmount)}
         </p>

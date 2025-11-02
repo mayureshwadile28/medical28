@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -288,6 +289,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
   const [customerName, setCustomerName] = useState('');
   const [doctorName, setDoctorName] = useState('');
   const [doctorNames, setDoctorNames] = useLocalStorage<string[]>('doctorNames', []);
+  const [discount, setDiscount] = useState(0);
 
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
   const [billItems, setBillItems] = useState<SaleItem[]>([]);
@@ -393,9 +395,12 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     setBillItems(billItems.filter(item => item.medicineId !== medicineId));
   };
 
-  const totalAmount = useMemo(() => {
-    return billItems.reduce((sum, item) => sum + (isNaN(item.total) ? 0 : item.total), 0);
-  }, [billItems]);
+  const { subtotal, discountAmount, totalAmount } = useMemo(() => {
+    const sub = billItems.reduce((sum, item) => sum + (isNaN(item.total) ? 0 : item.total), 0);
+    const discountValue = (sub * (discount || 0)) / 100;
+    const total = sub - discountValue;
+    return { subtotal: sub, discountAmount: discountValue, totalAmount: total };
+  }, [billItems, discount]);
 
   const completeSale = async () => {
     if (!customerName.trim()) {
@@ -438,6 +443,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
       saleDate: new Date().toISOString(),
       items: billItems.map(item => ({...item, quantity: Number(item.quantity), category: item.category || ''})),
       totalAmount: totalAmount,
+      discountPercentage: discount,
       paymentMode: paymentMode,
     };
     
@@ -447,6 +453,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     setCustomerName('');
     setDoctorName('');
     setBillItems([]);
+    setDiscount(0);
     setPaymentMode('Cash');
     toast({ title: 'Sale Completed!', description: `Bill for ${savedSale.customerName} saved successfully.`});
   };
@@ -470,6 +477,16 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     setDeleteConfirmation('');
     toast({ title: 'Doctor Removed', description: `Dr. ${nameToDelete} has been removed from the list.`});
   };
+
+  const handleDiscountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const numValue = parseFloat(value);
+    if (value === '') {
+        setDiscount(0);
+    } else if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+        setDiscount(numValue);
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -600,9 +617,9 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
               {billItems.length > 0 && (
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={4} className="font-bold text-lg hidden sm:table-cell">Total</TableCell>
-                        <TableCell className="font-bold text-lg sm:hidden">Total</TableCell>
-                        <TableCell className="text-right font-bold text-lg font-mono">{formatToINR(totalAmount)}</TableCell>
+                        <TableCell colSpan={4} className="font-bold text-lg hidden sm:table-cell">Subtotal</TableCell>
+                        <TableCell className="font-bold text-lg sm:hidden">Subtotal</TableCell>
+                        <TableCell className="text-right font-bold text-lg font-mono">{formatToINR(subtotal)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
                 </TableFooter>
@@ -713,13 +730,30 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
                       </div>
                   </RadioGroup>
               </div>
-              <div className="space-y-2 rounded-lg bg-primary/10 p-4">
-                  <div className="flex justify-between text-muted-foreground">
-                      <span>Subtotal</span>
-                      <span className='font-mono'>{formatToINR(totalAmount)}</span>
+              <div className="space-y-2 rounded-lg bg-muted/50 p-4">
+                  <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className='font-mono'>{formatToINR(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-lg font-bold">
-                      <span>Total Amount</span>
+                   <div className="flex justify-between items-center text-sm">
+                        <Label htmlFor="discount" className="text-muted-foreground">Discount (%)</Label>
+                        <Input 
+                            id="discount"
+                            type="number"
+                            value={discount === 0 ? '' : discount}
+                            onChange={handleDiscountChange}
+                            className="h-8 w-20 text-right"
+                            placeholder="0"
+                        />
+                   </div>
+                   {discount > 0 && (
+                     <div className="flex justify-between text-sm text-destructive">
+                        <span>Discount Amount</span>
+                        <span className='font-mono'>- {formatToINR(discountAmount)}</span>
+                    </div>
+                   )}
+                  <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+                      <span>Total</span>
                       <span className='font-mono'>{formatToINR(totalAmount)}</span>
                   </div>
               </div>
@@ -782,3 +816,5 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     </div>
   );
 }
+
+    

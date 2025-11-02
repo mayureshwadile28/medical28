@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -406,7 +407,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
 
 
   const handleExportCSV = () => {
-    const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'PaymentMode', 'TotalAmount', 'PaymentSettledDate', 'MedicineName', 'Category', 'Quantity', 'PricePerUnit', 'ItemTotal'];
+    const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'PaymentMode', 'DiscountPercentage', 'TotalAmount', 'PaymentSettledDate', 'MedicineName', 'Category', 'Quantity', 'PricePerUnit', 'ItemTotal'];
     const csvRows = [headers.join(',')];
 
     filteredSales.forEach(sale => {
@@ -417,6 +418,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
           `"${(sale.doctorName || '').replace(/"/g, '""')}"`,
           sale.saleDate,
           sale.paymentMode,
+          sale.discountPercentage || 0,
           sale.totalAmount,
           sale.paymentSettledDate || '',
           `"${item.name.replace(/"/g, '""')}"`,
@@ -572,6 +574,11 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                                 </Badge>
                             </ClientOnly>
                           )}
+                           {sale.discountPercentage && sale.discountPercentage > 0 && (
+                            <Badge variant="secondary" className="bg-amber-200 text-amber-900">
+                                {sale.discountPercentage}% off
+                            </Badge>
+                          )}
                         </div>
                     </div>
                     <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
@@ -644,3 +651,5 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
     </Card>
   );
 }
+
+    
