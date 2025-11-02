@@ -14,9 +14,12 @@ export async function suggestMedicines(input: SuggestMedicinesInput): Promise<Su
     now.setHours(0, 0, 0, 0);
 
     const availableInventory = inventory.filter((med: Medicine) => {
+        if (!med.expiry) return false;
         const expiryDate = new Date(med.expiry);
         expiryDate.setHours(0, 0, 0, 0);
         if (expiryDate < now) return false;
+
+        if (!med.stock) return false; // Defensive check for stock object
 
         if (isTablet(med)) {
             return med.stock.tablets > 0;
