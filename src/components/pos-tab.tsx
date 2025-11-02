@@ -45,6 +45,7 @@ import { formatToINR } from '@/lib/currency';
 import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/lib/hooks';
 import { AppService } from '@/lib/service';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface PosTabProps {
   medicines: Medicine[];
@@ -70,22 +71,55 @@ const generateNewBillNumber = (sales: SaleRecord[]): string => {
 
 function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: Medicine[], onSelectMedicine: (medicineId: string) => void }) {
     const [isOpen, setIsOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [illness, setIllness] = useState('');
+    const [patientType, setPatientType] = useState<'Human' | 'Animal' | ''>('');
+    const [age, setAge] = useState('');
+    const [gender, setGender] = useState<'Male' | 'Female' | 'Both' | ''>('');
+
 
     const searchResults = useMemo(() => {
-        if (!searchTerm.trim()) {
+        const trimmedIllness = illness.trim().toLowerCase();
+        if (!trimmedIllness && !patientType && !age) {
             return [];
         }
-        const lowerCaseSearchTerm = searchTerm.toLowerCase();
-        return medicines.filter(med => 
-            med.description?.illness?.toLowerCase().includes(lowerCaseSearchTerm)
-        );
-    }, [searchTerm, medicines]);
+
+        const ageNum = parseInt(age, 10);
+
+        return medicines.filter(med => {
+            if (!med.description) return false;
+            
+            const desc = med.description;
+
+            const illnessMatch = trimmedIllness ? desc.illness?.toLowerCase().includes(trimmedIllness) : true;
+            if (!illnessMatch) return false;
+
+            const patientTypeMatch = patientType ? desc.patientType === patientType : true;
+            if (!patientTypeMatch) return false;
+            
+            if (patientType === 'Human') {
+                 const genderMatch = gender ? (desc.gender === 'Both' || desc.gender === gender) : true;
+                 if (!genderMatch) return false;
+
+                 if (!isNaN(ageNum) && ageNum > 0) {
+                    const minAge = desc.minAge ?? 0;
+                    const maxAge = desc.maxAge ?? Infinity;
+                    if (ageNum < minAge || ageNum > maxAge) {
+                        return false;
+                    }
+                 }
+            }
+            
+            return true;
+        });
+    }, [illness, patientType, age, gender, medicines]);
 
     const handleSelect = (medicineId: string) => {
         onSelectMedicine(medicineId);
         setIsOpen(false);
-        setSearchTerm('');
+        setIllness('');
+        setPatientType('');
+        setAge('');
+        setGender('');
     };
 
     return (
@@ -99,16 +133,65 @@ function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: M
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle>Find Medicine by Description</DialogTitle>
-                    <DialogDescription>Search for medicines based on the illness or symptoms in their description.</DialogDescription>
+                    <DialogDescription>Search for medicines based on the illness, patient type, age, and gender.</DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-4">
-                    <Input 
-                        placeholder="e.g., Fever, Cold, Skin Infection..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        autoFocus
-                    />
-                    <div className="max-h-[50vh] overflow-y-auto">
+                    <div className="space-y-2">
+                        <Label htmlFor="search-illness">Illness / Symptom</Label>
+                        <Input 
+                            id="search-illness"
+                            placeholder="e.g., Fever, Cold, Skin Infection..."
+                            value={illness}
+                            onChange={(e) => setIllness(e.target.value)}
+                            autoFocus
+                        />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="search-patient-type">Patient Type</Label>
+                            <Select value={patientType} onValueChange={(val) => setPatientType(val as any)}>
+                                <SelectTrigger id="search-patient-type">
+                                    <SelectValue placeholder="Any Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Human">Human</SelectItem>
+                                    <SelectItem value="Animal">Animal</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="search-age">Age</Label>
+                             <Input 
+                                id="search-age"
+                                type="number"
+                                placeholder="e.g., 25"
+                                value={age}
+                                onChange={(e) => setAge(e.target.value)}
+                                disabled={patientType !== 'Human'}
+                            />
+                        </div>
+                    </div>
+                     {patientType === 'Human' && (
+                        <div className="space-y-2">
+                           <Label>Gender</Label>
+                           <RadioGroup value={gender} onValueChange={(val) => setGender(val as any)} className="flex space-x-4">
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="" id="g-any" />
+                                    <Label htmlFor="g-any">Any</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Male" id="g-male" />
+                                    <Label htmlFor="g-male">Male</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Female" id="g-female" />
+                                    <Label htmlFor="g-female">Female</Label>
+                                </div>
+                           </RadioGroup>
+                        </div>
+                     )}
+
+                    <div className="max-h-[40vh] overflow-y-auto">
                         {searchResults.length > 0 ? (
                             <ul className="space-y-2">
                                 {searchResults.map(med => (
@@ -127,7 +210,7 @@ function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: M
                                 ))}
                             </ul>
                         ) : (
-                            searchTerm.trim() && <p className="text-center text-muted-foreground py-4">No results found.</p>
+                           (illness.trim() || patientType || age) && <p className="text-center text-muted-foreground py-4">No results found for the specified criteria.</p>
                         )}
                     </div>
                 </div>
@@ -770,3 +853,5 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     </>
   );
 }
+
+    
