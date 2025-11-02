@@ -10,10 +10,12 @@ import { useToast } from '@/hooks/use-toast';
 import { analyzeImage, AnalyzeImageOutput } from '@/ai/flows/analyze-image';
 import { type AppService } from '@/lib/service';
 import { useRouter } from 'next/navigation';
+import { SupplierOrder } from '@/lib/types';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface BillScannerTabProps {
     service: AppService;
-    onOrderCreated: () => void;
+    onOrderCreated: (newOrder: SupplierOrder) => void;
 }
 
 const BillScannerTab: React.FC<BillScannerTabProps> = ({ service, onOrderCreated }) => {
@@ -59,12 +61,12 @@ const BillScannerTab: React.FC<BillScannerTabProps> = ({ service, onOrderCreated
                 return;
             }
 
-            const newOrder = service.addSupplierOrder({
+            const newOrder = await service.addSupplierOrder({
                 supplierName: result.supplierName || 'Scanned Order',
                 items: result.items,
             });
 
-            onOrderCreated();
+            onOrderCreated(newOrder);
 
             toast({
                 title: 'Analysis Complete!',
@@ -76,10 +78,14 @@ const BillScannerTab: React.FC<BillScannerTabProps> = ({ service, onOrderCreated
 
         } catch (error) {
             console.error('Error analyzing image:', error);
+            const errorMessage = (error instanceof Error && error.message.includes('API key not valid'))
+                ? 'The AI feature is not configured. An API key is required.'
+                : 'An unexpected error occurred. This feature requires an internet connection.';
+
             toast({
                 variant: 'destructive',
                 title: 'Analysis Failed',
-                description: 'An unexpected error occurred. Please check the console for details.',
+                description: errorMessage,
             });
         } finally {
             setIsLoading(false);
@@ -104,6 +110,14 @@ const BillScannerTab: React.FC<BillScannerTabProps> = ({ service, onOrderCreated
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+                <Alert variant="destructive">
+                  <Wand2 className="h-4 w-4" />
+                  <AlertTitle>Feature Unavailable Offline</AlertTitle>
+                  <AlertDescription>
+                    The AI Bill Scanner requires an internet connection and a valid API key to function. This feature will not work in a fully offline desktop application.
+                  </AlertDescription>
+                </Alert>
+
                 <div 
                     className="border-2 border-dashed border-muted-foreground/50 rounded-lg p-8 text-center cursor-pointer hover:bg-muted transition-colors"
                     onClick={triggerFileSelect}

@@ -202,10 +202,9 @@ function LicenseDialog({
 
 export default function AppPage() {
   const [service] = useState(() => new AppService());
-  const [medicines, setMedicines] = useState<Medicine[]>([]);
-  const [sales, setSales] = useState<SaleRecord[]>([]);
-  const [supplierOrders, setSupplierOrders] = useState<SupplierOrder[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
+  const [medicines, setMedicines, medicinesLoading] = useLocalStorage<Medicine[]>('medicines', []);
+  const [sales, setSales, salesLoading] = useLocalStorage<SaleRecord[]>('sales', []);
+  const [supplierOrders, setSupplierOrders, ordersLoading] = useLocalStorage<SupplierOrder[]>('supplierOrders', []);
 
   const [licenseKey, setLicenseKey, licenseLoading] = useLocalStorage<string | null>('vicky-medical-license', null);
   const [isActivated, setIsActivated, isActivatedLoading] = useLocalStorage<boolean>('vicky-medical-activated', false);
@@ -217,28 +216,9 @@ export default function AppPage() {
 
   const [activeTab, setActiveTab] = useState('pos');
   
-  const loadData = async () => {
-    setDataLoading(true);
-    try {
-        const [meds, salesData, ordersData] = await Promise.all([
-            service.getMedicines(),
-            service.getSales(),
-            service.getSupplierOrders()
-        ]);
-        setMedicines(meds);
-        setSales(salesData);
-        setSupplierOrders(ordersData);
-    } catch (error) {
-        console.error("Failed to load data from Firestore:", error);
-        // Optionally, show a toast to the user
-    } finally {
-        setDataLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadData();
-  }, [service]);
+    service.initialize(medicines, sales, supplierOrders);
+  }, [service, medicines, sales, supplierOrders]);
 
 
   useEffect(() => {
@@ -263,57 +243,9 @@ export default function AppPage() {
     }
   }, [orderItemToProcess]);
 
-  const isLoading = dataLoading || licenseLoading || isActivatedLoading;
+  const isLoading = medicinesLoading || salesLoading || ordersLoading || licenseLoading || isActivatedLoading;
   const isLicensed = !!licenseKey && isActivated;
   const hasLicenseBeenCreated = !!licenseKey;
-
-  const updateMedicines = (updater: (meds: Medicine[]) => Promise<Medicine[]>) => {
-    updater(medicines).then(newMeds => {
-        setMedicines(newMeds);
-    }).catch(console.error);
-  };
-  
-  const updateSales = (updater: (s: SaleRecord[]) => Promise<SaleRecord[]>) => {
-      updater(sales).then(newSales => {
-        setSales(newSales);
-      }).catch(console.error);
-  };
-
-  const updateSupplierOrders = (updater: (orders: SupplierOrder[]) => Promise<SupplierOrder[]>) => {
-      updater(supplierOrders).then(newOrders => {
-        setSupplierOrders(newOrders);
-      }).catch(console.error);
-  };
-
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="flex items-center gap-3">
-             <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-10 w-10 text-primary animate-pulse"
-              >
-                <path d="M14.5 10.5A3.5 3.5 0 0 0 11 7a3.5 3.5 0 0 0-3.5 3.5.95.95 0 0 0 .95.95h5.1a.95.95 0 0 0 .95-.95Z" />
-                <path d="M20.5 10.5a8.5 8.5 0 1 0-17 0" />
-              </svg>
-            <h1 className="text-3xl font-bold font-headline text-foreground">Vicky Medical</h1>
-          </div>
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading your pharmacy data...</p>
-        </div>
-      </div>
-    );
-  }
   
   const onRestockComplete = () => {
     // Navigating to the same path but without search params clears them
@@ -441,8 +373,8 @@ export default function AppPage() {
                <TabsContent value="bill_scanner" className="mt-0">
                  <BillScannerTab
                     service={service!}
-                    onOrderCreated={() => {
-                        service.getSupplierOrders().then(setSupplierOrders);
+                    onOrderCreated={(newOrder) => {
+                        setSupplierOrders(prev => [newOrder, ...prev]);
                     }}
                 />
               </TabsContent>
