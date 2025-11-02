@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2 } from 'lucide-react';
+import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
@@ -67,6 +67,74 @@ const generateNewBillNumber = (sales: SaleRecord[]): string => {
   const newBillNum = highestBillNum + 1;
   return `VM-${newBillNum.toString().padStart(5, '0')}`;
 };
+
+function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: Medicine[], onSelectMedicine: (medicineId: string) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const searchResults = useMemo(() => {
+        if (!searchTerm.trim()) {
+            return [];
+        }
+        const lowerCaseSearchTerm = searchTerm.toLowerCase();
+        return medicines.filter(med => 
+            med.description?.illness?.toLowerCase().includes(lowerCaseSearchTerm)
+        );
+    }, [searchTerm, medicines]);
+
+    const handleSelect = (medicineId: string) => {
+        onSelectMedicine(medicineId);
+        setIsOpen(false);
+        setSearchTerm('');
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">
+                    <Search className="mr-2 h-4 w-4" />
+                    Find by Description
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Find Medicine by Description</DialogTitle>
+                    <DialogDescription>Search for medicines based on the illness or symptoms in their description.</DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                    <Input 
+                        placeholder="e.g., Fever, Cold, Skin Infection..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        autoFocus
+                    />
+                    <div className="max-h-[50vh] overflow-y-auto">
+                        {searchResults.length > 0 ? (
+                            <ul className="space-y-2">
+                                {searchResults.map(med => (
+                                    <li key={med.id}>
+                                        <Button 
+                                            variant="ghost" 
+                                            className="w-full justify-start h-auto"
+                                            onClick={() => handleSelect(med.id)}
+                                        >
+                                            <div className="text-left">
+                                                <p className="font-semibold">{med.name}</p>
+                                                <p className="text-sm text-muted-foreground">{med.description?.illness}</p>
+                                            </div>
+                                        </Button>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            searchTerm.trim() && <p className="text-center text-muted-foreground py-4">No results found.</p>
+                        )}
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 
 function BatchSelectorDialog({ medicine, onSelect, onCancel }: { medicine: Medicine, onSelect: (batch: Batch) => void, onCancel: () => void }) {
@@ -167,7 +235,8 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
       // Also check if there's at least one batch with a valid expiry
       const now = new Date();
       now.setHours(0,0,0,0);
-      return med.batches.some(b => new Date(b.expiry) >= now && (b.stock.tablets || b.stock.quantity || 0) > 0);
+      const hasAvailableBatch = med.batches.some(b => new Date(b.expiry) >= now && (b.stock.tablets || b.stock.quantity || 0) > 0);
+      return hasAvailableBatch;
     });
   }, [medicines]);
 
@@ -427,6 +496,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
                         </Command>
                     </PopoverContent>
                 </Popover>
+                <DescriptionSearchDialog medicines={medicines} onSelectMedicine={handleSelectMedicine} />
 
             </div>
 
@@ -700,5 +770,3 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     </>
   );
 }
-
-    
