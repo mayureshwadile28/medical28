@@ -68,6 +68,7 @@ const getStockString = (med: Medicine) => {
 };
 
 const isLowStock = (med: Medicine) => {
+    if (!med.stock) return false;
     if (isTablet(med)) {
         return med.stock.tablets > 0 && med.stock.tablets < 50; // Low stock if less than 50 tabs (5 strips)
     }
@@ -75,6 +76,7 @@ const isLowStock = (med: Medicine) => {
 }
 
 const isOutOfStock = (med: Medicine) => {
+    if (!med.stock) return true;
     if (isTablet(med)) {
         return med.stock.tablets <= 0;
     }
