@@ -122,6 +122,10 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     const now = new Date();
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     
+    if (!expiry) {
+        return { text: 'N/A', remainder: 'No expiry date', isExpired: false, isNearExpiry: false, diffDays: 9999 };
+    }
+
     const expiryDateUTC = new Date(expiry);
     const expiryDate = new Date(Date.UTC(expiryDateUTC.getUTCFullYear(), expiryDateUTC.getUTCMonth(), expiryDateUTC.getUTCDate()));
 
@@ -205,9 +209,9 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
             case 'name_asc':
                 return (a.name || '').localeCompare(b.name || '');
             case 'expiry_asc':
-                return new Date(a.expiry).getTime() - new Date(b.expiry).getTime();
+                return new Date(a.expiry || 0).getTime() - new Date(b.expiry || 0).getTime();
             case 'expiry_desc':
-                return new Date(b.expiry).getTime() - new Date(a.expiry).getTime();
+                return new Date(b.expiry || 0).getTime() - new Date(a.expiry || 0).getTime();
             default:
                 return 0;
         }
@@ -450,13 +454,13 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
             <Button variant="outline" asChild>
                 <Link href="/expiry-report">
                     <CalendarClock className="mr-2 h-4 w-4" /> 
-                    Expiry Report
+                    <span className="hidden sm:inline">Expiry Report</span>
                 </Link>
             </Button>
             <Button variant="outline" asChild>
                 <Link href="/out-of-stock">
                     <Bell className="mr-2 h-4 w-4" /> 
-                    Out of Stock
+                    <span className="hidden sm:inline">Out of Stock</span>
                     {outOfStockMedicines.length > 0 && <Badge variant="destructive" className="ml-2">{outOfStockMedicines.length}</Badge>}
                 </Link>
             </Button>
@@ -516,7 +520,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                 <TableHead className="hidden md:table-cell">Category</TableHead>
                 <TableHead className="hidden lg:table-cell">Location</TableHead>
                 <TableHead>Expiry</TableHead>
-                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right hidden sm:table-cell">Price</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
                 <TableHead className="text-right w-[100px]">Actions</TableHead>
               </TableRow>
@@ -540,7 +544,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                               </div>
                             </ClientOnly>
                           </TableCell>
-                          <TableCell className="text-right font-mono">{formatToINR(med.price)}</TableCell>
+                          <TableCell className="text-right font-mono hidden sm:table-cell">{formatToINR(med.price)}</TableCell>
                           <TableCell className={cn("text-right font-mono", isLowStock(med) && 'text-amber-500 font-semibold', isOutOfStock(med) && "text-destructive font-semibold")}>{getStockString(med)}</TableCell>
                           <TableCell className="text-right">
                           <div className="flex justify-end gap-1">

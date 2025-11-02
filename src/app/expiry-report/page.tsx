@@ -53,6 +53,7 @@ export default function ExpiryReportPage() {
 
     return medicines
       .map(med => {
+        if (!med.expiry) return { ...med, diffDays: 9999 };
         const expiryDateUTC = new Date(med.expiry);
         const expiryDate = new Date(Date.UTC(expiryDateUTC.getUTCFullYear(), expiryDateUTC.getUTCMonth(), expiryDateUTC.getUTCDate()));
         const diffDays = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -147,9 +148,9 @@ export default function ExpiryReportPage() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Name</TableHead>
-                            <TableHead>Category</TableHead>
+                            <TableHead className="hidden sm:table-cell">Category</TableHead>
                             <TableHead>Expiry Date</TableHead>
-                            <TableHead>Status</TableHead>
+                            <TableHead className="hidden md:table-cell">Status</TableHead>
                             <TableHead className="text-right">Stock</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -158,13 +159,13 @@ export default function ExpiryReportPage() {
                             filteredMedicines.map(med => (
                                 <TableRow key={med.id} className={cn(med.diffDays < 0 && 'bg-destructive/10')}>
                                     <TableCell className="font-semibold">{med.name}</TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Badge variant="secondary">{med.category}</Badge>
                                     </TableCell>
                                     <TableCell>
-                                        {new Date(med.expiry).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}
+                                        {med.expiry ? new Date(med.expiry).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'N/A'}
                                     </TableCell>
-                                    <TableCell>{getExpiryDisplay(med.diffDays)}</TableCell>
+                                    <TableCell className="hidden md:table-cell">{getExpiryDisplay(med.diffDays)}</TableCell>
                                     <TableCell className="text-right font-mono">{getStockString(med)}</TableCell>
                                 </TableRow>
                             ))

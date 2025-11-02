@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
 import { type Medicine, type SaleRecord, type SupplierOrder } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, ShoppingCart, History, Loader2, KeyRound, ShieldCheck, Unlock, ClipboardList } from 'lucide-react';
+import { Package, ShoppingCart, History, KeyRound, ShieldCheck, Unlock, ClipboardList } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -346,7 +346,7 @@ export default function AppPage() {
         <div className="container mx-auto p-4 sm:p-6 lg:p-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex justify-center md:justify-start">
-              <TabsList>
+              <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
                 <TabsTrigger value="pos">
                   <ShoppingCart className="mr-2 h-4 w-4" /> POS
                 </TabsTrigger>

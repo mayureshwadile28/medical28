@@ -28,7 +28,7 @@ export default function OutOfStockPage() {
   const outOfStockMedicines = useMemo(() => {
     if (loading) return [];
     return medicines.filter(med => {
-      if (!med || !med.stock) return false; // Defensive check
+      if (!med || !med.stock) return false;
       if (isTablet(med)) {
         return med.stock.tablets <= 0;
       }

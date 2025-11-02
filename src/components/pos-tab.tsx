@@ -47,6 +47,7 @@ import { AppService } from '@/lib/service';
 import { suggestMedicines } from '@/ai/flows/suggest-medicines';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 
 interface PosTabProps {
   medicines: Medicine[];
@@ -79,6 +80,27 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
     const [suggestions, setSuggestions] = useState<SuggestMedicinesOutput | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
+
+    const uniqueSymptoms = useMemo(() => {
+        const allSymptoms = inventory.flatMap(med => {
+            if (med.description?.illness) {
+                return med.description.illness.split(',').map(s => s.trim().toLowerCase());
+            }
+            return [];
+        });
+        return [...new Set(allSymptoms)].filter(Boolean).sort();
+    }, [inventory]);
+
+    const handleSymptomClick = (symptom: string) => {
+        setIllnesses(prev => {
+            const parts = prev.split(',').map(p => p.trim()).filter(Boolean);
+            if (parts.includes(symptom)) {
+                return parts.filter(p => p !== symptom).join(', ');
+            } else {
+                return [...parts, symptom].join(', ');
+            }
+        });
+    };
 
     const handleFindMedicines = async () => {
         if (!illnesses.trim()) {
@@ -167,11 +189,27 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
                             <Label htmlFor="illnesses">Symptoms / Illnesses</Label>
                             <Textarea
                                 id="illnesses"
-                                placeholder="e.g., fever, headache, cold"
+                                placeholder="Type symptoms or select from suggestions..."
                                 value={illnesses}
                                 onChange={e => setIllnesses(e.target.value)}
                             />
-                             <p className="text-xs text-muted-foreground">Separate multiple symptoms with a comma.</p>
+                            {uniqueSymptoms.length > 0 && (
+                                <div className="space-y-2">
+                                    <Label className="text-xs text-muted-foreground">Suggestions</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {uniqueSymptoms.map(symptom => (
+                                            <Badge 
+                                                key={symptom}
+                                                variant={illnesses.toLowerCase().includes(symptom.toLowerCase()) ? 'default' : 'secondary'}
+                                                onClick={() => handleSymptomClick(symptom)}
+                                                className="cursor-pointer"
+                                            >
+                                                {symptom}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                          <Button onClick={handleFindMedicines} disabled={isLoading}>
                             {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Searching...</> : 'Find Medicines'}
@@ -424,7 +462,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
             <CardTitle>Create a New Bill</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
                 <Popover open={isMedicinePopoverOpen} onOpenChange={setIsMedicinePopoverOpen}>
                     <PopoverTrigger asChild>
                         <Button
@@ -499,9 +537,9 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
               <TableHeader>
                 <TableRow>
                   <TableHead>Item</TableHead>
-                  <TableHead>Category</TableHead>
+                  <TableHead className="hidden sm:table-cell">Category</TableHead>
                   <TableHead className="w-[100px] text-center">Units</TableHead>
-                  <TableHead className="text-right">Price/Unit</TableHead>
+                  <TableHead className="text-right hidden sm:table-cell">Price/Unit</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
@@ -511,7 +549,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
                   billItems.map(item => (
                     <TableRow key={item.medicineId}>
                       <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>{item.category}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{item.category}</TableCell>
                       <TableCell>
                         <Input
                           type="number"
@@ -521,7 +559,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
                           min="0"
                         />
                       </TableCell>
-                      <TableCell className="text-right font-mono">{formatToINR(item.pricePerUnit)}</TableCell>
+                      <TableCell className="text-right font-mono hidden sm:table-cell">{formatToINR(item.pricePerUnit)}</TableCell>
                       <TableCell className="text-right font-mono">{formatToINR(item.total)}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" onClick={() => removeItemFromBill(item.medicineId)}>
@@ -545,7 +583,8 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
               {billItems.length > 0 && (
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={4} className="font-bold text-lg">Total</TableCell>
+                        <TableCell colSpan={4} className="font-bold text-lg hidden sm:table-cell">Total</TableCell>
+                        <TableCell className="font-bold text-lg sm:hidden">Total</TableCell>
                         <TableCell className="text-right font-bold text-lg font-mono">{formatToINR(totalAmount)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>

@@ -564,7 +564,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                         <span className="font-semibold">{sale.customerName}</span>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">Bill: {sale.id}</span>
-                          {sale.doctorName && <span className="text-xs text-muted-foreground">Prescribed by Dr. {sale.doctorName}</span>}
+                          {sale.doctorName && <span className="text-xs text-muted-foreground">Dr. {sale.doctorName}</span>}
                           {sale.paymentSettledDate && (
                             <ClientOnly>
                                 <Badge variant="outline" className="text-primary border-primary/50">
@@ -590,7 +590,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                         <TableHeader>
                           <TableRow>
                             <TableHead>Item</TableHead>
-                            <TableHead>Category</TableHead>
+                            <TableHead className="hidden sm:table-cell">Category</TableHead>
                             <TableHead className="text-right">Units</TableHead>
                             <TableHead className="text-right">Price/Unit</TableHead>
                             <TableHead className="text-right">Total</TableHead>
@@ -600,7 +600,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                           {sale.items.map((item, index) => (
                             <TableRow key={`${sale.id}-${item.medicineId}-${index}`}>
                               <TableCell>{item.name}</TableCell>
-                              <TableCell>{item.category}</TableCell>
+                              <TableCell className="hidden sm:table-cell">{item.category}</TableCell>
                               <TableCell className="text-right">{item.quantity}</TableCell>
                               <TableCell className="text-right font-mono">{formatToINR(item.pricePerUnit)}</TableCell>
                               <TableCell className="text-right font-mono">{formatToINR(item.total)}</TableCell>
