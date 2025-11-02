@@ -80,7 +80,9 @@ function PendingPaymentsDialog({ sales, setSales, service }: HistoryTabProps) {
     const [settlePaymentMode, setSettlePaymentMode] = React.useState<PaymentMode>('Cash');
     const { toast } = useToast();
 
-    const pendingSales = sales.filter(s => s.paymentMode === 'Pending');
+    const pendingSales = sales
+      .filter(s => s.paymentMode === 'Pending')
+      .filter((sale, index, self) => index === self.findIndex(s => s.id === sale.id));
 
     const handleSettlePayment = async () => {
         if (!settlingSale) return;
