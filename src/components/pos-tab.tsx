@@ -1,8 +1,7 @@
-
 'use client';
 
 import React, { useState, useMemo, Suspense } from 'react';
-import { type Medicine, type SaleRecord, type PaymentMode, type MedicineDescription, type SuggestMedicinesOutput, type SaleItem, isTablet, isGeneric, type TabletMedicine, type GenericMedicine } from '@/lib/types';
+import { type Medicine, type SaleRecord, type PaymentMode, type SuggestMedicinesOutput, type SaleItem, isTablet, isGeneric, type TabletMedicine, type GenericMedicine } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -52,14 +51,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { suggestMedicines } from '@/ai/flows/suggest-medicines';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-
+import { AppService } from '@/lib/service';
 
 interface PosTabProps {
   medicines: Medicine[];
-  setMedicines: (medicines: Medicine[] | ((meds: Medicine[]) => Medicine[])) => void;
+  setMedicines: React.Dispatch<React.SetStateAction<Medicine[]>>;
   sales: SaleRecord[];
-  setSales: (sales: SaleRecord[]) => void;
+  setSales: React.Dispatch<React.SetStateAction<SaleRecord[]>>;
+  service: AppService;
 }
 
 const generateNewBillNumber = (sales: SaleRecord[]): string => {
@@ -401,7 +400,7 @@ const MultiSelect = ({
 };
 
 
-export default function PosTab({ medicines, setMedicines, sales, setSales }: PosTabProps) {
+export default function PosTab({ medicines, setMedicines, sales, setSales, service }: PosTabProps) {
   const [isMedicinePopoverOpen, setIsMedicinePopoverOpen] = useState(false);
   const [isDoctorPopoverOpen, setIsDoctorPopoverOpen] = useState(false);
   const [selectedMedicineId, setSelectedMedicineId] = useState('');
@@ -428,7 +427,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       if (isTablet(med)) {
         return med.stock.tablets > 0;
       }
-      return med.stock.quantity > 0;
+      return isGeneric(med) && med.stock.quantity > 0;
     });
   }, [medicines]);
 
@@ -443,7 +442,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       toast({ title: 'Out of Stock', description: `${medicineToAdd.name} is out of stock.`, variant: "destructive" });
       return;
     }
-    if (isGeneric(medicineToAdd) && medicineToAdd.stock.quantity === 0) {
+    if (isGeneric(medicineToAdd) && (medicineToAdd.stock as GenericMedicine['stock'])?.quantity === 0) {
       toast({ title: 'Out of Stock', description: `${medicineToAdd.name} is out of stock.`, variant: "destructive" });
       return;
     }
@@ -493,7 +492,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
 
           if (isTablet(med)) {
               stockLimit = med.stock.tablets;
-          } else {
+          } else if (isGeneric(med)) {
               stockLimit = med.stock.quantity;
           }
 
@@ -517,7 +516,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     return billItems.reduce((sum, item) => sum + (isNaN(item.total) ? 0 : item.total), 0);
   }, [billItems]);
 
-  const completeSale = () => {
+  const completeSale = async () => {
     if (!customerName.trim()) {
         toast({ title: 'Customer Name Required', description: 'Please enter a name for the customer.', variant: "destructive" });
         return;
@@ -531,26 +530,27 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
         return;
     }
 
-    const newMedicines = [...medicines];
-    billItems.forEach(item => {
-      const medIndex = newMedicines.findIndex(m => m.id === item.medicineId);
+    const updatedMeds = [...medicines];
+    for (const item of billItems) {
+      const medIndex = updatedMeds.findIndex(m => m.id === item.medicineId);
       if (medIndex !== -1) {
-        const med = newMedicines[medIndex];
+        const med = updatedMeds[medIndex];
         if (isTablet(med)) {
           med.stock.tablets -= Number(item.quantity);
-        } else {
+        } else if (isGeneric(med)) {
           med.stock.quantity -= Number(item.quantity);
         }
+        await service.saveMedicine(med);
       }
-    });
-    setMedicines(newMedicines);
+    }
+    setMedicines(updatedMeds);
 
     const trimmedDoctorName = doctorName.trim();
     if (trimmedDoctorName && !doctorNames.includes(trimmedDoctorName)) {
         setDoctorNames([...doctorNames, trimmedDoctorName]);
     }
 
-    const newSale: SaleRecord = {
+    const newSaleRecord: SaleRecord = {
       id: generateNewBillNumber(sales),
       customerName: customerName.trim(),
       doctorName: trimmedDoctorName,
@@ -559,20 +559,25 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
       totalAmount: totalAmount,
       paymentMode: paymentMode,
     };
-    setSales([...sales, newSale]);
+    
+    const savedSale = await service.saveSale(newSaleRecord);
+    setSales(currentSales => [...currentSales, savedSale]);
     
     setCustomerName('');
     setDoctorName('');
     setBillItems([]);
     setPaymentMode('Cash');
-    toast({ title: 'Sale Completed!', description: `Bill for ${newSale.customerName} saved successfully.`});
+    toast({ title: 'Sale Completed!', description: `Bill for ${savedSale.customerName} saved successfully.`});
   };
   
   const getStockString = (med: Medicine) => {
     if (isTablet(med)) {
         return `${med.stock.tablets} tabs`;
     }
-    return `${med.stock.quantity} units`;
+    if (isGeneric(med)) {
+        return `${med.stock.quantity} units`;
+    }
+    return 'N/A';
   };
 
   const handleDeleteDoctor = (nameToDelete: string) => {

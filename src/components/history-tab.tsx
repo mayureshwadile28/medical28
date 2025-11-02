@@ -63,15 +63,18 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import ReactDOMServer from 'react-dom/server';
+import { AppService } from '@/lib/service';
+
 
 interface HistoryTabProps {
   sales: SaleRecord[];
-  setSales: (sales: SaleRecord[]) => void;
+  setSales: React.Dispatch<React.SetStateAction<SaleRecord[]>>;
+  service: AppService;
 }
 
 type SortOption = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'amount_desc' | 'amount_asc';
 
-function PendingPaymentsDialog({ sales, setSales }: HistoryTabProps) {
+function PendingPaymentsDialog({ sales, setSales, service }: HistoryTabProps) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [settlingSale, setSettlingSale] = React.useState<SaleRecord | null>(null);
     const [settlePaymentMode, setSettlePaymentMode] = React.useState<PaymentMode>('Cash');
@@ -79,19 +82,20 @@ function PendingPaymentsDialog({ sales, setSales }: HistoryTabProps) {
 
     const pendingSales = sales.filter(s => s.paymentMode === 'Pending');
 
-    const handleSettlePayment = () => {
+    const handleSettlePayment = async () => {
         if (!settlingSale) return;
 
-        setSales(sales.map(sale => {
-            if (sale.id === settlingSale.id) {
-                return {
-                    ...sale,
-                    paymentMode: settlePaymentMode,
-                    paymentSettledDate: new Date().toISOString(),
-                };
-            }
-            return sale;
-        }));
+        const updatedSale: SaleRecord = {
+            ...settlingSale,
+            paymentMode: settlePaymentMode,
+            paymentSettledDate: new Date().toISOString(),
+        };
+
+        await service.saveSale(updatedSale);
+
+        setSales(currentSales => currentSales.map(sale => 
+            sale.id === settlingSale.id ? updatedSale : sale
+        ));
 
         toast({
             title: "Payment Settled",
@@ -200,7 +204,6 @@ function PendingPaymentsDialog({ sales, setSales }: HistoryTabProps) {
 
 function PrintBillDialog({ sale }: { sale: SaleRecord }) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const printFrameRef = React.useRef<HTMLIFrameElement>(null);
 
   const handlePrint = () => {
     const iframe = document.createElement('iframe');
@@ -343,7 +346,7 @@ function DownloadBillButton({ sale }: { sale: SaleRecord }) {
 }
 
 
-export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
+export default function HistoryTab({ sales, setSales, service }: HistoryTabProps) {
   const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -433,7 +436,8 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
     document.body.removeChild(link);
   };
 
-  const handleClearHistory = () => {
+  const handleClearHistory = async () => {
+    await service.deleteAllSales();
     setSales([]);
     setIsClearHistoryOpen(false);
     setDeleteConfirmation('');
@@ -445,7 +449,7 @@ export default function HistoryTab({ sales, setSales }: HistoryTabProps) {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Sales History</CardTitle>
           <div className="flex flex-wrap gap-2">
-            <PendingPaymentsDialog sales={sales} setSales={setSales} />
+            <PendingPaymentsDialog sales={sales} setSales={setSales} service={service} />
             <Button onClick={handleExportCSV} disabled={sales.length === 0}>
               <Download className="mr-2 h-4 w-4" />
               Export CSV

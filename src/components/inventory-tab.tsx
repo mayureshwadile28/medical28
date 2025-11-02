@@ -1,9 +1,8 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { type Medicine, type SaleRecord, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, OrderItem } from '@/lib/types';
+import { type Medicine, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, OrderItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -46,12 +45,12 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { SaleItem } from '@/lib/types';
+import { AppService } from '@/lib/service';
 
 interface InventoryTabProps {
   medicines: Medicine[];
-  setMedicines: (medicines: Medicine[]) => void;
-  sales: SaleRecord[];
+  setMedicines: React.Dispatch<React.SetStateAction<Medicine[]>>;
+  service: AppService;
   restockId?: string | null;
   onRestockComplete?: () => void;
   orderItemToProcess?: OrderItem | null;
@@ -65,7 +64,10 @@ const getStockString = (med: Medicine) => {
   if (isTablet(med)) {
     return `${med.stock.tablets} tabs`;
   }
-  return `${med.stock.quantity} units`;
+  if (isGeneric(med)) {
+    return `${med.stock.quantity} units`;
+  }
+  return '0 units';
 };
 
 const isLowStock = (med: Medicine) => {
@@ -73,7 +75,10 @@ const isLowStock = (med: Medicine) => {
     if (isTablet(med)) {
         return med.stock.tablets > 0 && med.stock.tablets < 50; // Low stock if less than 50 tabs (5 strips)
     }
-    return (med.stock as GenericMedicine['stock'])?.quantity > 0 && (med.stock as GenericMedicine['stock'])?.quantity < 10;
+    if (isGeneric(med)) {
+        return med.stock.quantity > 0 && med.stock.quantity < 10;
+    }
+    return false;
 }
 
 const isOutOfStock = (med: Medicine) => {
@@ -81,10 +86,13 @@ const isOutOfStock = (med: Medicine) => {
     if (isTablet(med)) {
         return med.stock.tablets <= 0;
     }
-    return (med.stock as GenericMedicine['stock'])?.quantity <= 0;
+    if (isGeneric(med)) {
+        return med.stock.quantity <= 0;
+    }
+    return false;
 }
 
-export default function InventoryTab({ medicines, setMedicines, sales, restockId, onRestockComplete, orderItemToProcess, onItemProcessed }: InventoryTabProps) {
+export default function InventoryTab({ medicines, setMedicines, service, restockId, onRestockComplete, orderItemToProcess, onItemProcessed }: InventoryTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -172,9 +180,11 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
 
 
   const categories = useMemo(() => {
+    const allCategories = medicines
+        .map(m => m.category)
+        .filter((c): c is string => typeof c === 'string' && c.trim() !== '');
     const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
-    const customCategories = medicines.map(m => m.category).filter(c => typeof c === 'string' && c.trim() !== '');
-    return Array.from(new Set([...baseCategories, ...customCategories])).sort();
+    return Array.from(new Set([...baseCategories, ...allCategories])).sort((a,b) => a.localeCompare(b));
   }, [medicines]);
 
   const outOfStockMedicines = useMemo(() => {
@@ -187,7 +197,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     sortedMeds.sort((a, b) => {
         switch (sortOption) {
             case 'name_asc':
-                return a.name.localeCompare(b.name);
+                return (a.name || '').localeCompare(b.name || '');
             case 'expiry_asc':
                 return new Date(a.expiry).getTime() - new Date(b.expiry).getTime();
             case 'expiry_desc':
@@ -202,7 +212,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
       .filter(med => categoryFilters.length === 0 || (med.category && categoryFilters.includes(med.category)));
   }, [medicines, searchTerm, categoryFilters, sortOption]);
 
-  const proceedWithSave = (medicine: Medicine) => {
+  const proceedWithSave = async (medicine: Medicine) => {
     if (onItemProcessed) {
         onItemProcessed(medicine);
         setIsFormOpen(false);
@@ -210,11 +220,20 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
         return;
     }
   
-    if (editingMedicine && !orderItemToProcess) {
-      setMedicines(medicines.map(m => (m.id === medicine.id ? medicine : m)));
-    } else {
-      setMedicines([...medicines, medicine]);
-    }
+    const savedMedicine = await service.saveMedicine(medicine);
+    setMedicines(currentMeds => {
+      const isEditing = editingMedicine && !orderItemToProcess;
+      if (isEditing) {
+        return currentMeds.map(m => (m.id === savedMedicine.id ? savedMedicine : m));
+      } else {
+        const existingIndex = currentMeds.findIndex(m => m.id === savedMedicine.id);
+        if (existingIndex > -1) {
+            return currentMeds.map(m => m.id === savedMedicine.id ? savedMedicine : m);
+        }
+        return [...currentMeds, savedMedicine];
+      }
+    });
+
     setEditingMedicine(null);
     setIsFormOpen(false);
     if(onRestockComplete) onRestockComplete();
@@ -232,8 +251,9 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     proceedWithSave(medicine);
   };
 
-  const handleDeleteMedicine = (id: string) => {
-    setMedicines(medicines.filter(m => m.id !== id));
+  const handleDeleteMedicine = async (id: string) => {
+    await service.deleteMedicine(id);
+    setMedicines(currentMeds => currentMeds.filter(m => m.id !== id));
     setDeletingMedicineId(null);
     setDeleteConfirmation('');
   };
@@ -277,19 +297,21 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     if (!newInventoryState || importQueue.length === 0) {
         if (newInventoryState) {
             // Finished processing
-            setMedicines(newInventoryState);
-            const { added, updated, skipped } = importStats.current;
-            if (added > 0 || updated > 0 || skipped > 0) {
-                toast({
-                    title: 'Import Complete',
-                    description: `${added} new item(s) added, ${updated} item(s) updated, ${skipped} item(s) skipped.`
-                });
-            }
-            // Reset state
-            setNewInventoryState(null);
-            setImportQueue([]);
-            setCurrentDuplicate(null);
-            importStats.current = { added: 0, updated: 0, skipped: 0 };
+            service.saveAllMedicines(newInventoryState).then(() => {
+                setMedicines(newInventoryState);
+                const { added, updated, skipped } = importStats.current;
+                if (added > 0 || updated > 0 || skipped > 0) {
+                    toast({
+                        title: 'Import Complete',
+                        description: `${added} new item(s) added, ${updated} item(s) updated, ${skipped} item(s) skipped.`
+                    });
+                }
+                // Reset state
+                setNewInventoryState(null);
+                setImportQueue([]);
+                setCurrentDuplicate(null);
+                importStats.current = { added: 0, updated: 0, skipped: 0 };
+            });
         }
         return;
     }
@@ -307,7 +329,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
         setCurrentDuplicate({ imported: importedMed, existing: newInventoryState[existingMedIndex] });
     } else {
         // Not a duplicate, add it directly
-        const updatedInventory = [...newInventoryState, { ...importedMed, id: importedMed.id || new Date().toISOString() + Math.random() }];
+        const updatedInventory = [...newInventoryState, { ...importedMed, id: importedMed.id || 'temp-' + new Date().toISOString() + Math.random() }];
         importStats.current.added++;
         setImportQueue(queue);
         setNewInventoryState(updatedInventory);
@@ -330,16 +352,16 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
             };
             
             if (isTablet(updatedMed) && isTablet(existing)) {
-               updatedMed.stock.tablets = (existing.stock.tablets || 0) + (imported as TabletMedicine).stock?.tablets || 0;
+               updatedMed.stock.tablets = (existing.stock.tablets || 0) + ((imported as TabletMedicine).stock?.tablets || 0);
             } else if (isGeneric(updatedMed) && isGeneric(existing)) {
-               updatedMed.stock.quantity = (existing.stock.quantity || 0) + (imported as GenericMedicine).stock?.quantity || 0;
+               updatedMed.stock.quantity = (existing.stock.quantity || 0) + ((imported as GenericMedicine).stock?.quantity || 0);
             }
             
             inventory[existingMedIndex] = updatedMed;
             importStats.current.updated++;
         }
     } else if (decision === 'add') {
-        inventory.push({ ...imported, id: new Date().toISOString() + Math.random() });
+        inventory.push({ ...imported, id: 'temp-' + new Date().toISOString() + Math.random() });
         importStats.current.added++;
     } else { // skip
         importStats.current.skipped++;
@@ -363,10 +385,12 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
             if (!Array.isArray(importedMedicines)) throw new Error("Invalid file format.");
 
             if (importMode === 'replace') {
-                setMedicines(importedMedicines);
-                toast({ 
-                    title: 'Import Successful', 
-                    description: `Inventory replaced with ${importedMedicines.length} medicine(s).`
+                service.saveAllMedicines(importedMedicines).then(() => {
+                    setMedicines(importedMedicines);
+                    toast({ 
+                        title: 'Import Successful', 
+                        description: `Inventory replaced with ${importedMedicines.length} medicine(s).`
+                    });
                 });
             } else { // 'merge'
                 importStats.current = { added: 0, updated: 0, skipped: 0 };

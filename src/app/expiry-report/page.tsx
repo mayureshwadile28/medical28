@@ -1,8 +1,6 @@
-
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { useLocalStorage } from '@/lib/hooks';
 import { type Medicine, isTablet } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { AppService } from '@/lib/service';
 
 type FilterOption = 'expired' | '30' | '60' | '90';
 
@@ -30,8 +29,17 @@ const getStockString = (med: Medicine) => {
 };
 
 export default function ExpiryReportPage() {
-  const [medicines, _, loading] = useLocalStorage<Medicine[]>('medicines', []);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterOption>('30');
+
+  useEffect(() => {
+    const service = new AppService();
+    service.initialize().then(() => {
+      setMedicines(service.getMedicines());
+      setLoading(false);
+    });
+  }, []);
 
   const filteredMedicines = useMemo(() => {
     if (loading) return [];

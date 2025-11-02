@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 
+// This hook is used for simple, non-critical UI state like the license key.
+// It is NOT suitable for large datasets, which are now handled by the Firestore-backed AppService.
 export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void, boolean] {
   const [loading, setLoading] = useState(true);
   const [storedValue, setStoredValue] = useState<T>(initialValue);

@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
 import { type Medicine, type SaleRecord, type SupplierOrder } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, ShoppingCart, History, Loader2, KeyRound, ShieldCheck, Edit, Unlock, ClipboardList } from 'lucide-react';
-import { initialMedicines, initialSales, initialSupplierOrders } from '@/lib/data';
+import { Package, ShoppingCart, History, Loader2, KeyRound, ShieldCheck, Unlock, ClipboardList, ScanLine } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -16,6 +15,8 @@ import PosTab from '@/components/pos-tab';
 import InventoryTab from '@/components/inventory-tab';
 import HistoryTab from '@/components/history-tab';
 import OrderListTab from '@/components/order-list-tab';
+import BillScannerTab from '@/components/bill-scanner';
+import { AppService } from '@/lib/service';
 
 // This is the hardcoded MASTER password.
 const MASTER_PASSWORD = 'MAYURESH-VINOD-WADILE-2009';
@@ -200,23 +201,58 @@ function LicenseDialog({
 
 
 export default function AppPage() {
-  const [medicines, setMedicines, medicinesLoading] = useLocalStorage<Medicine[]>('medicines', initialMedicines);
-  const [sales, setSales, salesLoading] = useLocalStorage<SaleRecord[]>('sales', initialSales);
-  const [supplierOrders, setSupplierOrders, ordersLoading] = useLocalStorage<SupplierOrder[]>('supplierOrders', initialSupplierOrders);
+  const [service] = useState(() => new AppService());
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [sales, setSales] = useState<SaleRecord[]>([]);
+  const [supplierOrders, setSupplierOrders] = useState<SupplierOrder[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
   const [licenseKey, setLicenseKey, licenseLoading] = useLocalStorage<string | null>('vicky-medical-license', null);
   const [isActivated, setIsActivated, isActivatedLoading] = useLocalStorage<boolean>('vicky-medical-activated', false);
   
   const searchParams = useSearchParams();
   const router = useRouter();
   const openRestockId = searchParams.get('restock');
+  const openOrderTab = searchParams.get('open_order_tab');
 
-  const [activeTab, setActiveTab] = useState(openRestockId ? 'inventory' : 'pos');
+  const [activeTab, setActiveTab] = useState('pos');
   
+  const loadData = async () => {
+    setDataLoading(true);
+    try {
+        const [meds, salesData, ordersData] = await Promise.all([
+            service.getMedicines(),
+            service.getSales(),
+            service.getSupplierOrders()
+        ]);
+        setMedicines(meds);
+        setSales(salesData);
+        setSupplierOrders(ordersData);
+    } catch (error) {
+        console.error("Failed to load data from Firestore:", error);
+        // Optionally, show a toast to the user
+    } finally {
+        setDataLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [service]);
+
+
   useEffect(() => {
     if (openRestockId) {
       setActiveTab('inventory');
     }
   }, [openRestockId]);
+
+  useEffect(() => {
+      if (openOrderTab) {
+          setActiveTab('order_list');
+          router.replace('/', { scroll: false }); // Clear search param
+      }
+  }, [openOrderTab, router]);
   
   const [orderItemToProcess, setOrderItemToProcess] = useState<{orderId: string, item: any} | null>(null);
   const [processingOrder, setProcessingOrder] = useState<SupplierOrder | null>(null);
@@ -227,10 +263,28 @@ export default function AppPage() {
     }
   }, [orderItemToProcess]);
 
-
-  const isLoading = medicinesLoading || salesLoading || licenseLoading || isActivatedLoading || ordersLoading;
+  const isLoading = dataLoading || licenseLoading || isActivatedLoading;
   const isLicensed = !!licenseKey && isActivated;
   const hasLicenseBeenCreated = !!licenseKey;
+
+  const updateMedicines = (updater: (meds: Medicine[]) => Promise<Medicine[]>) => {
+    updater(medicines).then(newMeds => {
+        setMedicines(newMeds);
+    }).catch(console.error);
+  };
+  
+  const updateSales = (updater: (s: SaleRecord[]) => Promise<SaleRecord[]>) => {
+      updater(sales).then(newSales => {
+        setSales(newSales);
+      }).catch(console.error);
+  };
+
+  const updateSupplierOrders = (updater: (orders: SupplierOrder[]) => Promise<SupplierOrder[]>) => {
+      updater(supplierOrders).then(newOrders => {
+        setSupplierOrders(newOrders);
+      }).catch(console.error);
+  };
+
 
   if (isLoading) {
     return (
@@ -275,16 +329,17 @@ export default function AppPage() {
     setIsActivated(false); // Make sure they have to re-activate with the new key
   }
   
-  const handleItemProcessed = (medicine: Medicine) => {
-    if (!orderItemToProcess) return;
+  const handleItemProcessed = async (medicine: Medicine) => {
+    if (!orderItemToProcess || !service) return;
 
     if (medicine.id) { // Check if a valid medicine was saved (not cancelled)
-      setMedicines((prevMeds) => {
-          const existingIndex = prevMeds.findIndex(m => m.id === medicine.id);
+      const newMed = await service.saveMedicine(medicine);
+      setMedicines(prevMeds => {
+          const existingIndex = prevMeds.findIndex(m => m.id === newMed.id);
           if (existingIndex > -1) {
-              return prevMeds.map(m => m.id === medicine.id ? medicine : m);
+              return prevMeds.map(m => m.id === newMed.id ? newMed : m);
           }
-          return [...prevMeds, medicine];
+          return [...prevMeds, newMed];
       });
     }
 
@@ -351,11 +406,14 @@ export default function AppPage() {
                 <TabsTrigger value="inventory">
                   <Package className="mr-2 h-4 w-4" /> Inventory
                 </TabsTrigger>
-                <TabsTrigger value="history">
-                  <History className="mr-2 h-4 w-4" /> History
+                 <TabsTrigger value="bill_scanner">
+                  <ScanLine className="mr-2 h-4 w-4" /> Bill Scanner
                 </TabsTrigger>
                 <TabsTrigger value="order_list">
                   <ClipboardList className="mr-2 h-4 w-4" /> Order List
+                </TabsTrigger>
+                <TabsTrigger value="history">
+                  <History className="mr-2 h-4 w-4" /> History
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -366,21 +424,30 @@ export default function AppPage() {
                   setMedicines={setMedicines}
                   sales={sales}
                   setSales={setSales}
+                  service={service}
                 />
               </TabsContent>
               <TabsContent value="inventory" className="mt-0">
                 <InventoryTab 
                   medicines={medicines} 
                   setMedicines={setMedicines}
-                  sales={sales}
+                  service={service}
                   restockId={openRestockId}
                   onRestockComplete={onRestockComplete}
                   orderItemToProcess={orderItemToProcess?.item}
                   onItemProcessed={handleItemProcessed}
                 />
               </TabsContent>
+               <TabsContent value="bill_scanner" className="mt-0">
+                 <BillScannerTab
+                    service={service!}
+                    onOrderCreated={() => {
+                        service.getSupplierOrders().then(setSupplierOrders);
+                    }}
+                />
+              </TabsContent>
               <TabsContent value="history" className="mt-0">
-                <HistoryTab sales={sales} setSales={setSales} />
+                <HistoryTab sales={sales} setSales={setSales} service={service} />
               </TabsContent>
                <TabsContent value="order_list" className="mt-0">
                 <OrderListTab 
@@ -388,6 +455,7 @@ export default function AppPage() {
                   setMedicines={setMedicines}
                   orders={supplierOrders}
                   setOrders={setSupplierOrders}
+                  service={service}
                   onProcessOrderItem={setOrderItemToProcess}
                   onStartOrderMerge={handleStartOrderMerge}
                 />

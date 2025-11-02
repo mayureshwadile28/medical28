@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
@@ -10,19 +9,21 @@ import { PlusCircle, Trash2, Download, ClipboardList, Info, History, PackagePlus
 import * as htmlToImage from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { PrintableOrderList } from './printable-order-list';
-import { type Medicine, type OrderItem, type SupplierOrder, isTablet } from '@/lib/types';
+import { type Medicine, type OrderItem, type SupplierOrder, isTablet, isGeneric } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { AppService } from '@/lib/service';
 
 interface OrderListTabProps {
     medicines: Medicine[];
-    setMedicines: (updater: (medicines: Medicine[]) => Medicine[]) => void;
+    setMedicines: React.Dispatch<React.SetStateAction<Medicine[]>>;
     orders: SupplierOrder[];
-    setOrders: (orders: SupplierOrder[]) => void;
+    setOrders: React.Dispatch<React.SetStateAction<SupplierOrder[]>>;
+    service: AppService;
     onProcessOrderItem: (data: { orderId: string, item: any }) => void;
     onStartOrderMerge: (order: SupplierOrder) => void;
 }
@@ -34,7 +35,7 @@ const getDisplayQuantity = (item: OrderItem) => {
     return item.quantity;
 };
 
-function OrderHistoryDialog({ orders, setOrders, onMerge }: { orders: SupplierOrder[], setOrders: (orders: SupplierOrder[]) => void, onMerge: (order: SupplierOrder) => void }) {
+function OrderHistoryDialog({ orders, onMerge }: { orders: SupplierOrder[], onMerge: (order: SupplierOrder) => void }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     
     return (
@@ -136,7 +137,7 @@ const capitalizeWords = (str: string): string => {
     .join(' ');
 };
 
-export default function OrderListTab({ medicines, setMedicines, orders, setOrders, onProcessOrderItem, onStartOrderMerge }: OrderListTabProps) {
+export default function OrderListTab({ medicines, setMedicines, orders, setOrders, service, onProcessOrderItem, onStartOrderMerge }: OrderListTabProps) {
     const [items, setItems] = useState<OrderItem[]>([]);
     const [itemName, setItemName] = useState('');
     const [itemCategory, setItemCategory] = useState('');
@@ -158,15 +159,19 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
 
     const categories = useMemo(() => {
         const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
-        const medicineCategories = medicines.map(m => m.category).filter(c => typeof c === 'string' && c.trim() !== '');
-        return Array.from(new Set([...baseCategories, ...medicineCategories])).sort();
+        const medicineCategories = medicines
+            .map(m => m.category)
+            .filter((c): c is string => typeof c === 'string' && c.trim() !== '');
+        return Array.from(new Set([...baseCategories, ...medicineCategories]))
+            .filter(c => c)
+            .sort((a, b) => a.localeCompare(b));
     }, [medicines]);
 
     const suggestedMedicines = useMemo(() => {
       if (!itemName) return [];
       const lowerCaseItemName = itemName.toLowerCase();
       return medicines
-        .filter(med => med && med.name && typeof med.name === 'string' && med.name.toLowerCase().includes(lowerCaseItemName))
+        .filter(med => med && med.name && med.name.toLowerCase().includes(lowerCaseItemName))
         .map(med => ({ name: med.name, category: med.category }));
     }, [medicines, itemName]);
 
@@ -182,11 +187,10 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         };
     }, []);
     
-    const handleMergeOrder = (order: SupplierOrder) => {
+    const handleMergeOrder = async (order: SupplierOrder) => {
         let currentItems = [...order.items];
         
-        // Find the index of the last processed item and continue from there
-        const lastProcessedName = sessionStorage.getItem('lastProcessedItemName');
+        const lastProcessedName = sessionStorage.getItem(`lastProcessed_${order.id}`);
         if (lastProcessedName) {
             const lastIndex = currentItems.findIndex(i => i.name === lastProcessedName);
             if (lastIndex > -1) {
@@ -197,61 +201,60 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         setProcessingOrder(order);
 
         for (const item of currentItems) {
-            const existingMed = medicines.find(m =>
-              m && m.name && m.category && typeof m.name === 'string' && typeof m.category === 'string' &&
-              m.name.toLowerCase() === item.name.toLowerCase() &&
-              m.category.toLowerCase() === item.category.toLowerCase()
+            const existingMed = medicines.find(m => 
+                m.name?.toLowerCase() === item.name.toLowerCase() && 
+                m.category?.toLowerCase() === item.category.toLowerCase()
             );
             
             if (existingMed) {
-                setMedicines(currentMeds => currentMeds.map(med => {
-                    if (med.id === existingMed.id) {
-                        const qtyValue = parseInt(item.quantity.match(/\d+/)?.[0] || '0', 10);
-                        let stockToAdd = 0;
-                        if (isTablet(med)) {
-                            const stripsToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
-                             stockToAdd = stripsToAdd * med.tabletsPerStrip;
-                            return { ...med, stock: { tablets: med.stock.tablets + stockToAdd } };
-                        } else {
-                            stockToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
-                            return { ...med, stock: { quantity: (med.stock as any).quantity + stockToAdd } };
-                        }
-                    }
-                    return med;
-                }));
+                const qtyValue = parseInt(item.quantity.match(/\d+/)?.[0] || '0', 10);
+                let stockToAdd = 0;
+                
+                if (isTablet(existingMed)) {
+                    stockToAdd = (item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue) * existingMed.tabletsPerStrip;
+                    existingMed.stock.tablets += stockToAdd;
+                } else if(isGeneric(existingMed)) {
+                    stockToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
+                    existingMed.stock.quantity += stockToAdd;
+                }
+
+                await service.saveMedicine(existingMed);
+                setMedicines(currentMeds => currentMeds.map(m => m.id === existingMed.id ? existingMed : m));
             } else {
-                sessionStorage.setItem('lastProcessedItemName', item.name);
+                sessionStorage.setItem(`lastProcessed_${order.id}`, item.name);
                 onProcessOrderItem({ orderId: order.id, item: item });
-                return; // Stop the loop and wait for the form
+                return;
             }
         }
         
-        setOrders(currentOrders => currentOrders.map(o => o.id === order.id ? { ...o, status: 'Completed' } : o));
+        const completedOrder = { ...order, status: 'Completed' as const };
+        await service.saveSupplierOrder(completedOrder);
+        setOrders(currentOrders => currentOrders.map(o => o.id === order.id ? completedOrder : o));
+
         toast({ title: "Order Merged", description: `Order ${order.id} has been merged into inventory.` });
         setProcessingOrder(null);
-        sessionStorage.removeItem('lastProcessedItemName');
+        sessionStorage.removeItem(`lastProcessed_${order.id}`);
     };
     
-    // Event listeners for starting and continuing the merge flow
     useEffect(() => {
-        const startMergeHandler = (event: CustomEvent<SupplierOrder>) => {
-            handleMergeOrder(event.detail);
+        const startMergeHandler = (event: Event) => {
+            handleMergeOrder((event as CustomEvent<SupplierOrder>).detail);
         };
-        const continueMergeHandler = (event: CustomEvent<SupplierOrder>) => {
-            handleMergeOrder(event.detail);
+        const continueMergeHandler = (event: Event) => {
+            handleMergeOrder((event as CustomEvent<SupplierOrder>).detail);
         };
 
-        window.addEventListener('start-merge', startMergeHandler as EventListener);
-        window.addEventListener('continue-merge', continueMergeHandler as EventListener);
+        window.addEventListener('start-merge', startMergeHandler);
+        window.addEventListener('continue-merge', continueMergeHandler);
 
         return () => {
-            window.removeEventListener('start-merge', startMergeHandler as EventListener);
-            window.removeEventListener('continue-merge', continueMergeHandler as EventListener);
+            window.removeEventListener('start-merge', startMergeHandler);
+            window.removeEventListener('continue-merge', continueMergeHandler);
         };
-    }, [medicines, orders]); // Re-bind if medicines/orders change
+    }, [medicines, orders, service]);
 
     const finalizeAddItem = (item: Omit<OrderItem, 'id'>) => {
-        setItems(prevItems => [...prevItems, { ...item, id: new Date().toISOString() + Math.random() }]);
+        setItems(prevItems => [...prevItems, { ...item, id: 'temp-' + new Date().toISOString() + Math.random() }]);
         setItemName('');
         setItemCategory('');
         setCustomCategory('');
@@ -392,15 +395,12 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
             return;
         }
 
-        const newOrder: SupplierOrder = {
-            id: `ORD-${new Date().getTime()}`,
+        const newOrder = await service.addSupplierOrder({
             supplierName: supplierName.trim(),
-            orderDate: new Date().toISOString(),
             items: items,
-            status: 'Pending',
-        };
+        });
 
-        setOrders([newOrder, ...orders]);
+        setOrders(currentOrders => [newOrder, ...currentOrders]);
         
         setOrderForPrint(newOrder);
 
@@ -417,7 +417,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                     </div>
                 )}
             </div>
-            {processingOrder && !sessionStorage.getItem('lastProcessedItemName') && (
+            {processingOrder && !sessionStorage.getItem(`lastProcessed_${processingOrder.id}`) && (
                 <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
                     <div className="bg-background p-6 rounded-lg flex items-center gap-4">
                         <Loader2 className="h-6 w-6 animate-spin" />
@@ -554,7 +554,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                     <Button onClick={handleSaveOrder} disabled={items.length === 0 || !supplierName.trim()} className="w-full sm:w-auto">
                         <Download className="mr-2" /> Save & Download Order
                     </Button>
-                    <OrderHistoryDialog orders={orders} setOrders={setOrders} onMerge={onStartOrderMerge} />
+                    <OrderHistoryDialog orders={orders} onMerge={onStartOrderMerge} />
                 </CardFooter>
             </Card>
 

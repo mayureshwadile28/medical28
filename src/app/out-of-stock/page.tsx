@@ -1,17 +1,25 @@
-
 'use client';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useLocalStorage } from '@/lib/hooks';
 import { type Medicine, isTablet } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Bell, Edit, Info, Loader2 } from 'lucide-react';
+import { AppService } from '@/lib/service';
 
 export default function OutOfStockPage() {
-  const [medicines, setMedicines, loading] = useLocalStorage<Medicine[]>('medicines', []);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    const service = new AppService();
+    service.initialize().then(() => {
+      setMedicines(service.getMedicines());
+      setLoading(false);
+    });
+  }, []);
 
   const outOfStockMedicines = useMemo(() => {
     if (loading) return [];
