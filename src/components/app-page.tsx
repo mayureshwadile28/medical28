@@ -243,6 +243,11 @@ export default function AppPage() {
   }, [orderItemToProcess]);
 
   const isLoading = medicinesLoading || salesLoading || ordersLoading || licenseLoading || isActivatedLoading;
+  
+  if (isLoading) {
+    return null; // Return nothing while loading to prevent flash of content
+  }
+
   const isLicensed = !!licenseKey && isActivated;
   const hasLicenseBeenCreated = !!licenseKey;
   
