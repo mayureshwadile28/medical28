@@ -1,6 +1,6 @@
 'use client';
 
-import { Medicine, SuggestMedicinesInput, SuggestMedicinesOutput, isTablet } from '@/lib/types';
+import { Medicine, SuggestMedicinesInput, SuggestMedicinesOutput, isTablet, getTotalStock, Batch } from '@/lib/types';
 
 
 export async function suggestMedicines(input: SuggestMedicinesInput): Promise<SuggestMedicinesOutput> {
@@ -9,22 +9,19 @@ export async function suggestMedicines(input: SuggestMedicinesInput): Promise<Su
     
     const { patient, inventory } = input;
 
-    // Filter out medicines that are out of stock or expired first.
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
     const availableInventory = inventory.filter((med: Medicine) => {
-        if (!med.expiry) return false;
-        const expiryDate = new Date(med.expiry);
-        expiryDate.setHours(0, 0, 0, 0);
-        if (expiryDate < now) return false;
+        if (getTotalStock(med) <= 0) return false;
 
-        if (!med.stock) return false; // Defensive check for stock object
-
-        if (isTablet(med)) {
-            return med.stock.tablets > 0;
-        }
-        return med.stock.quantity > 0;
+        // Check if there is at least one batch that is not expired
+        return med.batches.some(batch => {
+            if (!batch.expiry) return false;
+            const expiryDate = new Date(batch.expiry);
+            expiryDate.setHours(0, 0, 0, 0);
+            return expiryDate >= now && (batch.stock.tablets || batch.stock.quantity || 0) > 0;
+        });
     });
 
     const matchingMedicines = availableInventory.filter((med: Medicine) => {

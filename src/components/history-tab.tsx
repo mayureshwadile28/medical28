@@ -407,7 +407,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
 
 
   const handleExportCSV = () => {
-    const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'PaymentMode', 'DiscountPercentage', 'TotalAmount', 'PaymentSettledDate', 'MedicineName', 'Category', 'Quantity', 'PricePerUnit', 'ItemTotal'];
+    const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'PaymentMode', 'DiscountPercentage', 'TotalAmount', 'PaymentSettledDate', 'MedicineName', 'Category', 'BatchNumber', 'Quantity', 'PricePerUnit', 'ItemTotal'];
     const csvRows = [headers.join(',')];
 
     filteredSales.forEach(sale => {
@@ -423,6 +423,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
           sale.paymentSettledDate || '',
           `"${item.name.replace(/"/g, '""')}"`,
           item.category,
+          item.batchNumber,
           item.quantity,
           item.pricePerUnit,
           item.total,
@@ -597,7 +598,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                         <TableHeader>
                           <TableRow>
                             <TableHead>Item</TableHead>
-                            <TableHead className="hidden sm:table-cell">Category</TableHead>
+                            <TableHead className="hidden sm:table-cell">Batch #</TableHead>
                             <TableHead className="text-right">Units</TableHead>
                             <TableHead className="text-right">Price/Unit</TableHead>
                             <TableHead className="text-right">Total</TableHead>
@@ -607,7 +608,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                           {sale.items.map((item, index) => (
                             <TableRow key={`${sale.id}-${item.medicineId}-${index}`}>
                               <TableCell>{item.name}</TableCell>
-                              <TableCell className="hidden sm:table-cell">{item.category}</TableCell>
+                              <TableCell className="hidden sm:table-cell font-mono text-xs">{item.batchNumber}</TableCell>
                               <TableCell className="text-right">{item.quantity}</TableCell>
                               <TableCell className="text-right font-mono">{formatToINR(item.pricePerUnit)}</TableCell>
                               <TableCell className="text-right font-mono">{formatToINR(item.total)}</TableCell>
@@ -651,5 +652,3 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
     </Card>
   );
 }
-
-    

@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { type Medicine, type SaleRecord, type PaymentMode, type SaleItem, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, SuggestMedicinesOutput } from '@/lib/types';
+import { type Medicine, type SaleRecord, type PaymentMode, type SaleItem, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, SuggestMedicinesOutput, getTotalStock, Batch } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -72,7 +72,7 @@ const generateNewBillNumber = (sales: SaleRecord[]): string => {
   return `VM-${newBillNum.toString().padStart(5, '0')}`;
 };
 
-function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[], onAddMedicine: (medicine: Medicine) => void }) {
+function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[], onAddMedicine: (medicine: Medicine, batch: Batch) => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const [patientType, setPatientType] = useState<'Human' | 'Animal'>('Human');
     const [age, setAge] = useState('');
@@ -144,9 +144,18 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
     const handleAddClick = (medicineId: string) => {
         const medicineToAdd = inventory.find(m => m.id === medicineId);
         if(medicineToAdd) {
-            onAddMedicine(medicineToAdd);
-            toast({ title: `${medicineToAdd.name} added to bill.`});
-            setIsOpen(false);
+            // Find batch that expires soonest
+            const soonestBatch = medicineToAdd.batches
+                .filter(b => (b.stock.tablets || b.stock.quantity || 0) > 0)
+                .sort((a, b) => new Date(a.expiry).getTime() - new Date(b.expiry).getTime())[0];
+
+            if (soonestBatch) {
+                onAddMedicine(medicineToAdd, soonestBatch);
+                toast({ title: `${medicineToAdd.name} added to bill.`});
+                setIsOpen(false);
+            } else {
+                toast({ variant: 'destructive', title: 'Out of Stock', description: `${medicineToAdd.name} is out of stock.` });
+            }
         }
     }
 
@@ -281,6 +290,77 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
     )
 }
 
+function BatchSelectorDialog({ medicine, onSelect, onCancel }: { medicine: Medicine, onSelect: (batch: Batch) => void, onCancel: () => void }) {
+    const sortedBatches = useMemo(() => {
+        return [...medicine.batches]
+            .filter(b => (b.stock.tablets || b.stock.quantity || 0) > 0)
+            .sort((a, b) => new Date(a.expiry).getTime() - new Date(b.expiry).getTime());
+    }, [medicine]);
+
+    if (sortedBatches.length === 0) {
+        // This case should ideally not be hit if checks are done before calling
+        return null;
+    }
+
+    return (
+        <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Select Batch for {medicine.name}</DialogTitle>
+                    <DialogDescription>
+                        Choose which batch to sell from. Batches expiring soonest are listed first.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 max-h-[60vh] overflow-y-auto">
+                    <RadioGroup
+                        onValueChange={(batchId) => {
+                            const selectedBatch = medicine.batches.find(b => b.id === batchId);
+                            if (selectedBatch) {
+                                onSelect(selectedBatch);
+                            }
+                        }}
+                    >
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead></TableHead>
+                                    <TableHead>Batch #</TableHead>
+                                    <TableHead>Expiry</TableHead>
+                                    <TableHead className="text-right">Stock</TableHead>
+                                    <TableHead className="text-right">MRP</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {sortedBatches.map(batch => (
+                                    <TableRow key={batch.id}>
+                                        <TableCell>
+                                            <RadioGroupItem value={batch.id} id={batch.id} />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Label htmlFor={batch.id} className="font-semibold cursor-pointer">{batch.batchNumber}</Label>
+                                        </TableCell>
+                                        <TableCell>
+                                            {new Date(batch.expiry).toLocaleDateString(undefined, { month: 'short', year: 'numeric', timeZone: 'UTC' })}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono">
+                                            {isTablet(medicine) ? `${batch.stock.tablets} tabs` : `${batch.stock.quantity} units`}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono">
+                                            {formatToINR(batch.price)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </RadioGroup>
+                </div>
+                 <DialogFooter>
+                    <Button variant="outline" onClick={onCancel}>Cancel</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export default function PosTab({ medicines, setMedicines, sales, setSales, service }: PosTabProps) {
   const [isMedicinePopoverOpen, setIsMedicinePopoverOpen] = useState(false);
@@ -290,6 +370,8 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
   const [doctorName, setDoctorName] = useState('');
   const [doctorNames, setDoctorNames] = useLocalStorage<string[]>('doctorNames', []);
   const [discount, setDiscount] = useState(0);
+  
+  const [pendingBatchSelection, setPendingBatchSelection] = useState<Medicine | null>(null);
 
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
   const [billItems, setBillItems] = useState<SaleItem[]>([]);
@@ -299,18 +381,13 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
   const availableMedicines = useMemo(() => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
     return medicines.filter(med => {
-      if (!med.expiry || !med.stock) return false;
-      const expiryDate = new Date(med.expiry);
-      expiryDate.setHours(0, 0, 0, 0);
-      if (expiryDate < now) return false;
-      
-      if (isTablet(med)) {
-        return med.stock.tablets > 0;
-      }
-      return isGeneric(med) && med.stock.quantity > 0;
+      const totalStock = getTotalStock(med);
+      if (totalStock <= 0) return false;
+      // Also check if there's at least one batch with a valid expiry
+      const now = new Date();
+      now.setHours(0,0,0,0);
+      return med.batches.some(b => new Date(b.expiry) >= now && (b.stock.tablets || b.stock.quantity || 0) > 0);
     });
   }, [medicines]);
 
@@ -318,69 +395,77 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     return medicines.find(m => m.id === selectedMedicineId);
   }, [medicines, selectedMedicineId]);
 
-  const addMedicineToBill = (medicineToAdd: Medicine) => {
-    if (!medicineToAdd) return;
-    
-    if (isTablet(medicineToAdd) && medicineToAdd.stock.tablets === 0) {
-      toast({ title: 'Out of Stock', description: `${medicineToAdd.name} is out of stock.`, variant: "destructive" });
-      return;
-    }
-    if (isGeneric(medicineToAdd) && (medicineToAdd.stock as GenericMedicine['stock'])?.quantity === 0) {
-      toast({ title: 'Out of Stock', description: `${medicineToAdd.name} is out of stock.`, variant: "destructive" });
-      return;
+  const addMedicineToBill = (medicineToAdd: Medicine, batch: Batch) => {
+    if (!medicineToAdd || !batch) return;
+
+    const stockInBatch = batch.stock.tablets || batch.stock.quantity || 0;
+    if (stockInBatch <= 0) {
+        toast({ title: 'Out of Stock', description: `Batch ${batch.batchNumber} of ${medicineToAdd.name} is out of stock.`, variant: "destructive" });
+        return;
     }
 
-    if (billItems.some(item => item.medicineId === medicineToAdd.id)) {
+    if (billItems.some(item => item.medicineId === medicineToAdd.id && item.batchNumber === batch.batchNumber)) {
         toast({ title: 'Item already in bill', description: 'You can change the quantity in the table.', variant: "default" });
         return;
     }
     
-    const pricePerUnit = isTablet(medicineToAdd)
-      ? medicineToAdd.price / medicineToAdd.tabletsPerStrip 
-      : medicineToAdd.price;
+    let pricePerUnit = batch.price;
+    if (isTablet(medicineToAdd)) {
+        pricePerUnit = batch.price / medicineToAdd.tabletsPerStrip;
+    }
 
     const newItem: SaleItem = {
       medicineId: medicineToAdd.id,
       name: medicineToAdd.name,
       category: medicineToAdd.category,
+      batchNumber: batch.batchNumber,
       quantity: 1,
       pricePerUnit: pricePerUnit,
       total: pricePerUnit,
     };
     setBillItems([...billItems, newItem]);
     setSelectedMedicineId('');
+    setPendingBatchSelection(null);
   };
+  
+  const handleSelectMedicine = (medicineId: string) => {
+      const med = medicines.find(m => m.id === medicineId);
+      if (!med) return;
+      
+      setSelectedMedicineId(medicineId);
+      setIsMedicinePopoverOpen(false);
 
-  const handleSelectAndAdd = () => {
-      if (selectedMedicine) {
-          addMedicineToBill(selectedMedicine);
+      const availableBatches = med.batches.filter(b => (b.stock.tablets || b.stock.quantity || 0) > 0);
+      
+      if (availableBatches.length > 1) {
+          setPendingBatchSelection(med);
+      } else if (availableBatches.length === 1) {
+          addMedicineToBill(med, availableBatches[0]);
+      } else {
+          toast({ title: 'Out of Stock', description: `${med.name} is out of stock.`});
       }
   }
 
-  const updateItemQuantity = (medicineId: string, quantityStr: string) => {
+  const updateItemQuantity = (medicineId: string, batchNumber: string, quantityStr: string) => {
     const quantity = quantityStr === '' ? '' : parseInt(quantityStr, 10);
   
     setBillItems(
       billItems.map(item => {
-        if (item.medicineId === medicineId) {
+        if (item.medicineId === medicineId && item.batchNumber === batchNumber) {
           const med = medicines.find(m => m.id === medicineId);
           if (!med) return item;
+          const batch = med.batches.find(b => b.batchNumber === batchNumber);
+          if (!batch) return item;
 
           let validQuantity = isNaN(Number(quantity)) ? 0 : Number(quantity);
           if (quantity === '') {
              validQuantity = 0;
           }
 
-          let stockLimit = Infinity;
-
-          if (isTablet(med)) {
-              stockLimit = med.stock.tablets;
-          } else if (isGeneric(med)) {
-              stockLimit = med.stock.quantity;
-          }
+          const stockLimit = isTablet(med) ? (batch.stock.tablets || 0) : (batch.stock.quantity || 0);
 
           if (validQuantity > stockLimit) {
-              toast({ title: 'Stock limit exceeded', description: `Only ${stockLimit} units available for ${med.name}.`, variant: "destructive" });
+              toast({ title: 'Stock limit exceeded', description: `Only ${stockLimit} units available for ${med.name} (Batch: ${batchNumber}).`, variant: "destructive" });
               validQuantity = stockLimit;
           }
           
@@ -391,8 +476,8 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     );
   };
   
-  const removeItemFromBill = (medicineId: string) => {
-    setBillItems(billItems.filter(item => item.medicineId !== medicineId));
+  const removeItemFromBill = (medicineId: string, batchNumber: string) => {
+    setBillItems(billItems.filter(item => !(item.medicineId === medicineId && item.batchNumber === batchNumber)));
   };
 
   const { subtotal, discountAmount, totalAmount } = useMemo(() => {
@@ -421,10 +506,17 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
       const medIndex = updatedMeds.findIndex(m => m.id === item.medicineId);
       if (medIndex !== -1) {
         const med = updatedMeds[medIndex];
-        if (isTablet(med)) {
-          med.stock.tablets -= Number(item.quantity);
-        } else if (isGeneric(med)) {
-          med.stock.quantity -= Number(item.quantity);
+        const batchIndex = med.batches.findIndex(b => b.batchNumber === item.batchNumber);
+
+        if (batchIndex !== -1) {
+            const batch = med.batches[batchIndex];
+            const quantitySold = Number(item.quantity);
+
+            if (isTablet(med)) {
+                batch.stock.tablets = (batch.stock.tablets || 0) - quantitySold;
+            } else {
+                batch.stock.quantity = (batch.stock.quantity || 0) - quantitySold;
+            }
         }
         await service.saveMedicine(med);
       }
@@ -441,7 +533,12 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
       customerName: customerName.trim(),
       doctorName: trimmedDoctorName,
       saleDate: new Date().toISOString(),
-      items: billItems.map(item => ({...item, quantity: Number(item.quantity), category: item.category || ''})),
+      items: billItems.map(item => ({
+          ...item, 
+          quantity: Number(item.quantity), 
+          category: item.category || '',
+          batchNumber: item.batchNumber,
+      })),
       totalAmount: totalAmount,
       discountPercentage: discount,
       paymentMode: paymentMode,
@@ -458,14 +555,12 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     toast({ title: 'Sale Completed!', description: `Bill for ${savedSale.customerName} saved successfully.`});
   };
   
-  const getStockString = (med: Medicine) => {
+  const getStockStringForMedicine = (med: Medicine) => {
+    const totalStock = getTotalStock(med);
     if (isTablet(med)) {
-        return `${med.stock.tablets} tabs`;
+        return `${totalStock} tabs`;
     }
-    if (isGeneric(med)) {
-        return `${med.stock.quantity} units`;
-    }
-    return 'N/A';
+    return `${totalStock} units`;
   };
 
   const handleDeleteDoctor = (nameToDelete: string) => {
@@ -489,6 +584,14 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
   }
 
   return (
+    <>
+    {pendingBatchSelection && (
+        <BatchSelectorDialog 
+            medicine={pendingBatchSelection}
+            onSelect={(batch) => addMedicineToBill(pendingBatchSelection, batch)}
+            onCancel={() => setPendingBatchSelection(null)}
+        />
+    )}
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
       <div className="lg:col-span-2 space-y-4">
         <Card>
@@ -521,10 +624,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
                                 <CommandItem
                                 key={med.id}
                                 value={med.name}
-                                onSelect={() => {
-                                    setSelectedMedicineId(med.id);
-                                    setIsMedicinePopoverOpen(false);
-                                }}
+                                onSelect={() => handleSelectMedicine(med.id)}
                                 >
                                 <Check
                                     className={cn(
@@ -534,7 +634,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
                                 />
                                 <div className="flex justify-between w-full">
                                   <span>{med.name}</span>
-                                  <span className="text-muted-foreground text-xs">{getStockString(med)}</span>
+                                  <span className="text-muted-foreground text-xs">{getStockStringForMedicine(med)}</span>
                                 </div>
                                 </CommandItem>
                             ))}
@@ -543,7 +643,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
                         </Command>
                     </PopoverContent>
                 </Popover>
-                <Button onClick={handleSelectAndAdd} disabled={!selectedMedicineId}>Add to Bill</Button>
+                {/* <Button onClick={handleSelectAndAdd} disabled={!selectedMedicineId}>Add to Bill</Button> */}
                 <SuggestionDialog inventory={medicines} onAddMedicine={addMedicineToBill} />
             </div>
 
@@ -571,7 +671,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
               <TableHeader>
                 <TableRow>
                   <TableHead>Item</TableHead>
-                  <TableHead className="hidden sm:table-cell">Category</TableHead>
+                  <TableHead className="hidden sm:table-cell">Batch #</TableHead>
                   <TableHead className="w-[100px] text-center">Units</TableHead>
                   <TableHead className="text-right hidden sm:table-cell">Price/Unit</TableHead>
                   <TableHead className="text-right">Total</TableHead>
@@ -581,14 +681,14 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
               <TableBody>
                 {billItems.length > 0 ? (
                   billItems.map(item => (
-                    <TableRow key={item.medicineId}>
+                    <TableRow key={`${item.medicineId}-${item.batchNumber}`}>
                       <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell className="hidden sm:table-cell">{item.category}</TableCell>
+                      <TableCell className="hidden sm:table-cell font-mono text-xs">{item.batchNumber}</TableCell>
                       <TableCell>
                         <Input
                           type="number"
                           value={item.quantity}
-                          onChange={(e) => updateItemQuantity(item.medicineId, e.target.value)}
+                          onChange={(e) => updateItemQuantity(item.medicineId, item.batchNumber, e.target.value)}
                           className="text-center h-8"
                           min="0"
                         />
@@ -596,7 +696,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
                       <TableCell className="text-right font-mono hidden sm:table-cell">{formatToINR(item.pricePerUnit)}</TableCell>
                       <TableCell className="text-right font-mono">{formatToINR(item.total)}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => removeItemFromBill(item.medicineId)}>
+                        <Button variant="ghost" size="icon" onClick={() => removeItemFromBill(item.medicineId, item.batchNumber)}>
                           <XCircle className="h-4 w-4 text-destructive" />
                         </Button>
                       </TableCell>
@@ -814,7 +914,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
        </AlertDialog>
       </div>
     </div>
+    </>
   );
 }
-
-    

@@ -51,7 +51,7 @@ export function PrintableBill({ sale, className }: PrintableBillProps) {
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b border-solid border-black">
-            <th className="text-left p-1 pl-0">Item</th>
+            <th className="text-left p-1 pl-0">Item (Batch)</th>
             <th className="text-center p-0.5">Qty</th>
             <th className="text-right p-0.5">Rate</th>
             <th className="text-right p-1 pr-0">Amount</th>
@@ -60,7 +60,7 @@ export function PrintableBill({ sale, className }: PrintableBillProps) {
         <tbody>
           {sale.items.map((item, index) => (
             <tr key={`${sale.id}-${item.medicineId}-${index}`}>
-              <td className="p-1 pl-0">{item.name}</td>
+              <td className="p-1 pl-0">{item.name} <span className="text-[10px]">({item.batchNumber})</span></td>
               <td className="text-center p-0.5">{item.quantity}</td>
               <td className="text-right p-0.5">{formatToINR(item.pricePerUnit)}</td>
               <td className="text-right p-1 pr-0">{formatToINR(item.total)}</td>
@@ -96,5 +96,3 @@ export function PrintableBill({ sale, className }: PrintableBillProps) {
     </div>
   );
 }
-
-    

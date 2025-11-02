@@ -1,8 +1,9 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { type Medicine, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, OrderItem } from '@/lib/types';
+import { type Medicine, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, OrderItem, getTotalStock, getSoonestExpiry, getTotalStockInBatch } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -63,35 +64,25 @@ type SortOption = 'name_asc' | 'expiry_asc' | 'expiry_desc';
 type ImportMode = 'merge' | 'replace';
 
 const getStockString = (med: Medicine) => {
+  const totalStock = getTotalStock(med);
   if (isTablet(med)) {
-    return `${med.stock.tablets} tabs`;
+    return `${totalStock} tabs`;
   }
-  if (isGeneric(med)) {
-    return `${med.stock.quantity} units`;
-  }
-  return '0 units';
+  return `${totalStock} units`;
 };
 
 const isLowStock = (med: Medicine) => {
-    if (!med || !med.stock) return false;
+    if (!med || !med.batches) return false;
+    const totalStock = getTotalStock(med);
     if (isTablet(med)) {
-        return med.stock.tablets > 0 && med.stock.tablets < 50; // Low stock if less than 50 tabs (5 strips)
+        return totalStock > 0 && totalStock < 50; // Low stock if less than 50 tabs (5 strips)
     }
-    if (isGeneric(med)) {
-        return med.stock.quantity > 0 && med.stock.quantity < 10;
-    }
-    return false;
+    return totalStock > 0 && totalStock < 10;
 }
 
 const isOutOfStock = (med: Medicine) => {
-    if (!med || !med.stock) return true;
-    if (isTablet(med)) {
-        return med.stock.tablets <= 0;
-    }
-    if (isGeneric(med)) {
-        return med.stock.quantity <= 0;
-    }
-    return false;
+    if (!med || !med.batches) return true;
+    return getTotalStock(med) <= 0;
 }
 
 export default function InventoryTab({ medicines, service, restockId, onRestockComplete, orderItemToProcess, onItemProcessed, onSaveMedicine, onDeleteMedicine, onSaveAllMedicines }: InventoryTabProps) {
@@ -118,12 +109,12 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     return medicines.filter(med => med && med.name && med.id);
   }, [medicines]);
 
-  const getExpiryInfo = (expiry: string) => {
+  const getExpiryInfo = (expiry: string | null) => {
     const now = new Date();
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     
     if (!expiry) {
-        return { text: 'N/A', remainder: 'No expiry date', isExpired: false, isNearExpiry: false, diffDays: 9999 };
+        return { text: 'N/A', remainder: 'No active batches', isExpired: false, isNearExpiry: false, diffDays: 9999 };
     }
 
     const expiryDateUTC = new Date(expiry);
@@ -144,7 +135,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     }
 
     const date = new Date(expiry);
-    const displayDate = date.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+    const displayDate = date.toLocaleDateString(undefined, { month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 
     return {
@@ -168,20 +159,23 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   
   useEffect(() => {
       if (orderItemToProcess) {
+          const newBatch: Partial<Medicine['batches'][0]> = {
+            batchNumber: orderItemToProcess.batchNumber || '',
+            stock: {},
+            price: 0,
+          };
+
+          if (orderItemToProcess.category === 'Tablet' || orderItemToProcess.category === 'Capsule') {
+             newBatch.stock = { tablets: (parseInt(orderItemToProcess.quantity) || 0) * (orderItemToProcess.unitsPerPack || 10) }
+          } else {
+             newBatch.stock = { quantity: (parseInt(orderItemToProcess.quantity) || 0) * (orderItemToProcess.unitsPerPack || 1) }
+          }
+
           const mockMedicine: Partial<Medicine> = {
               name: orderItemToProcess.name,
               category: orderItemToProcess.category,
-              stock: {} as any,
+              batches: [newBatch as any],
           };
-
-          const qtyNum = parseInt(orderItemToProcess.quantity, 10);
-
-          if (isTablet(mockMedicine as Medicine)) {
-              const strips = qtyNum || 0;
-              (mockMedicine as TabletMedicine).stock.tablets = strips * (orderItemToProcess.unitsPerPack || 10) * 10; // Placeholder
-          } else {
-              (mockMedicine as GenericMedicine).stock.quantity = qtyNum * (orderItemToProcess.unitsPerPack || 1);
-          }
           
           setEditingMedicine(mockMedicine as Medicine);
           setIsFormOpen(true);
@@ -209,9 +203,9 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
             case 'name_asc':
                 return (a.name || '').localeCompare(b.name || '');
             case 'expiry_asc':
-                return new Date(a.expiry || 0).getTime() - new Date(b.expiry || 0).getTime();
+                return new Date(getSoonestExpiry(a) || 0).getTime() - new Date(getSoonestExpiry(b) || 0).getTime();
             case 'expiry_desc':
-                return new Date(b.expiry || 0).getTime() - new Date(a.expiry || 0).getTime();
+                return new Date(getSoonestExpiry(b) || 0).getTime() - new Date(getSoonestExpiry(a) || 0).getTime();
             default:
                 return 0;
         }
@@ -347,13 +341,8 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                 ...inventory[existingMedIndex],
                 ...imported,
                 id: existing.id,
+                batches: [...existing.batches, ...imported.batches] // Simple merge, can be improved
             };
-            
-            if (isTablet(updatedMed) && isTablet(existing)) {
-               updatedMed.stock.tablets = (existing.stock.tablets || 0) + ((imported as TabletMedicine).stock?.tablets || 0);
-            } else if (isGeneric(updatedMed) && isGeneric(existing)) {
-               updatedMed.stock.quantity = (existing.stock.quantity || 0) + ((imported as GenericMedicine).stock?.quantity || 0);
-            }
             
             inventory[existingMedIndex] = updatedMed;
             importStats.current.updated++;
@@ -422,7 +411,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Medicine
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px] md:max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-[550px] md:max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{editingMedicine ? (orderItemToProcess ? `Add New Item from Order` : 'Edit Medicine') : 'Add New Medicine'}</DialogTitle>
                         {orderItemToProcess && <DialogDescription>Please provide the details for '{orderItemToProcess.name}' to add it to your inventory.</DialogDescription>}
@@ -519,8 +508,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                 <TableHead>Name</TableHead>
                 <TableHead className="hidden md:table-cell">Category</TableHead>
                 <TableHead className="hidden lg:table-cell">Location</TableHead>
-                <TableHead>Expiry</TableHead>
-                <TableHead className="text-right hidden sm:table-cell">Price</TableHead>
+                <TableHead>Soonest Expiry</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
                 <TableHead className="text-right w-[100px]">Actions</TableHead>
               </TableRow>
@@ -528,7 +516,8 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
             <TableBody>
               {filteredMedicines.length > 0 ? (
                   filteredMedicines.map(med => {
-                  const expiry = getExpiryInfo(med.expiry);
+                  const soonestExpiry = getSoonestExpiry(med);
+                  const expiry = getExpiryInfo(soonestExpiry);
                   return (
                       <TableRow key={med.id} className={cn(expiry.isExpired && "bg-destructive/20 hover:bg-destructive/30 text-destructive-foreground", isOutOfStock(med) && "bg-muted/50")}>
                           <TableCell className="font-medium">{med.name}</TableCell>
@@ -544,7 +533,6 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                               </div>
                             </ClientOnly>
                           </TableCell>
-                          <TableCell className="text-right font-mono hidden sm:table-cell">{formatToINR(med.price)}</TableCell>
                           <TableCell className={cn("text-right font-mono", isLowStock(med) && 'text-amber-500 font-semibold', isOutOfStock(med) && "text-destructive font-semibold")}>{getStockString(med)}</TableCell>
                           <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
@@ -568,7 +556,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                                     <AlertDialogHeader>
                                     <AlertDialogTitle>Delete {med.name}?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete the medicine from your inventory.
+                                        This action cannot be undone. This will permanently delete the medicine and all its batches from your inventory.
                                         <br />
                                         To confirm, please type <strong>delete</strong> in the box below.
                                     </AlertDialogDescription>

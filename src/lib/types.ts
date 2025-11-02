@@ -1,12 +1,17 @@
 
 
-export type TabletStock = {
-  tablets: number; // Total number of tablets/capsules
+export type Stock = {
+  tablets?: number; // Total number of tablets/capsules
+  quantity?: number; // for generic items
 };
 
-export type OtherStock = {
-  quantity: number;
-};
+export interface Batch {
+    id: string;
+    batchNumber: string;
+    stock: Stock;
+    expiry: string; // ISO date string for the last day of the month
+    price: number; // MRP for this batch (per strip or per unit)
+}
 
 export interface MedicineDescription {
   patientType: 'Human' | 'Animal';
@@ -22,22 +27,17 @@ interface BaseMedicine {
   name: string;
   category: string;
   location: string;
-  expiry: string; // ISO date string
-  price: number;
   description?: MedicineDescription;
+  batches: Batch[];
 }
 
 export type TabletMedicine = BaseMedicine & {
   category: 'Tablet' | 'Capsule';
-  price: number; // price per strip
-  tabletsPerStrip: number; // number of tablets/capsules in one strip
-  stock: TabletStock;
+  tabletsPerStrip: number; 
 };
 
 export type GenericMedicine = BaseMedicine & {
   category: string; // Allow any string for other categories
-  price: number; // price per unit
-  stock: OtherStock;
 };
 
 export type Medicine = TabletMedicine | GenericMedicine;
@@ -48,9 +48,34 @@ export function isTablet(medicine?: Medicine | Partial<Medicine> | null): medici
   return medicine.category === 'Tablet' || medicine.category === 'Capsule';
 }
 
-export function isGeneric(medicine?: Medicine | null): medicine is GenericMedicine {
+export function isGeneric(medicine?: Medicine | Partial<Medicine> | null): medicine is GenericMedicine {
   if (!medicine) return false;
   return !isTablet(medicine);
+}
+
+export const getTotalStock = (medicine: Medicine): number => {
+    if (!medicine.batches) return 0;
+    return medicine.batches.reduce((total, batch) => {
+        if (isTablet(medicine)) {
+            return total + (batch.stock.tablets || 0);
+        }
+        return total + (batch.stock.quantity || 0);
+    }, 0);
+}
+
+export const getSoonestExpiry = (medicine: Medicine): string | null => {
+    if (!medicine.batches || medicine.batches.length === 0) return null;
+    
+    const validBatches = medicine.batches.filter(b => getTotalStockInBatch(b) > 0);
+    if (validBatches.length === 0) return null;
+
+    return validBatches.reduce((soonest, current) => {
+        return new Date(current.expiry) < new Date(soonest.expiry) ? current : soonest;
+    }).expiry;
+}
+
+export const getTotalStockInBatch = (batch: Batch): number => {
+    return batch.stock.tablets || batch.stock.quantity || 0;
 }
 
 
@@ -58,6 +83,7 @@ export interface SaleItem {
   medicineId: string;
   name: string;
   category: string;
+  batchNumber: string;
   quantity: number | ''; // Allow empty string for controlled input, represents tablets for Tablet category
   pricePerUnit: number; // Price for the unit sold (e.g., price per tablet, price per bottle)
   total: number;
@@ -74,6 +100,7 @@ export interface SaleRecord {
     medicineId: string;
     name: string;
     category: string;
+    batchNumber: string;
     quantity: number;
     pricePerUnit: number;
     total: number;
@@ -94,6 +121,7 @@ export interface OrderItem {
     name: string;
     category: string;
     quantity: string;
+    batchNumber?: string;
     unitsPerPack?: number;
     unitName?: string;
     status: 'Pending' | 'Received';
@@ -127,5 +155,3 @@ export interface SuggestMedicinesOutput {
     reason: string;
   }[];
 }
-
-    

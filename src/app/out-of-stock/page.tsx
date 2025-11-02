@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type Medicine, isTablet } from '@/lib/types';
+import { type Medicine, getTotalStock } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Bell, Edit, Info, Loader2 } from 'lucide-react';
@@ -27,13 +27,8 @@ export default function OutOfStockPage() {
 
   const outOfStockMedicines = useMemo(() => {
     if (loading) return [];
-    return medicines.filter(med => {
-      if (!med || !med.stock) return false;
-      if (isTablet(med)) {
-        return med.stock.tablets <= 0;
-      }
-      return med.stock.quantity <= 0;
-    }).sort((a, b) => a.name.localeCompare(b.name));
+    return medicines.filter(med => getTotalStock(med) <= 0)
+        .sort((a, b) => a.name.localeCompare(b.name));
   }, [medicines, loading]);
 
   if (loading) {

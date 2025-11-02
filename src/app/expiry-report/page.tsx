@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { type Medicine, isTablet } from '@/lib/types';
+import { type Medicine, isTablet, getTotalStockInBatch } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, CalendarClock, Info, Loader2 } from 'lucide-react';
@@ -20,11 +20,11 @@ import { Label } from '@/components/ui/label';
 
 type FilterOption = 'expired' | '30' | '60' | '90';
 
-const getStockString = (med: Medicine) => {
-  if (isTablet(med)) {
-    return `${med.stock.tablets} tabs`;
-  }
-  return `${med.stock.quantity} units`;
+type MedicineWithExpiryInfo = Medicine & {
+    batchNumber: string;
+    stock: number;
+    diffDays: number;
+    expiryDate: string;
 };
 
 export default function ExpiryReportPage() {
@@ -51,20 +51,34 @@ export default function ExpiryReportPage() {
     const now = new Date();
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
-    return medicines
-      .map(med => {
-        if (!med.expiry) return { ...med, diffDays: 9999 };
-        const expiryDateUTC = new Date(med.expiry);
-        const expiryDate = new Date(Date.UTC(expiryDateUTC.getUTCFullYear(), expiryDateUTC.getUTCMonth(), expiryDateUTC.getUTCDate()));
-        const diffDays = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        return { ...med, diffDays };
-      })
-      .filter(med => {
+    const allBatches: MedicineWithExpiryInfo[] = [];
+
+    medicines.forEach(med => {
+        med.batches.forEach(batch => {
+            const stock = getTotalStockInBatch(batch);
+            if (stock <= 0) return;
+
+            const expiryDateUTC = new Date(batch.expiry);
+            const expiryDate = new Date(Date.UTC(expiryDateUTC.getUTCFullYear(), expiryDateUTC.getUTCMonth(), expiryDateUTC.getUTCDate()));
+            const diffDays = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            
+            allBatches.push({
+                ...med,
+                batchNumber: batch.batchNumber,
+                stock: stock,
+                diffDays: diffDays,
+                expiryDate: batch.expiry
+            });
+        });
+    });
+
+    return allBatches
+      .filter(batch => {
         if (filter === 'expired') {
-          return med.diffDays < 0;
+          return batch.diffDays < 0;
         }
         const days = parseInt(filter, 10);
-        return med.diffDays >= 0 && med.diffDays <= days;
+        return batch.diffDays >= 0 && batch.diffDays <= days;
       })
       .sort((a, b) => a.diffDays - b.diffDays);
   }, [medicines, loading, filter]);
@@ -95,6 +109,13 @@ export default function ExpiryReportPage() {
         case '60': return 'Medicines Expiring in Next 60 Days';
         case '90': return 'Medicines Expiring in Next 90 Days';
     }
+  }
+  
+  const getStockString = (med: Medicine, stock: number) => {
+    if (isTablet(med)) {
+        return `${stock} tabs`;
+    }
+    return `${stock} units`;
   }
 
   return (
@@ -148,7 +169,7 @@ export default function ExpiryReportPage() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Name</TableHead>
-                            <TableHead className="hidden sm:table-cell">Category</TableHead>
+                            <TableHead>Batch #</TableHead>
                             <TableHead>Expiry Date</TableHead>
                             <TableHead className="hidden md:table-cell">Status</TableHead>
                             <TableHead className="text-right">Stock</TableHead>
@@ -157,16 +178,14 @@ export default function ExpiryReportPage() {
                     <TableBody>
                         {filteredMedicines.length > 0 ? (
                             filteredMedicines.map(med => (
-                                <TableRow key={med.id} className={cn(med.diffDays < 0 && 'bg-destructive/10')}>
+                                <TableRow key={`${med.id}-${med.batchNumber}`} className={cn(med.diffDays < 0 && 'bg-destructive/10')}>
                                     <TableCell className="font-semibold">{med.name}</TableCell>
-                                    <TableCell className="hidden sm:table-cell">
-                                        <Badge variant="secondary">{med.category}</Badge>
-                                    </TableCell>
+                                    <TableCell className="font-mono text-xs">{med.batchNumber}</TableCell>
                                     <TableCell>
-                                        {med.expiry ? new Date(med.expiry).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'N/A'}
+                                        {new Date(med.expiryDate).toLocaleDateString(undefined, { month: 'short', year: 'numeric', timeZone: 'UTC' })}
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell">{getExpiryDisplay(med.diffDays)}</TableCell>
-                                    <TableCell className="text-right font-mono">{getStockString(med)}</TableCell>
+                                    <TableCell className="text-right font-mono">{getStockString(med, med.stock)}</TableCell>
                                 </TableRow>
                             ))
                         ) : (
