@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, Suspense } from 'react';
@@ -419,6 +420,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales }: Pos
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     return medicines.filter(med => {
+      if (!med.expiry || !med.stock) return false;
       const expiryDate = new Date(med.expiry);
       expiryDate.setHours(0, 0, 0, 0);
       if (expiryDate < now) return false;
