@@ -159,7 +159,9 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
       const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection'];
       const customCategories = medicines.map(m => m.category);
       const all = Array.from(new Set([...baseCategories, ...customCategories])).sort();
-      all.push('Other');
+      if (!all.includes('Other')) {
+        all.push('Other');
+      }
       return all;
     }, [medicines]);
 
