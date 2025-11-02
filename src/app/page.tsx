@@ -2,6 +2,7 @@
 import { Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
 import AppPage from '@/components/app-page';
+import { ClientOnly } from '@/components/client-only';
 
 function Loading() {
     return (
@@ -35,7 +36,9 @@ function Loading() {
 export default function Home() {
   return (
     <Suspense fallback={<Loading />}>
-      <AppPage />
+      <ClientOnly fallback={<Loading />}>
+        <AppPage />
+      </ClientOnly>
     </Suspense>
   );
 }
