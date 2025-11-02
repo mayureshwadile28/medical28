@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
 import { type Medicine, type SaleRecord, type SupplierOrder } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, ShoppingCart, History, Loader2, KeyRound, ShieldCheck, Unlock, ClipboardList, ScanLine } from 'lucide-react';
+import { Package, ShoppingCart, History, Loader2, KeyRound, ShieldCheck, Unlock, ClipboardList } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,6 @@ import PosTab from '@/components/pos-tab';
 import InventoryTab from '@/components/inventory-tab';
 import HistoryTab from '@/components/history-tab';
 import OrderListTab from '@/components/order-list-tab';
-import BillScannerTab from '@/components/bill-scanner';
 import { AppService } from '@/lib/service';
 
 // This is the hardcoded MASTER password.
@@ -338,9 +337,6 @@ export default function AppPage() {
                 <TabsTrigger value="inventory">
                   <Package className="mr-2 h-4 w-4" /> Inventory
                 </TabsTrigger>
-                 <TabsTrigger value="bill_scanner">
-                  <ScanLine className="mr-2 h-4 w-4" /> Bill Scanner
-                </TabsTrigger>
                 <TabsTrigger value="order_list">
                   <ClipboardList className="mr-2 h-4 w-4" /> Order List
                 </TabsTrigger>
@@ -368,14 +364,6 @@ export default function AppPage() {
                   onRestockComplete={onRestockComplete}
                   orderItemToProcess={orderItemToProcess?.item}
                   onItemProcessed={handleItemProcessed}
-                />
-              </TabsContent>
-               <TabsContent value="bill_scanner" className="mt-0">
-                 <BillScannerTab
-                    service={service!}
-                    onOrderCreated={(newOrder) => {
-                        setSupplierOrders(prev => [newOrder, ...prev]);
-                    }}
                 />
               </TabsContent>
               <TabsContent value="history" className="mt-0">
