@@ -354,7 +354,12 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
   const [sortOption, setSortOption] = React.useState<SortOption>('date_desc');
 
   const filteredSales = React.useMemo(() => {
-    let sortedSales = [...sales].filter(s => s.paymentMode !== 'Pending');
+    // Deduplicate sales data first
+    const uniqueSales = sales.filter((sale, index, self) =>
+        index === self.findIndex((s) => s.id === sale.id)
+    );
+
+    let sortedSales = [...uniqueSales].filter(s => s.paymentMode !== 'Pending');
 
     sortedSales.sort((a, b) => {
         switch (sortOption) {
