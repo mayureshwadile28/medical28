@@ -74,15 +74,13 @@ interface HistoryTabProps {
 
 type SortOption = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'amount_desc' | 'amount_asc';
 
-function PendingPaymentsDialog({ sales, setSales, service }: HistoryTabProps) {
+function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: SaleRecord[], setSales: React.Dispatch<React.SetStateAction<SaleRecord[]>>, service: AppService }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [settlingSale, setSettlingSale] = React.useState<SaleRecord | null>(null);
     const [settlePaymentMode, setSettlePaymentMode] = React.useState<PaymentMode>('Cash');
     const { toast } = useToast();
 
-    const pendingSales = sales
-      .filter(s => s.paymentMode === 'Pending')
-      .filter((sale, index, self) => index === self.findIndex(s => s.id === sale.id));
+    const pendingSales = allSales.filter(s => s.paymentMode === 'Pending');
 
     const handleSettlePayment = async () => {
         if (!settlingSale) return;
@@ -355,12 +353,13 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(undefined);
   const [sortOption, setSortOption] = React.useState<SortOption>('date_desc');
 
-  const filteredSales = React.useMemo(() => {
-    // Deduplicate sales data first
-    const uniqueSales = sales.filter((sale, index, self) =>
+  const uniqueSales = React.useMemo(() => {
+    return sales.filter((sale, index, self) =>
         index === self.findIndex((s) => s.id === sale.id)
     );
+  }, [sales]);
 
+  const filteredSales = React.useMemo(() => {
     let sortedSales = [...uniqueSales].filter(s => s.paymentMode !== 'Pending');
 
     sortedSales.sort((a, b) => {
@@ -390,13 +389,12 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
           const saleDate = new Date(sale.saleDate);
           return searchTermMatch && saleDate.toDateString() === selectedDate.toDateString();
         });
-  }, [sales, searchTerm, selectedDate, sortOption]);
+  }, [uniqueSales, searchTerm, selectedDate, sortOption]);
 
   const dailySummary = React.useMemo(() => {
     if (!selectedDate) return null;
     
-    // Filter sales for the selected date, ignoring the search term for the summary
-    const summarySales = sales.filter(sale => new Date(sale.saleDate).toDateString() === selectedDate.toDateString() && sale.paymentMode !== 'Pending');
+    const summarySales = uniqueSales.filter(sale => new Date(sale.saleDate).toDateString() === selectedDate.toDateString() && sale.paymentMode !== 'Pending');
     
     if(summarySales.length === 0) return null;
 
@@ -404,7 +402,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
     const totalAmount = summarySales.reduce((acc, sale) => acc + sale.totalAmount, 0);
 
     return { totalEntries, totalAmount };
-  }, [sales, selectedDate]);
+  }, [uniqueSales, selectedDate]);
 
 
   const handleExportCSV = () => {
@@ -456,14 +454,14 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Sales History</CardTitle>
           <div className="flex flex-wrap gap-2">
-            <PendingPaymentsDialog sales={sales} setSales={setSales} service={service} />
-            <Button onClick={handleExportCSV} disabled={sales.length === 0}>
+            <PendingPaymentsDialog allSales={uniqueSales} setSales={setSales} service={service} />
+            <Button onClick={handleExportCSV} disabled={uniqueSales.length === 0}>
               <Download className="mr-2 h-4 w-4" />
               Export CSV
             </Button>
             <AlertDialog open={isClearHistoryOpen} onOpenChange={(open) => { setIsClearHistoryOpen(open); if (!open) setDeleteConfirmation(''); }}>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={sales.length === 0}>
+                <Button variant="destructive" disabled={uniqueSales.length === 0}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Clear History
                 </Button>
