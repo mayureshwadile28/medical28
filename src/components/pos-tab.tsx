@@ -198,13 +198,13 @@ function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[],
                             {uniqueSymptoms.length > 0 && (
                                 <div className="space-y-2 pt-2">
                                     <Label className="text-xs text-muted-foreground">Click to add/remove symptoms</Label>
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                                         {uniqueSymptoms.map(symptom => (
                                             <Badge 
                                                 key={symptom}
                                                 variant={illnesses.toLowerCase().includes(symptom.toLowerCase()) ? 'default' : 'secondary'}
                                                 onClick={() => handleSymptomClick(symptom)}
-                                                className="cursor-pointer"
+                                                className="cursor-pointer text-center justify-center truncate"
                                             >
                                                 {symptom}
                                             </Badge>
