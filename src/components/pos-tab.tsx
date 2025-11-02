@@ -201,9 +201,11 @@ function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: M
                                             className="w-full justify-start h-auto"
                                             onClick={() => handleSelect(med.id)}
                                         >
-                                            <div className="text-left">
+                                            <div className="flex-1 text-left">
                                                 <p className="font-semibold">{med.name}</p>
-                                                <p className="text-sm text-muted-foreground">{med.description?.illness}</p>
+                                            </div>
+                                            <div className="text-sm text-muted-foreground ml-4">
+                                                Location: <span className="font-medium text-foreground">{med.location}</span>
                                             </div>
                                         </Button>
                                     </li>
@@ -853,5 +855,3 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     </>
   );
 }
-
-    

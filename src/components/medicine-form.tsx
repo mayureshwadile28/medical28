@@ -146,7 +146,8 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
           stock_quantity: !isTabletCategory ? b.stock.quantity : undefined,
     })) || [];
     
-    if (isEditing && startWithNewBatch && medicineToEdit?.id && !batches.some(b => !b.batchNumber)) {
+    // Only add a new batch if it's an existing medicine, we are in "start with new batch" mode, and there isn't already an empty batch.
+    if (isEditing && startWithNewBatch && !batches.some(b => !b.batchNumber)) {
         batches.push({ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 });
     }
 
