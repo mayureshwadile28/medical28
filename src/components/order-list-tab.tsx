@@ -158,7 +158,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
 
     const categories = useMemo(() => {
         const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
-        const medicineCategories = medicines.map(m => m.category?.trim()).filter(Boolean);
+        const medicineCategories = medicines.map(m => m.category && typeof m.category === 'string' ? m.category.trim() : null);
         return Array.from(new Set([...baseCategories, ...medicineCategories]))
             .filter((c): c is string => !!c) // Filter out any undefined/null/empty values
             .sort((a, b) => a.localeCompare(b));
@@ -168,7 +168,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
       if (!itemName) return [];
       const lowerCaseItemName = itemName.toLowerCase();
       return medicines
-        .filter(med => med.name.toLowerCase().includes(lowerCaseItemName))
+        .filter(med => med.name && typeof med.name === 'string' && med.name.toLowerCase().includes(lowerCaseItemName))
         .map(med => ({ name: med.name, category: med.category }));
     }, [medicines, itemName]);
 
