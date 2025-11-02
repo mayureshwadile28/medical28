@@ -27,7 +27,7 @@ export class AppService {
         this.supplierOrders = supplierOrders;
     }
 
-    private async simulateLatency<T>(data: T): Promise<T> {
+    private async simulateLatency<T>(data?: T): Promise<T | void> {
       // await new Promise(resolve => setTimeout(resolve, 50));
       return data;
     }
@@ -37,18 +37,20 @@ export class AppService {
         return this.simulateLatency(this.medicines);
     }
 
-    async saveMedicine(medicine: Medicine): Promise<Medicine[]> {
+    async saveMedicine(medicine: Medicine): Promise<Medicine> {
+        let savedMedicine: Medicine;
         const isEditing = this.medicines.some(m => m.id === medicine.id);
         
         if (isEditing) {
-            this.medicines = this.medicines.map(m => m.id === medicine.id ? medicine : m);
+            savedMedicine = medicine;
+            this.medicines = this.medicines.map(m => m.id === medicine.id ? savedMedicine : m);
         } else {
-            const newMedicine = { ...medicine, id: new Date().toISOString() };
-            this.medicines = [...this.medicines, newMedicine];
+            savedMedicine = { ...medicine, id: new Date().toISOString() };
+            this.medicines = [...this.medicines, savedMedicine];
         }
         
         localStorage.setItem('medicines', JSON.stringify(this.medicines));
-        return this.simulateLatency(this.medicines);
+        return this.simulateLatency(savedMedicine);
     }
     
     async saveAllMedicines(medicines: Medicine[]): Promise<void> {
@@ -57,10 +59,10 @@ export class AppService {
         return this.simulateLatency();
     }
 
-    async deleteMedicine(id: string): Promise<Medicine[]> {
+    async deleteMedicine(id: string): Promise<string> {
         this.medicines = this.medicines.filter(m => m.id !== id);
         localStorage.setItem('medicines', JSON.stringify(this.medicines));
-        return this.simulateLatency(this.medicines);
+        return this.simulateLatency(id);
     }
 
     // --- Sales Management ---

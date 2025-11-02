@@ -49,12 +49,14 @@ import { AppService } from '@/lib/service';
 
 interface InventoryTabProps {
   medicines: Medicine[];
-  setMedicines: React.Dispatch<React.SetStateAction<Medicine[]>>;
   service: AppService;
   restockId?: string | null;
   onRestockComplete?: () => void;
   orderItemToProcess?: OrderItem | null;
   onItemProcessed?: (medicine: Medicine) => void;
+  onSaveMedicine: (medicine: Medicine) => Promise<void>;
+  onDeleteMedicine: (id: string) => Promise<void>;
+  onSaveAllMedicines: (medicines: Medicine[]) => Promise<void>;
 }
 
 type SortOption = 'name_asc' | 'expiry_asc' | 'expiry_desc';
@@ -92,7 +94,7 @@ const isOutOfStock = (med: Medicine) => {
     return false;
 }
 
-export default function InventoryTab({ medicines, setMedicines, service, restockId, onRestockComplete, orderItemToProcess, onItemProcessed }: InventoryTabProps) {
+export default function InventoryTab({ medicines, service, restockId, onRestockComplete, orderItemToProcess, onItemProcessed, onSaveMedicine, onDeleteMedicine, onSaveAllMedicines }: InventoryTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -218,22 +220,14 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
 
   const proceedWithSave = async (medicine: Medicine) => {
     if (onItemProcessed) {
-        // Find existing or add new
-        const existingMed = medicines.find(m => m.id === medicine.id);
-        const savedMedicine = await service.saveMedicine(medicine);
-        if (existingMed) {
-            setMedicines(currentMeds => currentMeds.map(m => m.id === savedMedicine.id ? savedMedicine : m));
-        } else {
-            setMedicines(currentMeds => [...currentMeds, savedMedicine]);
-        }
-        onItemProcessed(savedMedicine);
+        await onSaveMedicine(medicine);
+        onItemProcessed(medicine); // Pass the full saved medicine back
         setIsFormOpen(false);
         setEditingMedicine(null);
         return;
     }
   
-    const updatedMedicines = await service.saveMedicine(medicine);
-    setMedicines(updatedMedicines);
+    await onSaveMedicine(medicine);
 
     setEditingMedicine(null);
     setIsFormOpen(false);
@@ -254,8 +248,7 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
   };
 
   const handleDeleteMedicine = async (id: string) => {
-    const updatedMedicines = await service.deleteMedicine(id);
-    setMedicines(updatedMedicines);
+    await onDeleteMedicine(id);
     setDeletingMedicineId(null);
     setDeleteConfirmation('');
   };
@@ -299,8 +292,7 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
     if (!newInventoryState || importQueue.length === 0) {
         if (newInventoryState) {
             // Finished processing
-            service.saveAllMedicines(newInventoryState).then(() => {
-                setMedicines(newInventoryState);
+            onSaveAllMedicines(newInventoryState).then(() => {
                 const { added, updated, skipped } = importStats.current;
                 if (added > 0 || updated > 0 || skipped > 0) {
                     toast({
@@ -387,8 +379,7 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
             if (!Array.isArray(importedMedicines)) throw new Error("Invalid file format.");
 
             if (importMode === 'replace') {
-                service.saveAllMedicines(importedMedicines).then(() => {
-                    setMedicines(importedMedicines);
+                onSaveAllMedicines(importedMedicines).then(() => {
                     toast({ 
                         title: 'Import Successful', 
                         description: `Inventory replaced with ${importedMedicines.length} medicine(s).`

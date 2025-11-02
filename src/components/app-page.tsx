@@ -260,18 +260,34 @@ export default function AppPage() {
     setIsActivated(false); // Make sure they have to re-activate with the new key
   }
   
+  const handleSaveMedicine = async (medicine: Medicine) => {
+    const savedMedicine = await service.saveMedicine(medicine);
+    setMedicines(prevMeds => {
+        const isEditing = prevMeds.some(m => m.id === savedMedicine.id);
+        if (isEditing) {
+            return prevMeds.map(m => m.id === savedMedicine.id ? savedMedicine : m);
+        }
+        return [...prevMeds, savedMedicine];
+    });
+  };
+
+  const handleDeleteMedicine = async (id: string) => {
+    await service.deleteMedicine(id);
+    setMedicines(prevMeds => prevMeds.filter(m => m.id !== id));
+  };
+  
+  const handleSaveAllMedicines = async (allMedicines: Medicine[]) => {
+      await service.saveAllMedicines(allMedicines);
+      setMedicines(allMedicines);
+  }
+
   const handleItemProcessed = async (medicine: Medicine) => {
     if (!orderItemToProcess || !service) return;
 
-    if (medicine.id) { // Check if a valid medicine was saved (not cancelled)
-      const newMed = await service.saveMedicine(medicine);
-      setMedicines(prevMeds => {
-          const existingIndex = prevMeds.findIndex(m => m.id === newMed.id);
-          if (existingIndex > -1) {
-              return prevMeds.map(m => m.id === newMed.id ? newMed : m);
-          }
-          return [...prevMeds, newMed];
-      });
+    // The saving is now handled by handleSaveMedicine, which updates the state.
+    // We just need to check if a valid medicine was saved to continue the flow.
+    if (medicine.id) { 
+        // The medicine state is already updated via onSaveMedicine.
     }
 
     setOrderItemToProcess(null); // Clear the item being processed
@@ -358,12 +374,14 @@ export default function AppPage() {
               <TabsContent value="inventory" className="mt-0">
                 <InventoryTab 
                   medicines={medicines} 
-                  setMedicines={setMedicines}
                   service={service}
                   restockId={openRestockId}
                   onRestockComplete={onRestockComplete}
                   orderItemToProcess={orderItemToProcess?.item}
                   onItemProcessed={handleItemProcessed}
+                  onSaveMedicine={handleSaveMedicine}
+                  onDeleteMedicine={handleDeleteMedicine}
+                  onSaveAllMedicines={handleSaveAllMedicines}
                 />
               </TabsContent>
                <TabsContent value="history" className="mt-0">
