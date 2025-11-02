@@ -379,6 +379,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                     setOrderForPrint(null); // Reset after attempting download
                 }
             };
+            // A short delay to ensure the component has rendered fully before capturing
             setTimeout(downloadImage, 100);
         }
     }, [orderForPrint, toast]);
