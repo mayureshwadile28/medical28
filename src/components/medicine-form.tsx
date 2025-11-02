@@ -146,7 +146,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
           stock_quantity: !isTabletCategory ? b.stock.quantity : undefined,
     })) || [];
     
-    if (isEditing && startWithNewBatch) {
+    if (isEditing && startWithNewBatch && !batches.some(b => !b.batchNumber)) {
         batches.push({ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 });
     }
 
@@ -543,5 +543,3 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
     </Form>
   );
 }
-
-    
