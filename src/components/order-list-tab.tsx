@@ -35,26 +35,6 @@ const getDisplayQuantity = (item: OrderItem) => {
 function OrderHistoryDialog({ orders, setOrders }: { orders: SupplierOrder[], setOrders: (orders: SupplierOrder[]) => void }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     
-    const handlePrintOrder = (order: SupplierOrder) => {
-        const iframe = document.createElement('iframe');
-        document.body.appendChild(iframe);
-        iframe.style.display = 'none';
-
-        const doc = iframe.contentWindow?.document;
-        if(doc) {
-            const billHtml = ReactDOMServer.renderToStaticMarkup(<PrintableOrderList order={order} />);
-            const styles = Array.from(document.styleSheets)
-                .map(s => { try { return Array.from(s.cssRules).map(r => r.cssText).join('\n') } catch(e) { return '' } })
-                .filter(Boolean).join('\n');
-            doc.open();
-            doc.write(`<html><head><title>Print Order</title><style>${styles}</style></head><body><div class="print-preview-bill">${billHtml}</div></body></html>`);
-            doc.close();
-            iframe.contentWindow?.focus();
-            iframe.contentWindow?.print();
-            setTimeout(() => { document.body.removeChild(iframe); }, 1000);
-        }
-    };
-    
     return (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -101,11 +81,6 @@ function OrderHistoryDialog({ orders, setOrders }: { orders: SupplierOrder[], se
                                                 </li>
                                             ))}
                                         </ul>
-                                        <div className="flex justify-end">
-                                            <Button variant="outline" size="sm" onClick={() => handlePrintOrder(order)}>
-                                                <Printer className="mr-2 h-4 w-4" /> Print Order
-                                            </Button>
-                                        </div>
                                     </AccordionContent>
                                 </AccordionItem>
                             ))}
