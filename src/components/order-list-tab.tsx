@@ -5,23 +5,27 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2, Download, ClipboardList } from 'lucide-react';
+import { PlusCircle, Trash2, Download, ClipboardList, Info } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { PrintableOrderList } from './printable-order-list';
 import { type Medicine } from '@/lib/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface OrderItem {
     id: string;
     name: string;
+    category: string;
     quantity: string;
+    unitsPerPack?: number;
+    unitName?: string;
 }
 
 interface OrderListTabProps {
     medicines: Medicine[];
 }
 
-// Helper function to capitalize the first letter of each word
 const capitalizeWords = (str: string): string => {
   if (!str) return '';
   return str
@@ -30,25 +34,41 @@ const capitalizeWords = (str: string): string => {
     .join(' ');
 };
 
-
 export default function OrderListTab({ medicines }: OrderListTabProps) {
     const [items, setItems] = useState<OrderItem[]>([]);
     const [itemName, setItemName] = useState('');
+    const [itemCategory, setItemCategory] = useState('');
+    const [customCategory, setCustomCategory] = useState('');
     const [quantity, setQuantity] = useState('');
     const [showSuggestions, setShowSuggestions] = useState(false);
     const orderListRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
     const itemNameInputRef = useRef<HTMLInputElement>(null);
     const suggestionBoxRef = useRef<HTMLDivElement>(null);
+    
+    // State for the clarification dialog
+    const [pendingItem, setPendingItem] = useState<Omit<OrderItem, 'id'> | null>(null);
+    const [clarificationPrompt, setClarificationPrompt] = useState<{ title: string; label: string } | null>(null);
+    const [unitsPerPackInput, setUnitsPerPackInput] = useState('');
+    
+    const categories = useMemo(() => {
+      const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection'];
+      const customCategories = medicines.map(m => m.category);
+      const all = Array.from(new Set([...baseCategories, ...customCategories])).sort();
+      all.push('Other');
+      return all;
+    }, [medicines]);
 
     const suggestedMedicines = useMemo(() => {
       if (!itemName) return [];
-      return medicines
-        .map(med => med.name)
-        .filter(name => name.toLowerCase().includes(itemName.toLowerCase()));
+      const lowerCaseItemName = itemName.toLowerCase();
+      const nameMatch = medicines
+        .filter(med => med.name.toLowerCase().includes(lowerCaseItemName))
+        .map(med => ({ name: med.name, category: med.category }));
+
+      return Array.from(new Map(nameMatch.map(item => [item.name, item])).values());
     }, [medicines, itemName]);
-    
-    // Effect to handle clicks outside of the suggestion box
+
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (
@@ -64,54 +84,94 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
         };
     }, []);
 
+    const finalizeAddItem = (item: Omit<OrderItem, 'id'>) => {
+        setItems(prevItems => [...prevItems, { ...item, id: new Date().toISOString() }]);
+        setItemName('');
+        setItemCategory('');
+        setCustomCategory('');
+        setQuantity('');
+        setShowSuggestions(false);
+        setPendingItem(null);
+        setUnitsPerPackInput('');
+        setClarificationPrompt(null);
+        itemNameInputRef.current?.focus();
+    };
 
     const handleAddItem = (e: React.FormEvent) => {
         e.preventDefault();
-        if (itemName.trim() && quantity.trim()) {
-            const formattedName = capitalizeWords(itemName.trim());
-            const formattedQuantity = capitalizeWords(quantity.trim());
-            setItems([...items, { id: new Date().toISOString(), name: formattedName, quantity: formattedQuantity }]);
-            setItemName('');
-            setQuantity('');
-            setShowSuggestions(false);
-            itemNameInputRef.current?.focus();
-        } else {
+        const finalCategory = itemCategory === 'Other' ? customCategory : itemCategory;
+
+        if (!itemName.trim() || !finalCategory.trim() || !quantity.trim()) {
             toast({
                 variant: 'destructive',
                 title: 'Missing Information',
-                description: 'Please enter both an item name and a quantity.',
+                description: 'Please fill out item name, category, and quantity.',
             });
+            return;
         }
+
+        const formattedName = capitalizeWords(itemName.trim());
+        const formattedQuantity = quantity.trim().toLowerCase();
+
+        const newItem: Omit<OrderItem, 'id'> = {
+            name: formattedName,
+            category: finalCategory,
+            quantity: quantity.trim(),
+        };
+
+        const isTabletOrCapsule = finalCategory === 'Tablet' || finalCategory === 'Capsule';
+
+        if (isTabletOrCapsule && formattedQuantity.includes('box')) {
+            setPendingItem(newItem);
+            setClarificationPrompt({ title: 'Specify Strips per Box', label: 'How many strips are in 1 box?' });
+        } else if (formattedQuantity.includes('pack') || formattedQuantity.includes('box')) {
+            const packType = formattedQuantity.includes('pack') ? 'pack' : 'box';
+            setPendingItem(newItem);
+            setClarificationPrompt({ title: `Specify Units per ${capitalizeWords(packType)}`, label: `How many units are in 1 ${packType}?` });
+        } else {
+            finalizeAddItem(newItem);
+        }
+    };
+    
+    const handleClarificationSubmit = () => {
+        if (!pendingItem) return;
+        const units = parseInt(unitsPerPackInput, 10);
+        if (isNaN(units) || units <= 0) {
+             toast({ variant: 'destructive', title: 'Invalid Input', description: 'Please enter a valid positive number.' });
+             return;
+        }
+        
+        const isTabletOrCapsule = pendingItem.category === 'Tablet' || pendingItem.category === 'Capsule';
+        const unitName = isTabletOrCapsule ? 'strips' : 'units';
+
+        const itemWithDetails: Omit<OrderItem, 'id'> = {
+            ...pendingItem,
+            unitsPerPack: units,
+            unitName: unitName,
+        };
+
+        finalizeAddItem(itemWithDetails);
     };
 
     const handleRemoveItem = (id: string) => {
         setItems(items.filter(item => item.id !== id));
     };
 
-    const handleSuggestionClick = (name: string) => {
-        setItemName(name);
+    const handleSuggestionClick = (suggestion: {name: string, category: string}) => {
+        setItemName(suggestion.name);
+        setItemCategory(suggestion.category);
         setShowSuggestions(false);
-        itemNameInputRef.current?.focus();
     };
 
     const handleDownloadImage = async () => {
-        if (!orderListRef.current) {
+        if (!orderListRef.current || items.length === 0) {
             toast({
                 variant: 'destructive',
-                title: 'Download Failed',
-                description: 'Could not find the order list content to download.',
+                title: items.length === 0 ? 'Empty List' : 'Download Failed',
+                description: items.length === 0 ? 'Please add items to the order list.' : 'Could not find order list content.',
             });
             return;
         }
-        if (items.length === 0) {
-            toast({
-                variant: 'destructive',
-                title: 'Empty List',
-                description: 'Please add items to the order list before downloading.',
-            });
-            return;
-        }
-
 
         try {
             const dataUrl = await htmlToImage.toPng(orderListRef.current, {
@@ -139,6 +199,13 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
             });
         }
     };
+    
+    const getDisplayQuantity = (item: OrderItem) => {
+        if (item.unitsPerPack && item.unitName) {
+            return `${item.quantity} (${item.unitsPerPack} ${item.unitName}/pack)`;
+        }
+        return item.quantity;
+    }
 
     return (
         <>
@@ -154,39 +221,68 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                         Create Supplier Order
                     </CardTitle>
                     <CardDescription>
-                        Add items and quantities you want to order. Then, download the list as an image to send to your supplier.
+                        Add items, categories, and quantities. The system will ask for more details if you order in packs or boxes.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleAddItem} className="mb-6 flex flex-col sm:flex-row items-end gap-2">
-                        <div className="relative flex-1 w-full space-y-2">
+                    <form onSubmit={handleAddItem} className="mb-6 grid grid-cols-1 md:grid-cols-4 items-end gap-2">
+                        <div className="relative md:col-span-2 w-full space-y-2">
                             <Label htmlFor="item-name">Item Name</Label>
                             <Input
                                 ref={itemNameInputRef}
                                 id="item-name"
                                 placeholder="Type an item name..."
                                 value={itemName}
-                                onChange={(e) => setItemName(e.target.value)}
-                                onFocus={() => setShowSuggestions(true)}
+                                onChange={(e) => {
+                                    setItemName(e.target.value);
+                                    if (e.target.value) setShowSuggestions(true);
+                                }}
+                                onFocus={() => itemName && setShowSuggestions(true)}
                                 autoComplete="off"
                             />
                             {showSuggestions && suggestedMedicines.length > 0 && (
                                 <div ref={suggestionBoxRef} className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                                     <ul>
-                                        {suggestedMedicines.map(name => (
+                                        {suggestedMedicines.map(suggestion => (
                                             <li
-                                                key={name}
+                                                key={suggestion.name}
                                                 className="px-3 py-2 cursor-pointer hover:bg-accent"
-                                                onClick={() => handleSuggestionClick(name)}
+                                                onClick={() => handleSuggestionClick(suggestion)}
                                             >
-                                                {name}
+                                                {suggestion.name}
                                             </li>
                                         ))}
                                     </ul>
                                 </div>
                             )}
                         </div>
-                        <div className="w-full sm:w-48 space-y-2">
+                        
+                         <div className="w-full space-y-2">
+                            <Label htmlFor="item-category">Category</Label>
+                            <Select value={itemCategory} onValueChange={setItemCategory}>
+                                <SelectTrigger id="item-category">
+                                    <SelectValue placeholder="Select Category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {categories.map(cat => (
+                                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         {itemCategory === 'Other' && (
+                            <div className="w-full space-y-2">
+                                <Label htmlFor="custom-category">Custom Category</Label>
+                                <Input
+                                    id="custom-category"
+                                    placeholder="e.g., Food Supplement"
+                                    value={customCategory}
+                                    onChange={(e) => setCustomCategory(e.target.value)}
+                                />
+                            </div>
+                        )}
+
+                        <div className="w-full space-y-2">
                             <Label htmlFor="quantity">Quantity</Label>
                             <Input
                                 id="quantity"
@@ -195,7 +291,7 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                                 onChange={(e) => setQuantity(e.target.value)}
                             />
                         </div>
-                        <Button type="submit">
+                        <Button type="submit" className="w-full md:w-auto">
                             <PlusCircle className="mr-2" /> Add
                         </Button>
                     </form>
@@ -210,8 +306,8 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                                             <div className="flex items-center gap-4">
                                                 <span className="text-sm font-bold text-muted-foreground">{index + 1}.</span>
                                                 <div>
-                                                    <p className="font-semibold">{item.name}</p>
-                                                    <p className="text-sm text-muted-foreground">Quantity: <span className="font-medium text-foreground">{item.quantity}</span></p>
+                                                    <p className="font-semibold">{item.name} <span className="text-xs text-muted-foreground">({item.category})</span></p>
+                                                    <p className="text-sm text-muted-foreground">Quantity: <span className="font-medium text-foreground">{getDisplayQuantity(item)}</span></p>
                                                 </div>
                                             </div>
                                             <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(item.id)}>
@@ -223,7 +319,8 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 text-center">
-                                <p className="text-muted-foreground">Your order list is empty.</p>
+                                <Info className="h-10 w-10 text-muted-foreground" />
+                                <p className="text-muted-foreground mt-4">Your order list is empty.</p>
                                 <p className="text-sm text-muted-foreground">Use the form above to add items.</p>
                             </div>
                         )}
@@ -235,6 +332,32 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                     </Button>
                 </CardFooter>
             </Card>
+
+            <AlertDialog open={!!pendingItem} onOpenChange={(isOpen) => !isOpen && setPendingItem(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{clarificationPrompt?.title}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Please specify the number of items for the ordered pack/box.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="py-4 space-y-2">
+                        <Label htmlFor="units-per-pack">{clarificationPrompt?.label}</Label>
+                        <Input 
+                            id="units-per-pack"
+                            type="number"
+                            value={unitsPerPackInput}
+                            onChange={(e) => setUnitsPerPackInput(e.target.value)}
+                            placeholder='e.g., 10'
+                            autoFocus
+                        />
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setPendingItem(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleClarificationSubmit}>Confirm</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }
