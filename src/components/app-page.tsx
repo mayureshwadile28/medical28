@@ -213,7 +213,7 @@ export default function AppPage() {
   const openRestockId = searchParams.get('restock');
   const openOrderTab = searchParams.get('open_order_tab');
 
-  const [activeTab, setActiveTab] = useState('pos');
+  const [activeTab, setActiveTab] = useState('history');
   
   useEffect(() => {
     service.initialize(medicines, sales, supplierOrders);
@@ -331,6 +331,9 @@ export default function AppPage() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex justify-center md:justify-start">
               <TabsList>
+                <TabsTrigger value="history">
+                  <History className="mr-2 h-4 w-4" /> History
+                </TabsTrigger>
                 <TabsTrigger value="pos">
                   <ShoppingCart className="mr-2 h-4 w-4" /> POS
                 </TabsTrigger>
@@ -340,12 +343,12 @@ export default function AppPage() {
                 <TabsTrigger value="order_list">
                   <ClipboardList className="mr-2 h-4 w-4" /> Order List
                 </TabsTrigger>
-                <TabsTrigger value="history">
-                  <History className="mr-2 h-4 w-4" /> History
-                </TabsTrigger>
               </TabsList>
             </div>
             <div className="mt-6">
+              <TabsContent value="history" className="mt-0">
+                <HistoryTab sales={sales} setSales={setSales} service={service} />
+              </TabsContent>
               <TabsContent value="pos" className="mt-0">
                 <PosTab
                   medicines={medicines}
@@ -365,9 +368,6 @@ export default function AppPage() {
                   orderItemToProcess={orderItemToProcess?.item}
                   onItemProcessed={handleItemProcessed}
                 />
-              </TabsContent>
-              <TabsContent value="history" className="mt-0">
-                <HistoryTab sales={sales} setSales={setSales} service={service} />
               </TabsContent>
                <TabsContent value="order_list" className="mt-0">
                 <OrderListTab 
