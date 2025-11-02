@@ -35,9 +35,18 @@ const getDisplayQuantity = (item: OrderItem) => {
     return item.quantity;
 };
 
-function OrderHistoryDialog({ orders, onMerge }: { orders: SupplierOrder[], onMerge: (order: SupplierOrder) => void }) {
+function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: SupplierOrder[], onMerge: (order: SupplierOrder) => void, onClearHistory: () => void }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
+    const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
     
+    const handleClear = () => {
+        onClearHistory();
+        setIsClearHistoryOpen(false);
+        setDeleteConfirmation('');
+        // Let main component handle closing the main dialog if needed.
+    };
+
     return (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -48,8 +57,45 @@ function OrderHistoryDialog({ orders, onMerge }: { orders: SupplierOrder[], onMe
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Saved Supplier Orders</DialogTitle>
-                    <DialogDescription>Review your past orders here.</DialogDescription>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <DialogTitle>Saved Supplier Orders</DialogTitle>
+                            <DialogDescription>Review your past orders here.</DialogDescription>
+                        </div>
+                        <AlertDialog open={isClearHistoryOpen} onOpenChange={(open) => { setIsClearHistoryOpen(open); if (!open) setDeleteConfirmation(''); }}>
+                            <AlertDialogTrigger asChild>
+                                 <Button variant="destructive" size="sm" disabled={orders.length === 0}>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Clear History
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will permanently delete all supplier order history. This action cannot be undone.
+                                    <br />
+                                    To confirm, please type <strong>delete</strong> in the box below.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <div className="py-2">
+                                    <Label htmlFor="delete-confirm-order" className="sr-only">Type "delete" to confirm</Label>
+                                    <Input 
+                                        id="delete-confirm-order"
+                                        value={deleteConfirmation}
+                                        onChange={(e) => setDeleteConfirmation(e.target.value)}
+                                        placeholder={'Type "delete" to confirm'}
+                                    />
+                                </div>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleClear} disabled={deleteConfirmation.toLowerCase() !== 'delete'}>
+                                    Yes, delete all
+                                </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
                 </DialogHeader>
                 {orders.length > 0 ? (
                     <div className="max-h-[70vh] overflow-y-auto pr-4">
@@ -413,6 +459,12 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         setSupplierName('');
     };
 
+    const handleClearOrderHistory = async () => {
+        await service.deleteAllSupplierOrders();
+        setOrders([]);
+        toast({ title: 'Supplier Order History Cleared' });
+    }
+
     return (
         <>
             <div className="fixed -left-[9999px] top-0">
@@ -559,7 +611,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                     <Button onClick={handleSaveOrder} disabled={items.length === 0 || !supplierName.trim()} className="w-full sm:w-auto">
                         <Download className="mr-2" /> Save & Download Order
                     </Button>
-                    <OrderHistoryDialog orders={orders} onMerge={onStartOrderMerge} />
+                    <OrderHistoryDialog orders={orders} onMerge={onStartOrderMerge} onClearHistory={handleClearOrderHistory} />
                 </CardFooter>
             </Card>
 

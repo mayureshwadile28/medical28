@@ -110,4 +110,10 @@ export class AppService {
         localStorage.setItem('supplierOrders', JSON.stringify(this.supplierOrders));
         return this.simulateLatency(newOrder);
     }
+
+    async deleteAllSupplierOrders(): Promise<void> {
+        this.supplierOrders = [];
+        localStorage.setItem('supplierOrders', JSON.stringify(this.supplierOrders));
+        return this.simulateLatency();
+    }
 }
