@@ -444,7 +444,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
                         <FormItem>
                             <FormLabel>Illness / Symptom</FormLabel>
                             <FormControl>
-                                <Textarea placeholder="e.g., Fever, headache, skin problem" {...field} />
+                                <Textarea placeholder="e.g., Fever, Cold, Body Pain, Vomiting, Skin Infection" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -538,3 +538,5 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
     </Form>
   );
 }
+
+    
