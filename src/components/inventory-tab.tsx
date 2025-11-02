@@ -218,25 +218,22 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
 
   const proceedWithSave = async (medicine: Medicine) => {
     if (onItemProcessed) {
-        onItemProcessed(medicine);
+        // Find existing or add new
+        const existingMed = medicines.find(m => m.id === medicine.id);
+        const savedMedicine = await service.saveMedicine(medicine);
+        if (existingMed) {
+            setMedicines(currentMeds => currentMeds.map(m => m.id === savedMedicine.id ? savedMedicine : m));
+        } else {
+            setMedicines(currentMeds => [...currentMeds, savedMedicine]);
+        }
+        onItemProcessed(savedMedicine);
         setIsFormOpen(false);
         setEditingMedicine(null);
         return;
     }
   
-    const savedMedicine = await service.saveMedicine(medicine);
-    setMedicines(currentMeds => {
-      const isEditing = editingMedicine && !orderItemToProcess;
-      if (isEditing) {
-        return currentMeds.map(m => (m.id === savedMedicine.id ? savedMedicine : m));
-      } else {
-        const existingIndex = currentMeds.findIndex(m => m.id === savedMedicine.id);
-        if (existingIndex > -1) {
-            return currentMeds.map(m => m.id === savedMedicine.id ? savedMedicine : m);
-        }
-        return [...currentMeds, savedMedicine];
-      }
-    });
+    const updatedMedicines = await service.saveMedicine(medicine);
+    setMedicines(updatedMedicines);
 
     setEditingMedicine(null);
     setIsFormOpen(false);
@@ -245,7 +242,8 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
   };
 
   const handleSaveMedicine = (medicine: Medicine) => {
-    if (!editingMedicine && !orderItemToProcess) {
+    const isNew = !medicine.id;
+    if (isNew) {
       const existingMedicine = validMedicines.find(m => m.name.toLowerCase() === medicine.name.toLowerCase());
       if (existingMedicine) {
         setPendingMedicine(medicine);
@@ -256,8 +254,8 @@ export default function InventoryTab({ medicines, setMedicines, service, restock
   };
 
   const handleDeleteMedicine = async (id: string) => {
-    await service.deleteMedicine(id);
-    setMedicines(currentMeds => currentMeds.filter(m => m.id !== id));
+    const updatedMedicines = await service.deleteMedicine(id);
+    setMedicines(updatedMedicines);
     setDeletingMedicineId(null);
     setDeleteConfirmation('');
   };
