@@ -134,22 +134,26 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
   
   useEffect(() => {
     const isEditing = !!medicineToEdit?.id;
-    const isTabletCategory = medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule';
-    const tabletsPerStrip = (isTabletCategory && (medicineToEdit as TabletMedicine).tabletsPerStrip) || 10;
     
-    let batches = medicineToEdit?.batches?.map(b => ({
-          id: b.id,
-          batchNumber: b.batchNumber,
-          expiry: getFormattedExpiry(b.expiry),
-          price: b.price,
-          stock_strips: isTabletCategory ? (b.stock.tablets || 0) / tabletsPerStrip : undefined,
-          stock_quantity: !isTabletCategory ? b.stock.quantity : undefined,
-    })) || [];
+    let batches: any[] = medicineToEdit?.batches?.map(b => {
+          const isTabletCategory = medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule';
+          const tabletsPerStrip = (isTabletCategory && (medicineToEdit as TabletMedicine).tabletsPerStrip) || 10;
+          return {
+              id: b.id,
+              batchNumber: b.batchNumber,
+              expiry: getFormattedExpiry(b.expiry),
+              price: b.price,
+              stock_strips: isTabletCategory ? (b.stock.tablets || 0) / tabletsPerStrip : undefined,
+              stock_quantity: !isTabletCategory ? b.stock.quantity : undefined,
+          };
+    }) || [];
     
-    // Only add a new batch if it's an existing medicine, we are in "start with new batch" mode, and there isn't already an empty batch.
     if (isEditing && startWithNewBatch && !batches.some(b => !b.batchNumber)) {
-        batches.push({ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 });
+        const newBatch = { id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 };
+        batches = [...batches, newBatch];
     }
+    
+    const tabletsPerStrip = (isTablet(medicineToEdit) && (medicineToEdit as TabletMedicine).tabletsPerStrip) || 10;
 
     form.reset({
       id: medicineToEdit?.id,
@@ -166,7 +170,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
       description_gender: medicineToEdit?.description?.gender,
     });
     
-  }, [medicineToEdit, startWithNewBatch, form, isCustomCategory]);
+  }, [medicineToEdit, form, isCustomCategory, startWithNewBatch]);
 
 
   const selectedCategory = form.watch('category');
