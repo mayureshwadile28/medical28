@@ -23,9 +23,10 @@ export function PrintableOrderList({ order, className }: PrintableOrderListProps
         className={cn("font-sans w-full max-w-[210mm] min-h-[297mm] mx-auto text-black bg-white p-8", className)}
     >
       <header className="mb-8 border-b-2 border-black pb-4">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-start">
             <div>
                 <h1 className="text-4xl m-0 font-bold tracking-wider">Vicky Medical</h1>
+                <p className="my-1 text-lg">Shivaji nagar , sangvi road , Boradi</p>
                 <p className="my-1 text-lg">Order Request</p>
             </div>
             <div className="text-right">
