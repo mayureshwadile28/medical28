@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import ReactDOMServer from 'react-dom/server';
+import { cn } from '@/lib/utils';
 
 interface OrderListTabProps {
     medicines: Medicine[];
@@ -140,7 +141,8 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
     const [customCategory, setCustomCategory] = useState('');
     const [quantity, setQuantity] = useState('');
     const [supplierName, setSupplierName] = useState('');
-
+    
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const orderListRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
@@ -198,6 +200,8 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
 
     const handleAddItem = (e: React.FormEvent) => {
         e.preventDefault();
+        if (highlightedIndex > -1) return; // Prevent form submit when a suggestion is highlighted
+
         const finalCategory = itemCategory === 'Other' ? customCategory : itemCategory;
 
         if (!itemName.trim() || !finalCategory.trim() || !quantity.trim()) {
@@ -260,7 +264,28 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
         setItemName(suggestion.name);
         setItemCategory(suggestion.category);
         setShowSuggestions(false);
+        setHighlightedIndex(-1);
         itemNameInputRef.current?.focus();
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (showSuggestions && suggestedMedicines.length > 0) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setHighlightedIndex(prev => (prev + 1) % suggestedMedicines.length);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setHighlightedIndex(prev => (prev - 1 + suggestedMedicines.length) % suggestedMedicines.length);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (highlightedIndex > -1) {
+                    handleSuggestionClick(suggestedMedicines[highlightedIndex]);
+                }
+            } else if (e.key === 'Escape') {
+                setShowSuggestions(false);
+                setHighlightedIndex(-1);
+            }
+        }
     };
 
     useEffect(() => {
@@ -349,18 +374,21 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
                                 onChange={(e) => {
                                     setItemName(e.target.value);
                                     if (e.target.value) setShowSuggestions(true); else setShowSuggestions(false);
+                                    setHighlightedIndex(-1);
                                 }}
                                 onFocus={() => itemName && setShowSuggestions(true)}
+                                onKeyDown={handleKeyDown}
                                 autoComplete="off"
                             />
                             {showSuggestions && suggestedMedicines.length > 0 && (
                                 <div ref={suggestionBoxRef} className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                                     <ul>
-                                        {suggestedMedicines.slice(0, 7).map(suggestion => (
+                                        {suggestedMedicines.slice(0, 7).map((suggestion, index) => (
                                             <li
                                                 key={suggestion.name + suggestion.category}
-                                                className="px-3 py-2 cursor-pointer hover:bg-accent"
-                                                onMouseDown={() => handleSuggestionClick(suggestion)}
+                                                className={cn("px-3 py-2 cursor-pointer hover:bg-accent", highlightedIndex === index && 'bg-accent')}
+                                                onClick={() => handleSuggestionClick(suggestion)}
+                                                onMouseEnter={() => setHighlightedIndex(index)}
                                             >
                                                 {suggestion.name} <span className="text-xs text-muted-foreground">({suggestion.category})</span>
                                             </li>
@@ -486,3 +514,5 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
         </>
     );
 }
+
+    
