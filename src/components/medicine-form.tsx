@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -104,7 +105,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
   const getFormattedExpiry = (expiry?: string) => {
     if (!expiry) return '';
     try {
-        const date = new date(expiry);
+        const date = new Date(expiry);
         // Returns date in 'YYYY-MM' format for the input[type="month"]
         return date.toISOString().substring(0, 7);
     } catch(e) {
