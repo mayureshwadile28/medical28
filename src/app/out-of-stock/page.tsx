@@ -6,7 +6,6 @@ import { type Medicine, isTablet } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Bell, Edit, Info, Loader2 } from 'lucide-react';
-import { AppService } from '@/lib/service';
 
 export default function OutOfStockPage() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -14,11 +13,16 @@ export default function OutOfStockPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const service = new AppService();
-    service.initialize().then(() => {
-      setMedicines(service.getMedicines());
+    try {
+      const storedMedicines = localStorage.getItem('medicines');
+      if (storedMedicines) {
+        setMedicines(JSON.parse(storedMedicines));
+      }
+    } catch (error) {
+      console.error("Failed to load medicines from local storage", error);
+    } finally {
       setLoading(false);
-    });
+    }
   }, []);
 
   const outOfStockMedicines = useMemo(() => {

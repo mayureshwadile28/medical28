@@ -17,7 +17,6 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { AppService } from '@/lib/service';
 
 type FilterOption = 'expired' | '30' | '60' | '90';
 
@@ -34,11 +33,16 @@ export default function ExpiryReportPage() {
   const [filter, setFilter] = useState<FilterOption>('30');
 
   useEffect(() => {
-    const service = new AppService();
-    service.initialize().then(() => {
-      setMedicines(service.getMedicines());
-      setLoading(false);
-    });
+    try {
+      const storedMedicines = localStorage.getItem('medicines');
+      if (storedMedicines) {
+        setMedicines(JSON.parse(storedMedicines));
+      }
+    } catch (error) {
+      console.error("Failed to load medicines from local storage", error);
+    } finally {
+        setLoading(false);
+    }
   }, []);
 
   const filteredMedicines = useMemo(() => {
