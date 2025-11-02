@@ -86,6 +86,25 @@ export type SaleBillItem = Omit<SaleItem, 'quantity'> & {
   quantity: number;
 }
 
+// Supplier Order Types
+export interface OrderItem {
+    id: string;
+    name: string;
+    category: string;
+    quantity: string;
+    unitsPerPack?: number;
+    unitName?: string;
+}
+
+export interface SupplierOrder {
+    id: string;
+    supplierName: string;
+    orderDate: string; // ISO date string
+    items: OrderItem[];
+    status: 'Pending' | 'Completed' | 'Cancelled';
+}
+
+
 // Client-side types for non-AI suggestion flow
 export interface SuggestMedicinesInput {
   patient: {

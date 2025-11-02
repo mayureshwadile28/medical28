@@ -3,10 +3,10 @@
 
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
-import { type Medicine, type SaleRecord } from '@/lib/types';
+import { type Medicine, type SaleRecord, type SupplierOrder } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, ShoppingCart, History, Loader2, KeyRound, ShieldCheck, Edit, Unlock, ClipboardList } from 'lucide-react';
-import { initialMedicines, initialSales } from '@/lib/data';
+import { initialMedicines, initialSales, initialSupplierOrders } from '@/lib/data';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -203,6 +203,7 @@ function LicenseDialog({
 export default function AppPage() {
   const [medicines, setMedicines, medicinesLoading] = useLocalStorage<Medicine[]>('medicines', initialMedicines);
   const [sales, setSales, salesLoading] = useLocalStorage<SaleRecord[]>('sales', initialSales);
+  const [supplierOrders, setSupplierOrders, ordersLoading] = useLocalStorage<SupplierOrder[]>('supplierOrders', initialSupplierOrders);
   const [licenseKey, setLicenseKey, licenseLoading] = useLocalStorage<string | null>('vicky-medical-license', null);
   const [isActivated, setIsActivated, isActivatedLoading] = useLocalStorage<boolean>('vicky-medical-activated', false);
   
@@ -218,7 +219,7 @@ export default function AppPage() {
     }
   }, [openRestockId]);
 
-  const isLoading = medicinesLoading || salesLoading || licenseLoading || isActivatedLoading;
+  const isLoading = medicinesLoading || salesLoading || licenseLoading || isActivatedLoading || ordersLoading;
   const isLicensed = !!licenseKey && isActivated;
   const hasLicenseBeenCreated = !!licenseKey;
 
@@ -338,7 +339,11 @@ export default function AppPage() {
                 <HistoryTab sales={sales} setSales={setSales} />
               </TabsContent>
                <TabsContent value="order_list" className="mt-0">
-                <OrderListTab medicines={medicines} />
+                <OrderListTab 
+                  medicines={medicines} 
+                  orders={supplierOrders}
+                  setOrders={setSupplierOrders}
+                />
               </TabsContent>
             </div>
           </Tabs>

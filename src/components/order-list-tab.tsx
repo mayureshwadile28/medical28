@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
@@ -5,25 +6,123 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2, Download, ClipboardList, Info } from 'lucide-react';
+import { PlusCircle, Trash2, Download, ClipboardList, Info, History, Printer } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { PrintableOrderList } from './printable-order-list';
-import { type Medicine } from '@/lib/types';
+import { type Medicine, type OrderItem, type SupplierOrder } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-
-interface OrderItem {
-    id: string;
-    name: string;
-    category: string;
-    quantity: string;
-    unitsPerPack?: number;
-    unitName?: string;
-}
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
+import ReactDOMServer from 'react-dom/server';
 
 interface OrderListTabProps {
     medicines: Medicine[];
+    orders: SupplierOrder[];
+    setOrders: (orders: SupplierOrder[]) => void;
+}
+
+const getDisplayQuantity = (item: OrderItem) => {
+    if (item.unitsPerPack && item.unitName) {
+        return `${item.quantity} (${item.unitsPerPack} ${item.unitName}/pack)`;
+    }
+    return item.quantity;
+};
+
+function OrderHistoryDialog({ orders, setOrders }: { orders: SupplierOrder[], setOrders: (orders: SupplierOrder[]) => void }) {
+    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    
+    const handlePrintOrder = (order: SupplierOrder) => {
+        const iframe = document.createElement('iframe');
+        document.body.appendChild(iframe);
+        iframe.style.display = 'none';
+
+        const doc = iframe.contentWindow?.document;
+        if(doc) {
+            const billHtml = ReactDOMServer.renderToStaticMarkup(<PrintableOrderList order={order} />);
+            const styles = Array.from(document.styleSheets)
+                .map(s => { try { return Array.from(s.cssRules).map(r => r.cssText).join('\n') } catch(e) { return '' } })
+                .filter(Boolean).join('\n');
+            doc.open();
+            doc.write(`<html><head><title>Print Order</title><style>${styles}</style></head><body>${billHtml}</body></html>`);
+            doc.close();
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+            setTimeout(() => { document.body.removeChild(iframe); }, 1000);
+        }
+    };
+    
+    return (
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" disabled={orders.length === 0}>
+                    <History className="mr-2 h-4 w-4" />
+                    Order History
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>Saved Supplier Orders</DialogTitle>
+                    <DialogDescription>Review your past orders here.</DialogDescription>
+                </DialogHeader>
+                {orders.length > 0 ? (
+                    <div className="max-h-[70vh] overflow-y-auto pr-4">
+                        <Accordion type="single" collapsible className="w-full">
+                            {orders.map(order => (
+                                <AccordionItem value={order.id} key={order.id}>
+                                    <AccordionTrigger>
+                                        <div className="flex flex-col sm:flex-row w-full items-start sm:items-center justify-between pr-4 gap-2">
+                                            <div className="flex flex-col text-left flex-1">
+                                                <span className="font-semibold">{order.supplierName}</span>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">Order: {order.id}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
+                                                <span className="text-muted-foreground">{new Date(order.orderDate).toLocaleDateString()}</span>
+                                                <Badge variant={order.status === 'Pending' ? 'secondary' : 'default'}>{order.status}</Badge>
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                        <ul className="divide-y divide-border rounded-md border mb-4">
+                                            {order.items.map((item, index) => (
+                                                <li key={item.id} className="flex items-center justify-between p-3 gap-4">
+                                                    <div className="flex items-center gap-4">
+                                                        <span className="text-sm font-bold text-muted-foreground">{index + 1}.</span>
+                                                        <div>
+                                                            <p className="font-semibold">{item.name} <span className="text-xs text-muted-foreground">({item.category})</span></p>
+                                                            <p className="text-sm text-muted-foreground">Quantity: <span className="font-medium text-foreground">{getDisplayQuantity(item)}</span></p>
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        <div className="flex justify-end">
+                                            <Button variant="outline" size="sm" onClick={() => handlePrintOrder(order)}>
+                                                <Printer className="mr-2 h-4 w-4" /> Print Order
+                                            </Button>
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-10 text-center">
+                        <Info className="h-10 w-10 text-muted-foreground mb-4" />
+                        <h3 className="text-xl font-semibold">No Saved Orders</h3>
+                        <p className="text-muted-foreground">Your saved supplier orders will appear here.</p>
+                    </div>
+                )}
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
 }
 
 const capitalizeWords = (str: string): string => {
@@ -34,12 +133,14 @@ const capitalizeWords = (str: string): string => {
     .join(' ');
 };
 
-export default function OrderListTab({ medicines }: OrderListTabProps) {
+export default function OrderListTab({ medicines, orders, setOrders }: OrderListTabProps) {
     const [items, setItems] = useState<OrderItem[]>([]);
     const [itemName, setItemName] = useState('');
     const [itemCategory, setItemCategory] = useState('');
     const [customCategory, setCustomCategory] = useState('');
     const [quantity, setQuantity] = useState('');
+    const [supplierName, setSupplierName] = useState('');
+
     const [showSuggestions, setShowSuggestions] = useState(false);
     const orderListRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
@@ -62,11 +163,9 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
     const suggestedMedicines = useMemo(() => {
       if (!itemName) return [];
       const lowerCaseItemName = itemName.toLowerCase();
-      const nameMatch = medicines
+      return medicines
         .filter(med => med.name.toLowerCase().includes(lowerCaseItemName))
         .map(med => ({ name: med.name, category: med.category }));
-
-      return Array.from(new Map(nameMatch.map(item => [item.name, item])).values());
     }, [medicines, itemName]);
 
     useEffect(() => {
@@ -85,7 +184,7 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
     }, []);
 
     const finalizeAddItem = (item: Omit<OrderItem, 'id'>) => {
-        setItems(prevItems => [...prevItems, { ...item, id: new Date().toISOString() }]);
+        setItems(prevItems => [...prevItems, { ...item, id: new Date().toISOString() + Math.random() }]);
         setItemName('');
         setItemCategory('');
         setCustomCategory('');
@@ -121,9 +220,9 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
 
         const isTabletOrCapsule = finalCategory === 'Tablet' || finalCategory === 'Capsule';
 
-        if (isTabletOrCapsule && formattedQuantity.includes('box')) {
+        if (isTabletOrCapsule && (formattedQuantity.includes('box') || formattedQuantity.includes('jar'))) {
             setPendingItem(newItem);
-            setClarificationPrompt({ title: 'Specify Strips per Box', label: 'How many strips are in 1 box?' });
+            setClarificationPrompt({ title: 'Specify Strips per Box', label: 'How many strips are in 1 box/jar?' });
         } else if (formattedQuantity.includes('pack') || formattedQuantity.includes('box')) {
             const packType = formattedQuantity.includes('pack') ? 'pack' : 'box';
             setPendingItem(newItem);
@@ -161,58 +260,71 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
         setItemName(suggestion.name);
         setItemCategory(suggestion.category);
         setShowSuggestions(false);
+        itemNameInputRef.current?.focus();
     };
 
-    const handleDownloadImage = async () => {
-        if (!orderListRef.current || items.length === 0) {
-            toast({
-                variant: 'destructive',
-                title: items.length === 0 ? 'Empty List' : 'Download Failed',
-                description: items.length === 0 ? 'Please add items to the order list.' : 'Could not find order list content.',
-            });
+    const handleSaveOrder = async () => {
+        if (items.length === 0) {
+            toast({ variant: 'destructive', title: 'Empty Order', description: 'Please add items to the list before saving.' });
+            return;
+        }
+        if (!supplierName.trim()) {
+            toast({ variant: 'destructive', title: 'Missing Supplier', description: 'Please enter a supplier name.' });
             return;
         }
 
-        try {
-            const dataUrl = await htmlToImage.toPng(orderListRef.current, {
-                quality: 1,
-                backgroundColor: '#ffffff',
-                pixelRatio: 2,
-                skipFonts: true,
-            });
+        const newOrder: SupplierOrder = {
+            id: `ORD-${new Date().getTime()}`,
+            supplierName: supplierName.trim(),
+            orderDate: new Date().toISOString(),
+            items: items,
+            status: 'Pending',
+        };
 
-            const link = document.createElement('a');
-            const date = new Date().toISOString().split('T')[0];
-            link.download = `Vicky-Medical-Order-${date}.png`;
-            link.href = dataUrl;
-            link.click();
-            toast({
-                title: 'Download Started',
-                description: 'Your order list is being downloaded as a PNG image.',
-            });
-        } catch (error) {
-            console.error('oops, something went wrong!', error);
-            toast({
-                variant: 'destructive',
-                title: 'Download Failed',
-                description: 'Could not generate the order list image. Please try again.',
+        setOrders([newOrder, ...orders]);
+        
+        // Temporarily set the order data for printing
+        if (orderListRef.current) {
+            const tempPrintable = <PrintableOrderList order={newOrder} />;
+            const printContainer = document.createElement('div');
+            printContainer.style.position = 'absolute';
+            printContainer.style.left = '-9999px';
+            document.body.appendChild(printContainer);
+            
+            const tempRef = React.createRef<HTMLDivElement>();
+            const elementToRender = <div ref={tempRef} className="bg-white p-4">{tempPrintable}</div>;
+            
+            // This is a bit of a hack to render and get the ref
+            const ReactDOM = await import('react-dom');
+            ReactDOM.render(elementToRender, printContainer, async () => {
+                if (tempRef.current) {
+                     try {
+                        const dataUrl = await htmlToImage.toPng(tempRef.current, { quality: 1, backgroundColor: '#ffffff', pixelRatio: 2, skipFonts: true });
+                        const link = document.createElement('a');
+                        link.download = `${newOrder.supplierName.replace(/\s+/g, '-')}-Order-${newOrder.id}.png`;
+                        link.href = dataUrl;
+                        link.click();
+                    } catch (error) {
+                        console.error("Failed to download image", error);
+                        toast({ variant: 'destructive', title: 'Download Failed', description: 'Could not generate the order image.' });
+                    }
+                }
+                ReactDOM.unmountComponentAtNode(printContainer);
+                document.body.removeChild(printContainer);
             });
         }
+        
+        toast({ title: 'Order Saved', description: `Order for ${supplierName} has been saved and is being downloaded.` });
+        
+        // Clear the form
+        setItems([]);
+        setSupplierName('');
     };
-    
-    const getDisplayQuantity = (item: OrderItem) => {
-        if (item.unitsPerPack && item.unitName) {
-            return `${item.quantity} (${item.unitsPerPack} ${item.unitName}/pack)`;
-        }
-        return item.quantity;
-    }
 
     return (
         <>
             <div className="fixed -left-[9999px] top-0">
-                <div ref={orderListRef} className="bg-white p-4">
-                    <PrintableOrderList items={items} />
-                </div>
+                <div ref={orderListRef} />
             </div>
             <Card>
                 <CardHeader>
@@ -221,7 +333,7 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                         Create Supplier Order
                     </CardTitle>
                     <CardDescription>
-                        Add items, categories, and quantities. The system will ask for more details if you order in packs or boxes.
+                        Add items you need to order. The system will ask for more details if you order in packs or boxes.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -235,7 +347,7 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                                 value={itemName}
                                 onChange={(e) => {
                                     setItemName(e.target.value);
-                                    if (e.target.value) setShowSuggestions(true);
+                                    if (e.target.value) setShowSuggestions(true); else setShowSuggestions(false);
                                 }}
                                 onFocus={() => itemName && setShowSuggestions(true)}
                                 autoComplete="off"
@@ -243,13 +355,13 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                             {showSuggestions && suggestedMedicines.length > 0 && (
                                 <div ref={suggestionBoxRef} className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                                     <ul>
-                                        {suggestedMedicines.map(suggestion => (
+                                        {suggestedMedicines.slice(0, 7).map(suggestion => (
                                             <li
-                                                key={suggestion.name}
+                                                key={suggestion.name + suggestion.category}
                                                 className="px-3 py-2 cursor-pointer hover:bg-accent"
-                                                onClick={() => handleSuggestionClick(suggestion)}
+                                                onMouseDown={() => handleSuggestionClick(suggestion)}
                                             >
-                                                {suggestion.name}
+                                                {suggestion.name} <span className="text-xs text-muted-foreground">({suggestion.category})</span>
                                             </li>
                                         ))}
                                     </ul>
@@ -324,12 +436,24 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                                 <p className="text-sm text-muted-foreground">Use the form above to add items.</p>
                             </div>
                         )}
+                        {items.length > 0 && (
+                            <div className="w-full space-y-2 pt-4">
+                                <Label htmlFor="supplier-name">Supplier Name</Label>
+                                <Input
+                                    id="supplier-name"
+                                    placeholder="Enter the supplier's name"
+                                    value={supplierName}
+                                    onChange={(e) => setSupplierName(e.target.value)}
+                                />
+                            </div>
+                        )}
                     </div>
                 </CardContent>
-                <CardFooter>
-                    <Button onClick={handleDownloadImage} disabled={items.length === 0} className="w-full sm:w-auto">
-                        <Download className="mr-2" /> Download Order as Image
+                <CardFooter className="flex-wrap gap-2">
+                    <Button onClick={handleSaveOrder} disabled={items.length === 0 || !supplierName.trim()} className="w-full sm:w-auto">
+                        <Download className="mr-2" /> Save & Download Order
                     </Button>
+                    <OrderHistoryDialog orders={orders} setOrders={setOrders} />
                 </CardFooter>
             </Card>
 
@@ -353,7 +477,7 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
                         />
                     </div>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setPendingItem(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel onClick={() => { setPendingItem(null); setUnitsPerPackInput(''); }}>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={handleClarificationSubmit}>Confirm</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -361,3 +485,5 @@ export default function OrderListTab({ medicines }: OrderListTabProps) {
         </>
     );
 }
+
+    
