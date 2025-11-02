@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { type Medicine, type SaleRecord, type PaymentMode, type SaleItem, isTablet, isGeneric, type TabletMedicine, type GenericMedicine } from '@/lib/types';
+import { type Medicine, type SaleRecord, type PaymentMode, type SaleItem, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, SuggestMedicinesOutput } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -35,14 +35,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2 } from 'lucide-react';
+import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2, Wand2, PlusCircle, Lightbulb, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
 import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/lib/hooks';
 import { AppService } from '@/lib/service';
+import { suggestMedicines } from '@/ai/flows/suggest-medicines';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 interface PosTabProps {
   medicines: Medicine[];
@@ -65,6 +69,161 @@ const generateNewBillNumber = (sales: SaleRecord[]): string => {
   const newBillNum = highestBillNum + 1;
   return `VM-${newBillNum.toString().padStart(5, '0')}`;
 };
+
+function SuggestionDialog({ inventory, onAddMedicine }: { inventory: Medicine[], onAddMedicine: (medicine: Medicine) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [patientType, setPatientType] = useState<'Human' | 'Animal'>('Human');
+    const [age, setAge] = useState('');
+    const [gender, setGender] = useState<'Male' | 'Female' | 'Both' | ''>('');
+    const [illnesses, setIllnesses] = useState('');
+    const [suggestions, setSuggestions] = useState<SuggestMedicinesOutput | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+
+    const handleFindMedicines = async () => {
+        if (!illnesses.trim()) {
+            toast({ variant: 'destructive', title: 'Symptom required', description: 'Please enter at least one symptom or illness.'});
+            return;
+        }
+
+        setIsLoading(true);
+        setSuggestions(null);
+        try {
+            const results = await suggestMedicines({
+                patient: {
+                    patientType,
+                    age: age ? parseInt(age) : undefined,
+                    gender: gender || undefined,
+                    illnesses: illnesses.split(',').map(s => s.trim()).filter(Boolean),
+                },
+                inventory,
+            });
+            setSuggestions(results);
+            if(results.suggestions.length === 0) {
+                toast({ title: 'No matches found', description: 'Could not find any suitable medicines in your inventory.'})
+            }
+        } catch (error) {
+            console.error('Error getting suggestions:', error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch suggestions.' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleAddClick = (medicineId: string) => {
+        const medicineToAdd = inventory.find(m => m.id === medicineId);
+        if(medicineToAdd) {
+            onAddMedicine(medicineToAdd);
+            toast({ title: `${medicineToAdd.name} added to bill.`});
+        }
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline"><Wand2 className="mr-2 h-4 w-4" /> Find by Description</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Find Medicine by Description</DialogTitle>
+                    <DialogDescription>
+                        Describe the patient and their symptoms to get medicine suggestions from your inventory.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>Patient Type</Label>
+                            <Select value={patientType} onValueChange={(v: 'Human' | 'Animal') => setPatientType(v)}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Human">Human</SelectItem>
+                                    <SelectItem value="Animal">Animal</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {patientType === 'Human' && (
+                            <>
+                                <div className="space-y-2">
+                                    <Label htmlFor="age">Patient Age</Label>
+                                    <Input id="age" type="number" placeholder="e.g., 35" value={age} onChange={e => setAge(e.target.value)} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Patient Gender</Label>
+                                    <Select value={gender} onValueChange={(v: any) => setGender(v)}>
+                                        <SelectTrigger><SelectValue placeholder="Select gender"/></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Male">Male</SelectItem>
+                                            <SelectItem value="Female">Female</SelectItem>
+                                            <SelectItem value="Both">Both/Any</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </>
+                        )}
+                        <div className="space-y-2">
+                            <Label htmlFor="illnesses">Symptoms / Illnesses</Label>
+                            <Textarea
+                                id="illnesses"
+                                placeholder="e.g., fever, headache, cold"
+                                value={illnesses}
+                                onChange={e => setIllnesses(e.target.value)}
+                            />
+                             <p className="text-xs text-muted-foreground">Separate multiple symptoms with a comma.</p>
+                        </div>
+                         <Button onClick={handleFindMedicines} disabled={isLoading}>
+                            {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Searching...</> : 'Find Medicines'}
+                        </Button>
+                    </div>
+                    <div className="space-y-4">
+                         <h3 className="font-semibold">Suggestions</h3>
+                        {isLoading && (
+                            <div className="flex justify-center items-center h-full">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                        )}
+                         {suggestions && (
+                             suggestions.suggestions.length > 0 ? (
+                                <Card className="max-h-[400px] overflow-y-auto">
+                                    <CardContent className="p-0">
+                                        <ul className="divide-y">
+                                            {suggestions.suggestions.map(s => (
+                                                <li key={s.medicineId} className="p-3">
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <p className="font-semibold">{s.name}</p>
+                                                            <p className="text-sm text-muted-foreground">{s.reason}</p>
+                                                        </div>
+                                                        <Button variant="ghost" size="icon" onClick={() => handleAddClick(s.medicineId)}>
+                                                            <PlusCircle className="h-5 w-5 text-primary" />
+                                                        </Button>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </CardContent>
+                                </Card>
+                             ) : (
+                                !isLoading && (
+                                <div className="flex flex-col items-center justify-center text-center p-6 border rounded-lg">
+                                    <Lightbulb className="h-8 w-8 text-muted-foreground mb-2"/>
+                                    <p className="font-semibold">No Matches Found</p>
+                                    <p className="text-sm text-muted-foreground">Try broadening your search criteria.</p>
+                                </div>
+                                )
+                             )
+                         )}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 
 export default function PosTab({ medicines, setMedicines, sales, setSales, service }: PosTabProps) {
@@ -313,6 +472,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
                     </PopoverContent>
                 </Popover>
                 <Button onClick={handleSelectAndAdd} disabled={!selectedMedicineId}>Add to Bill</Button>
+                <SuggestionDialog inventory={medicines} onAddMedicine={addMedicineToBill} />
             </div>
 
             {selectedMedicine && (
