@@ -9,7 +9,7 @@ import { PlusCircle, Trash2, Download, ClipboardList, Info, History, PackagePlus
 import * as htmlToImage from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { PrintableOrderList } from './printable-order-list';
-import { type Medicine, type OrderItem, type SupplierOrder, isTablet, isGeneric, TabletMedicine, GenericMedicine } from '@/lib/types';
+import { type Medicine, type OrderItem, type SupplierOrder, isTablet } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
@@ -23,6 +23,7 @@ interface OrderListTabProps {
     orders: SupplierOrder[];
     setOrders: (orders: SupplierOrder[]) => void;
     onProcessOrderItem: (data: { orderId: string, item: any }) => void;
+    onStartOrderMerge: (order: SupplierOrder) => void;
 }
 
 const getDisplayQuantity = (item: OrderItem) => {
@@ -134,7 +135,7 @@ const capitalizeWords = (str: string): string => {
     .join(' ');
 };
 
-export default function OrderListTab({ medicines, setMedicines, orders, setOrders, onProcessOrderItem }: OrderListTabProps) {
+export default function OrderListTab({ medicines, setMedicines, orders, setOrders, onProcessOrderItem, onStartOrderMerge }: OrderListTabProps) {
     const [items, setItems] = useState<OrderItem[]>([]);
     const [itemName, setItemName] = useState('');
     const [itemCategory, setItemCategory] = useState('');
@@ -182,13 +183,69 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         };
     }, []);
     
-    // This effect continues the processing of an order merge
-    useEffect(() => {
-        if (processingOrder) {
-            handleMergeOrder(processingOrder);
+    const handleMergeOrder = (order: SupplierOrder) => {
+        let currentItems = [...order.items];
+        
+        // Find the index of the last processed item and continue from there
+        const lastProcessedName = sessionStorage.getItem('lastProcessedItemName');
+        if (lastProcessedName) {
+            const lastIndex = currentItems.findIndex(i => i.name === lastProcessedName);
+            if (lastIndex > -1) {
+                currentItems.splice(0, lastIndex + 1);
+            }
         }
-    }, [medicines, processingOrder]);
+        
+        setProcessingOrder(order);
 
+        for (const item of currentItems) {
+            const existingMed = medicines.find(m => m.name.toLowerCase() === item.name.toLowerCase() && m.category.toLowerCase() === item.category.toLowerCase());
+            
+            if (existingMed) {
+                setMedicines(currentMeds => currentMeds.map(med => {
+                    if (med.id === existingMed.id) {
+                        const qtyValue = parseInt(item.quantity.match(/\d+/)?.[0] || '0', 10);
+                        let stockToAdd = 0;
+                        if (isTablet(med)) {
+                            const stripsToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
+                             stockToAdd = stripsToAdd * med.tabletsPerStrip;
+                            return { ...med, stock: { tablets: med.stock.tablets + stockToAdd } };
+                        } else {
+                            stockToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
+                            return { ...med, stock: { quantity: (med.stock as any).quantity + stockToAdd } };
+                        }
+                    }
+                    return med;
+                }));
+            } else {
+                sessionStorage.setItem('lastProcessedItemName', item.name);
+                onProcessOrderItem({ orderId: order.id, item: item });
+                return; // Stop the loop and wait for the form
+            }
+        }
+        
+        setOrders(currentOrders => currentOrders.map(o => o.id === order.id ? { ...o, status: 'Completed' } : o));
+        toast({ title: "Order Merged", description: `Order ${order.id} has been merged into inventory.` });
+        setProcessingOrder(null);
+        sessionStorage.removeItem('lastProcessedItemName');
+    };
+    
+    // Event listeners for starting and continuing the merge flow
+    useEffect(() => {
+        const startMergeHandler = (event: CustomEvent<SupplierOrder>) => {
+            handleMergeOrder(event.detail);
+        };
+        const continueMergeHandler = (event: CustomEvent<SupplierOrder>) => {
+            handleMergeOrder(event.detail);
+        };
+
+        window.addEventListener('start-merge', startMergeHandler as EventListener);
+        window.addEventListener('continue-merge', continueMergeHandler as EventListener);
+
+        return () => {
+            window.removeEventListener('start-merge', startMergeHandler as EventListener);
+            window.removeEventListener('continue-merge', continueMergeHandler as EventListener);
+        };
+    }, [medicines, orders]); // Re-bind if medicines/orders change
 
     const finalizeAddItem = (item: Omit<OrderItem, 'id'>) => {
         setItems(prevItems => [...prevItems, { ...item, id: new Date().toISOString() + Math.random() }]);
@@ -205,7 +262,10 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
 
     const handleAddItem = (e: React.FormEvent) => {
         e.preventDefault();
-        if (highlightedIndex > -1) return; // Prevent form submit when a suggestion is highlighted
+        if (highlightedIndex > -1 && showSuggestions) {
+            handleSuggestionClick(suggestedMedicines[highlightedIndex]);
+            return;
+        }
 
         const finalCategory = itemCategory === 'Other' ? customCategory : itemCategory;
 
@@ -270,7 +330,6 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         setItemCategory(suggestion.category);
         setShowSuggestions(false);
         setHighlightedIndex(-1);
-        itemNameInputRef.current?.focus();
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -282,8 +341,8 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                 e.preventDefault();
                 setHighlightedIndex(prev => (prev - 1 + suggestedMedicines.length) % suggestedMedicines.length);
             } else if (e.key === 'Enter') {
-                e.preventDefault();
                 if (highlightedIndex > -1) {
+                    e.preventDefault();
                     handleSuggestionClick(suggestedMedicines[highlightedIndex]);
                 }
             } else if (e.key === 'Escape') {
@@ -315,7 +374,6 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                     setOrderForPrint(null); // Reset after attempting download
                 }
             };
-            // Use a timeout to ensure the component has rendered with the new data
             setTimeout(downloadImage, 100);
         }
     }, [orderForPrint, toast]);
@@ -340,61 +398,10 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
 
         setOrders([newOrder, ...orders]);
         
-        // Trigger the print/download
         setOrderForPrint(newOrder);
 
-        // Clear the form
         setItems([]);
         setSupplierName('');
-    };
-
-    const handleMergeOrder = (order: SupplierOrder) => {
-        let currentItems = [...order.items];
-        
-        if (processingOrder) {
-            // Find the index of the last processed item and continue from there
-            const lastProcessedName = (JSON.parse(sessionStorage.getItem('lastProcessedItemName') || 'null'));
-            if (lastProcessedName) {
-                const lastIndex = currentItems.findIndex(i => i.name === lastProcessedName);
-                if (lastIndex > -1) {
-                    currentItems.splice(0, lastIndex + 1);
-                }
-            }
-        }
-        
-        setProcessingOrder(order); // Keep track of the order being processed
-
-        for (const item of currentItems) {
-            const existingMed = medicines.find(m => m.name.toLowerCase() === item.name.toLowerCase() && m.category.toLowerCase() === item.category.toLowerCase());
-            
-            if (existingMed) {
-                // Update stock for existing medicine
-                setMedicines(currentMeds => currentMeds.map(med => {
-                    if (med.id === existingMed.id) {
-                        const qtyValue = parseInt(item.quantity.match(/\d+/)?.[0] || '0', 10);
-                        if (isTablet(med)) {
-                            const stripsToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
-                            return { ...med, stock: { tablets: med.stock.tablets + (stripsToAdd * med.tabletsPerStrip) } };
-                        } else {
-                            const unitsToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
-                            return { ...med, stock: { quantity: med.stock.quantity + unitsToAdd } };
-                        }
-                    }
-                    return med;
-                }));
-            } else {
-                // New medicine - trigger the form
-                sessionStorage.setItem('lastProcessedItemName', JSON.stringify(item.name));
-                onProcessOrderItem({ orderId: order.id, item: item });
-                return; // Stop the loop and wait for the form
-            }
-        }
-        
-        // If loop completes without interruption, it means all items existed.
-        setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'Completed' } : o));
-        toast({ title: "Order Merged", description: `Order ${order.id} has been merged into inventory.` });
-        setProcessingOrder(null);
-        sessionStorage.removeItem('lastProcessedItemName');
     };
 
     return (
@@ -406,7 +413,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                     </div>
                 )}
             </div>
-            {processingOrder && (
+            {processingOrder && !sessionStorage.getItem('lastProcessedItemName') && (
                 <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
                     <div className="bg-background p-6 rounded-lg flex items-center gap-4">
                         <Loader2 className="h-6 w-6 animate-spin" />
@@ -444,20 +451,18 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                                 />
                             </div>
                             {showSuggestions && suggestedMedicines.length > 0 && (
-                                <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                    <ul>
-                                        {suggestedMedicines.slice(0, 7).map((suggestion, index) => (
-                                            <li
-                                                key={suggestion.name + suggestion.category}
-                                                className={cn("px-3 py-2 cursor-pointer hover:bg-accent", highlightedIndex === index && 'bg-accent')}
-                                                onClick={() => handleSuggestionClick(suggestion)}
-                                                onMouseEnter={() => setHighlightedIndex(index)}
-                                            >
-                                                {suggestion.name} <span className="text-xs text-muted-foreground">({suggestion.category})</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
+                                <ul className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                    {suggestedMedicines.slice(0, 7).map((suggestion, index) => (
+                                        <li
+                                            key={suggestion.name + suggestion.category}
+                                            className={cn("px-3 py-2 cursor-pointer hover:bg-accent", highlightedIndex === index && 'bg-accent')}
+                                            onClick={() => handleSuggestionClick(suggestion)}
+                                            onMouseEnter={() => setHighlightedIndex(index)}
+                                        >
+                                            {suggestion.name} <span className="text-xs text-muted-foreground">({suggestion.category})</span>
+                                        </li>
+                                    ))}
+                                </ul>
                             )}
                         </div>
                         
@@ -545,7 +550,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                     <Button onClick={handleSaveOrder} disabled={items.length === 0 || !supplierName.trim()} className="w-full sm:w-auto">
                         <Download className="mr-2" /> Save & Download Order
                     </Button>
-                    <OrderHistoryDialog orders={orders} setOrders={setOrders} onMerge={handleMergeOrder} />
+                    <OrderHistoryDialog orders={orders} setOrders={setOrders} onMerge={onStartOrderMerge} />
                 </CardFooter>
             </Card>
 

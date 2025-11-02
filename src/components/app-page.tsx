@@ -219,6 +219,7 @@ export default function AppPage() {
   }, [openRestockId]);
   
   const [orderItemToProcess, setOrderItemToProcess] = useState<{orderId: string, item: any} | null>(null);
+  const [processingOrder, setProcessingOrder] = useState<SupplierOrder | null>(null);
 
   useEffect(() => {
     if (orderItemToProcess) {
@@ -277,18 +278,34 @@ export default function AppPage() {
   const handleItemProcessed = (medicine: Medicine) => {
     if (!orderItemToProcess) return;
 
-    setMedicines((prevMeds) => {
-        const existingIndex = prevMeds.findIndex(m => m.id === medicine.id);
-        if (existingIndex > -1) {
-            return prevMeds.map(m => m.id === medicine.id ? medicine : m);
-        }
-        return [...prevMeds, medicine];
-    });
+    if (medicine.id) { // Check if a valid medicine was saved (not cancelled)
+      setMedicines((prevMeds) => {
+          const existingIndex = prevMeds.findIndex(m => m.id === medicine.id);
+          if (existingIndex > -1) {
+              return prevMeds.map(m => m.id === medicine.id ? medicine : m);
+          }
+          return [...prevMeds, medicine];
+      });
+    }
 
     setOrderItemToProcess(null); // Clear the item being processed
-    // Now we need a way to continue processing the same order...
-    // The logic to re-trigger the next item in the order will be in OrderListTab
+    // Set the order to continue processing in the OrderListTab
+    if(processingOrder) {
+      // We are in a merge flow, continue it.
+      // A small delay to ensure state updates propagate before re-triggering merge
+      setTimeout(() => {
+        const continueEvent = new CustomEvent('continue-merge', { detail: processingOrder });
+        window.dispatchEvent(continueEvent);
+      }, 100);
+    }
     setActiveTab('order_list');
+  };
+
+  const handleStartOrderMerge = (order: SupplierOrder) => {
+    setProcessingOrder(order);
+    // Dispatch an event to start the merge process in the OrderListTab
+    const startEvent = new CustomEvent('start-merge', { detail: order });
+    window.dispatchEvent(startEvent);
   };
 
   return (
@@ -372,6 +389,7 @@ export default function AppPage() {
                   orders={supplierOrders}
                   setOrders={setSupplierOrders}
                   onProcessOrderItem={setOrderItemToProcess}
+                  onStartOrderMerge={handleStartOrderMerge}
                 />
               </TabsContent>
             </div>
