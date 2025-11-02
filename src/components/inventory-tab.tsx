@@ -99,6 +99,8 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   const [pendingMedicine, setPendingMedicine] = useState<Medicine | null>(null);
   const [isImportAlertOpen, setIsImportAlertOpen] = useState(false);
   const [importMode, setImportMode] = useState<ImportMode>('merge');
+  const [isRestockMode, setIsRestockMode] = useState(false);
+
 
   // State for sequential import with user prompts
   const [importQueue, setImportQueue] = useState<Medicine[]>([]);
@@ -153,6 +155,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
       const medicineToRestock = validMedicines.find(m => m.id === restockId);
       if (medicineToRestock) {
         setEditingMedicine(medicineToRestock);
+        setIsRestockMode(true);
         setIsFormOpen(true);
       }
     }
@@ -163,6 +166,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
       if (existingMedicineToProcess) {
         // This is an existing medicine, open it for editing to add a new batch.
         setEditingMedicine(existingMedicineToProcess);
+        setIsRestockMode(true);
         setIsFormOpen(true);
       } else {
         // This is a new medicine, create a mock medicine to pre-fill the form.
@@ -191,6 +195,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
         };
         
         setEditingMedicine(mockMedicine as Medicine);
+        setIsRestockMode(false); // Not a restock, but a new item from an order
         setIsFormOpen(true);
       }
     }
@@ -248,7 +253,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   };
 
   const handleSaveMedicine = (medicine: Medicine) => {
-    const isNew = !medicine.id;
+    const isNew = !medicine.id || !validMedicines.some(m => m.id === medicine.id);
     if (isNew) {
       const existingMedicine = validMedicines.find(m => m.name.toLowerCase() === medicine.name.toLowerCase());
       if (existingMedicine) {
@@ -268,6 +273,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   const handleCancelForm = () => {
     setEditingMedicine(null);
     setIsFormOpen(false);
+    setIsRestockMode(false);
     if(onRestockComplete) onRestockComplete();
     if(onItemProcessed) onItemProcessed(null); // Send empty object to signal cancellation
   }
@@ -421,7 +427,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
           <div className="flex flex-col sm:flex-row gap-2">
             <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
-                    <Button onClick={() => setEditingMedicine(null)}>
+                    <Button onClick={() => { setEditingMedicine(null); setIsRestockMode(false); }}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Medicine
                     </Button>
                 </DialogTrigger>
@@ -436,6 +442,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                         onCancel={handleCancelForm}
                         categories={categories}
                         isFromOrder={!!orderItemToProcess && !existingMedicineToProcess}
+                        startWithNewBatch={isRestockMode}
                     />
                 </DialogContent>
             </Dialog>
@@ -555,6 +562,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                                   size="icon"
                                   onClick={() => {
                                       setEditingMedicine(med);
+                                      setIsRestockMode(true);
                                       setIsFormOpen(true);
                                   }}
                               >
@@ -704,6 +712,3 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     </>
   );
 }
-
-
-    

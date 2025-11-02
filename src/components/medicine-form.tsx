@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 
@@ -102,11 +102,12 @@ interface MedicineFormProps {
   onCancel: () => void;
   categories: string[];
   isFromOrder?: boolean;
+  startWithNewBatch?: boolean;
 }
 
 type FormData = z.infer<typeof formSchema>;
 
-export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isFromOrder = false }: MedicineFormProps) {
+export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isFromOrder = false, startWithNewBatch = false }: MedicineFormProps) {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(!!medicineToEdit?.description);
 
   const isCustomCategory = medicineToEdit && medicineToEdit.category && !['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'].includes(medicineToEdit.category);
@@ -150,6 +151,13 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
     control: form.control,
     name: "batches",
   });
+  
+  useEffect(() => {
+    if (startWithNewBatch) {
+      append({ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 });
+    }
+  }, [startWithNewBatch, append]);
+
 
   const selectedCategory = form.watch('category');
   const patientType = form.watch('description_patientType');
@@ -394,7 +402,13 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
             <CollapsibleContent className="mt-4 space-y-4 p-4 border rounded-lg bg-muted/30">
                  <div className="flex justify-between items-center mb-4">
                     <FormLabel>Provide usage details for smart suggestions.</FormLabel>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => {/* clear description fields */}}>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => {
+                        form.setValue('description_patientType', undefined);
+                        form.setValue('description_illness', '');
+                        form.setValue('description_minAge', undefined);
+                        form.setValue('description_maxAge', undefined);
+                        form.setValue('description_gender', undefined);
+                    }}>
                         <Trash2 className="mr-2 h-4 w-4 text-destructive" /> Clear
                     </Button>
                  </div>
