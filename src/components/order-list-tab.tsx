@@ -46,7 +46,7 @@ function OrderHistoryDialog({ orders, setOrders }: { orders: SupplierOrder[], se
                 .map(s => { try { return Array.from(s.cssRules).map(r => r.cssText).join('\n') } catch(e) { return '' } })
                 .filter(Boolean).join('\n');
             doc.open();
-            doc.write(`<html><head><title>Print Order</title><style>${styles}</style></head><body>${billHtml}</body></html>`);
+            doc.write(`<html><head><title>Print Order</title><style>${styles}</style></head><body><div class="print-preview-bill">${billHtml}</div></body></html>`);
             doc.close();
             iframe.contentWindow?.focus();
             iframe.contentWindow?.print();
@@ -147,11 +147,11 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
     const itemNameInputRef = useRef<HTMLInputElement>(null);
     const suggestionBoxRef = useRef<HTMLDivElement>(null);
     
-    // State for the clarification dialog
     const [pendingItem, setPendingItem] = useState<Omit<OrderItem, 'id'> | null>(null);
     const [clarificationPrompt, setClarificationPrompt] = useState<{ title: string; label: string } | null>(null);
     const [unitsPerPackInput, setUnitsPerPackInput] = useState('');
-    
+    const [orderForPrint, setOrderForPrint] = useState<SupplierOrder | null>(null);
+
     const categories = useMemo(() => {
       const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection'];
       const customCategories = medicines.map(m => m.category);
@@ -263,6 +263,33 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
         itemNameInputRef.current?.focus();
     };
 
+    useEffect(() => {
+        if (orderForPrint && orderListRef.current) {
+            const downloadImage = async () => {
+                try {
+                    const dataUrl = await htmlToImage.toPng(orderListRef.current!, {
+                        quality: 1,
+                        backgroundColor: '#ffffff',
+                        pixelRatio: 2,
+                        skipFonts: true,
+                    });
+                    const link = document.createElement('a');
+                    link.download = `${orderForPrint.supplierName.replace(/\s+/g, '-')}-Order-${orderForPrint.id}.png`;
+                    link.href = dataUrl;
+                    link.click();
+                    toast({ title: 'Order Saved & Downloaded', description: `Order for ${orderForPrint.supplierName} has been saved.` });
+                } catch (error) {
+                    console.error("Failed to download image", error);
+                    toast({ variant: 'destructive', title: 'Download Failed', description: 'Could not generate the order image.' });
+                } finally {
+                    setOrderForPrint(null); // Reset after attempting download
+                }
+            };
+            // Use a timeout to ensure the component has rendered with the new data
+            setTimeout(downloadImage, 100);
+        }
+    }, [orderForPrint, toast]);
+
     const handleSaveOrder = async () => {
         if (items.length === 0) {
             toast({ variant: 'destructive', title: 'Empty Order', description: 'Please add items to the list before saving.' });
@@ -283,39 +310,9 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
 
         setOrders([newOrder, ...orders]);
         
-        // Temporarily set the order data for printing
-        if (orderListRef.current) {
-            const tempPrintable = <PrintableOrderList order={newOrder} />;
-            const printContainer = document.createElement('div');
-            printContainer.style.position = 'absolute';
-            printContainer.style.left = '-9999px';
-            document.body.appendChild(printContainer);
-            
-            const tempRef = React.createRef<HTMLDivElement>();
-            const elementToRender = <div ref={tempRef} className="bg-white p-4">{tempPrintable}</div>;
-            
-            // This is a bit of a hack to render and get the ref
-            const ReactDOM = await import('react-dom');
-            ReactDOM.render(elementToRender, printContainer, async () => {
-                if (tempRef.current) {
-                     try {
-                        const dataUrl = await htmlToImage.toPng(tempRef.current, { quality: 1, backgroundColor: '#ffffff', pixelRatio: 2, skipFonts: true });
-                        const link = document.createElement('a');
-                        link.download = `${newOrder.supplierName.replace(/\s+/g, '-')}-Order-${newOrder.id}.png`;
-                        link.href = dataUrl;
-                        link.click();
-                    } catch (error) {
-                        console.error("Failed to download image", error);
-                        toast({ variant: 'destructive', title: 'Download Failed', description: 'Could not generate the order image.' });
-                    }
-                }
-                ReactDOM.unmountComponentAtNode(printContainer);
-                document.body.removeChild(printContainer);
-            });
-        }
-        
-        toast({ title: 'Order Saved', description: `Order for ${supplierName} has been saved and is being downloaded.` });
-        
+        // Trigger the print/download
+        setOrderForPrint(newOrder);
+
         // Clear the form
         setItems([]);
         setSupplierName('');
@@ -324,7 +321,11 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
     return (
         <>
             <div className="fixed -left-[9999px] top-0">
-                <div ref={orderListRef} />
+                 {orderForPrint && (
+                    <div ref={orderListRef} className="bg-white p-4">
+                        <PrintableOrderList order={orderForPrint} />
+                    </div>
+                )}
             </div>
             <Card>
                 <CardHeader>
@@ -485,5 +486,3 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
         </>
     );
 }
-
-    
