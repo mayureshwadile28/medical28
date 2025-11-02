@@ -158,9 +158,9 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
 
     const categories = useMemo(() => {
         const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
-        const medicineCategories = medicines.map(m => m.category.trim());
+        const medicineCategories = medicines.map(m => m.category?.trim()).filter(Boolean);
         return Array.from(new Set([...baseCategories, ...medicineCategories]))
-            .filter(c => c) // Remove any empty strings
+            .filter((c): c is string => !!c) // Filter out any undefined/null/empty values
             .sort((a, b) => a.localeCompare(b));
     }, [medicines]);
 
@@ -455,7 +455,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                                 <ul className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                                     {suggestedMedicines.slice(0, 7).map((suggestion, index) => (
                                         <li
-                                            key={suggestion.name + suggestion.category}
+                                            key={`${suggestion.name}-${suggestion.category}`}
                                             className={cn("px-3 py-2 cursor-pointer hover:bg-accent", highlightedIndex === index && 'bg-accent')}
                                             onClick={() => handleSuggestionClick(suggestion)}
                                             onMouseEnter={() => setHighlightedIndex(index)}
@@ -474,8 +474,8 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                                     <SelectValue placeholder="Select Category" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {categories.map(cat => (
-                                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                    {categories.map((cat, index) => (
+                                        <SelectItem key={`${cat}-${index}`} value={cat}>{cat}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -583,5 +583,3 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         </>
     );
 }
-
-    
