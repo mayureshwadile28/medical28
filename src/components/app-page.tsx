@@ -293,21 +293,23 @@ export default function AppPage() {
 
     setOrderItemToProcess(null); // Clear the item being processed
 
-    if (medicine && medicine.id) { // User saved the new medicine
-        // Update the order item status
+    // Only update the order if a medicine was actually saved (not cancelled).
+    if (medicine && medicine.id) {
         const orderToUpdate = wholesalerOrders.find(o => o.id === orderId);
         if (orderToUpdate) {
             const itemIndex = orderToUpdate.items.findIndex(i => i.id === item.id);
             if(itemIndex > -1) {
                 orderToUpdate.items[itemIndex].status = 'Received';
             }
-            // Now, determine the overall order status
+
             const allItemsReceived = orderToUpdate.items.every(i => i.status === 'Received');
-            orderToUpdate.status = allItemsReceived ? 'Completed' : 'Partially Received';
-            if (orderToUpdate.status === 'Partially Received') {
-                 orderToUpdate.receivedDate = new Date().toISOString();
+            if (allItemsReceived) {
+                orderToUpdate.status = 'Completed';
+            } else {
+                orderToUpdate.status = 'Partially Received';
             }
-             if (orderToUpdate.status === 'Completed') {
+            
+            if (orderToUpdate.status === 'Completed' || orderToUpdate.status === 'Partially Received') {
                 orderToUpdate.receivedDate = new Date().toISOString();
             }
 
