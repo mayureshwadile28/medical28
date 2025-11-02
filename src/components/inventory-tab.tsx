@@ -178,7 +178,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   }, [medicines]);
 
   const outOfStockMedicines = useMemo(() => {
-    return medicines.filter(isOutOfStock);
+    return medicines.filter(med => isOutOfStock(med));
   }, [medicines]);
 
   const filteredMedicines = useMemo(() => {
@@ -198,7 +198,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     });
 
     return sortedMeds
-      .filter(med => med.name && typeof med.name === 'string' && med.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .filter(med => med && med.name && typeof med.name === 'string' && med.name.toLowerCase().includes(searchTerm.toLowerCase()))
       .filter(med => categoryFilters.length === 0 || (med.category && categoryFilters.includes(med.category)));
   }, [medicines, searchTerm, categoryFilters, sortOption]);
 
@@ -681,7 +681,3 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     </>
   );
 }
-
-    
-
-    

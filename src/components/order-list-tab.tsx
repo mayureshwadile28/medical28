@@ -158,10 +158,8 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
 
     const categories = useMemo(() => {
         const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
-        const medicineCategories = medicines.map(m => m && m.category && typeof m.category === 'string' ? m.category.trim() : null);
-        return Array.from(new Set([...baseCategories, ...medicineCategories]))
-            .filter((c): c is string => !!c) // Filter out any undefined/null/empty values
-            .sort((a, b) => a.localeCompare(b));
+        const medicineCategories = medicines.map(m => m.category).filter(c => typeof c === 'string' && c.trim() !== '');
+        return Array.from(new Set([...baseCategories, ...medicineCategories])).sort();
     }, [medicines]);
 
     const suggestedMedicines = useMemo(() => {
@@ -588,5 +586,3 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         </>
     );
 }
-
-    
