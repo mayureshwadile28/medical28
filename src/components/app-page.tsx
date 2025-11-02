@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -218,6 +217,15 @@ export default function AppPage() {
       setActiveTab('inventory');
     }
   }, [openRestockId]);
+  
+  const [orderItemToProcess, setOrderItemToProcess] = useState<{orderId: string, item: any} | null>(null);
+
+  useEffect(() => {
+    if (orderItemToProcess) {
+      setActiveTab('inventory');
+    }
+  }, [orderItemToProcess]);
+
 
   const isLoading = medicinesLoading || salesLoading || licenseLoading || isActivatedLoading || ordersLoading;
   const isLicensed = !!licenseKey && isActivated;
@@ -266,6 +274,23 @@ export default function AppPage() {
     setIsActivated(false); // Make sure they have to re-activate with the new key
   }
   
+  const handleItemProcessed = (medicine: Medicine) => {
+    if (!orderItemToProcess) return;
+
+    setMedicines((prevMeds) => {
+        const existingIndex = prevMeds.findIndex(m => m.id === medicine.id);
+        if (existingIndex > -1) {
+            return prevMeds.map(m => m.id === medicine.id ? medicine : m);
+        }
+        return [...prevMeds, medicine];
+    });
+
+    setOrderItemToProcess(null); // Clear the item being processed
+    // Now we need a way to continue processing the same order...
+    // The logic to re-trigger the next item in the order will be in OrderListTab
+    setActiveTab('order_list');
+  };
+
   return (
     <>
       {!isLicensed && (
@@ -333,6 +358,8 @@ export default function AppPage() {
                   sales={sales}
                   restockId={openRestockId}
                   onRestockComplete={onRestockComplete}
+                  orderItemToProcess={orderItemToProcess?.item}
+                  onItemProcessed={handleItemProcessed}
                 />
               </TabsContent>
               <TabsContent value="history" className="mt-0">
@@ -340,9 +367,11 @@ export default function AppPage() {
               </TabsContent>
                <TabsContent value="order_list" className="mt-0">
                 <OrderListTab 
-                  medicines={medicines} 
+                  medicines={medicines}
+                  setMedicines={setMedicines}
                   orders={supplierOrders}
                   setOrders={setSupplierOrders}
+                  onProcessOrderItem={setOrderItemToProcess}
                 />
               </TabsContent>
             </div>
@@ -352,5 +381,3 @@ export default function AppPage() {
     </>
   );
 }
-
-    

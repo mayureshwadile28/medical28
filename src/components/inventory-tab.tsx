@@ -1,9 +1,8 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { type Medicine, type SaleRecord, isTablet, isGeneric, type TabletMedicine, type GenericMedicine } from '@/lib/types';
+import { type Medicine, type SaleRecord, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, OrderItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -24,7 +23,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +53,8 @@ interface InventoryTabProps {
   sales: SaleRecord[];
   restockId?: string | null;
   onRestockComplete?: () => void;
+  orderItemToProcess?: OrderItem | null;
+  onItemProcessed?: (medicine: Medicine) => void;
 }
 
 type SortOption = 'name_asc' | 'expiry_asc' | 'expiry_desc';
@@ -80,7 +81,7 @@ const isOutOfStock = (med: Medicine) => {
     return med.stock.quantity <= 0;
 }
 
-export default function InventoryTab({ medicines, setMedicines, sales, restockId, onRestockComplete }: InventoryTabProps) {
+export default function InventoryTab({ medicines, setMedicines, sales, restockId, onRestockComplete, orderItemToProcess, onItemProcessed }: InventoryTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -143,6 +144,29 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
       }
     }
   }, [restockId, medicines]);
+  
+  useEffect(() => {
+      if (orderItemToProcess) {
+          const mockMedicine: Partial<Medicine> = {
+              name: orderItemToProcess.name,
+              category: orderItemToProcess.category,
+              stock: {} as any,
+          };
+
+          const qtyNum = parseInt(orderItemToProcess.quantity, 10);
+
+          if (isTablet(mockMedicine as Medicine)) {
+              const strips = qtyNum || 0;
+              (mockMedicine as TabletMedicine).stock.tablets = strips * (orderItemToProcess.unitsPerPack || 10) * 10; // Placeholder
+          } else {
+              (mockMedicine as GenericMedicine).stock.quantity = qtyNum * (orderItemToProcess.unitsPerPack || 1);
+          }
+          
+          setEditingMedicine(mockMedicine as Medicine);
+          setIsFormOpen(true);
+      }
+  }, [orderItemToProcess]);
+
 
   const categories = useMemo(() => {
     const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'];
@@ -176,7 +200,14 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   }, [medicines, searchTerm, categoryFilters, sortOption]);
 
   const proceedWithSave = (medicine: Medicine) => {
-    if (editingMedicine) {
+    if (onItemProcessed) {
+        onItemProcessed(medicine);
+        setIsFormOpen(false);
+        setEditingMedicine(null);
+        return;
+    }
+  
+    if (editingMedicine && !orderItemToProcess) {
       setMedicines(medicines.map(m => (m.id === medicine.id ? medicine : m)));
     } else {
       setMedicines([...medicines, medicine]);
@@ -188,7 +219,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
   };
 
   const handleSaveMedicine = (medicine: Medicine) => {
-    if (!editingMedicine) {
+    if (!editingMedicine && !orderItemToProcess) {
       const existingMedicine = medicines.find(m => m.name.toLowerCase() === medicine.name.toLowerCase());
       if (existingMedicine) {
         setPendingMedicine(medicine);
@@ -208,6 +239,7 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     setEditingMedicine(null);
     setIsFormOpen(false);
     if(onRestockComplete) onRestockComplete();
+    if(onItemProcessed) onItemProcessed({} as Medicine); // Send empty object to signal cancellation
   }
 
   const handleOpenChange = (open: boolean) => {
@@ -368,13 +400,15 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px] md:max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>{editingMedicine ? 'Edit Medicine' : 'Add New Medicine'}</DialogTitle>
+                        <DialogTitle>{editingMedicine ? (orderItemToProcess ? `Add New Item from Order` : 'Edit Medicine') : 'Add New Medicine'}</DialogTitle>
+                        {orderItemToProcess && <DialogDescription>Please provide the details for '{orderItemToProcess.name}' to add it to your inventory.</DialogDescription>}
                     </DialogHeader>
                     <MedicineForm
                         medicineToEdit={editingMedicine}
                         onSave={handleSaveMedicine}
                         onCancel={handleCancelForm}
                         categories={categories}
+                        isFromOrder={!!orderItemToProcess}
                     />
                 </DialogContent>
             </Dialog>
@@ -644,5 +678,3 @@ export default function InventoryTab({ medicines, setMedicines, sales, restockId
     </>
   );
 }
-
-    

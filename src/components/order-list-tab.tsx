@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
@@ -6,23 +5,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2, Download, ClipboardList, Info, History, Printer } from 'lucide-react';
+import { PlusCircle, Trash2, Download, ClipboardList, Info, History, PackagePlus, Loader2 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { PrintableOrderList } from './printable-order-list';
-import { type Medicine, type OrderItem, type SupplierOrder } from '@/lib/types';
+import { type Medicine, type OrderItem, type SupplierOrder, isTablet, isGeneric, TabletMedicine, GenericMedicine } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
-import ReactDOMServer from 'react-dom/server';
 import { cn } from '@/lib/utils';
 
 interface OrderListTabProps {
     medicines: Medicine[];
+    setMedicines: (updater: (medicines: Medicine[]) => Medicine[]) => void;
     orders: SupplierOrder[];
     setOrders: (orders: SupplierOrder[]) => void;
+    onProcessOrderItem: (data: { orderId: string, item: any }) => void;
 }
 
 const getDisplayQuantity = (item: OrderItem) => {
@@ -32,7 +32,7 @@ const getDisplayQuantity = (item: OrderItem) => {
     return item.quantity;
 };
 
-function OrderHistoryDialog({ orders, setOrders }: { orders: SupplierOrder[], setOrders: (orders: SupplierOrder[]) => void }) {
+function OrderHistoryDialog({ orders, setOrders, onMerge }: { orders: SupplierOrder[], setOrders: (orders: SupplierOrder[]) => void, onMerge: (order: SupplierOrder) => void }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     
     return (
@@ -63,7 +63,7 @@ function OrderHistoryDialog({ orders, setOrders }: { orders: SupplierOrder[], se
                                             </div>
                                             <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
                                                 <span className="text-muted-foreground">{new Date(order.orderDate).toLocaleDateString()}</span>
-                                                <Badge variant={order.status === 'Pending' ? 'secondary' : 'default'}>{order.status}</Badge>
+                                                <Badge variant={order.status === 'Pending' ? 'secondary' : order.status === 'Completed' ? 'default' : 'destructive'}>{order.status}</Badge>
                                             </div>
                                         </div>
                                     </AccordionTrigger>
@@ -81,6 +81,31 @@ function OrderHistoryDialog({ orders, setOrders }: { orders: SupplierOrder[], se
                                                 </li>
                                             ))}
                                         </ul>
+                                        {order.status === 'Pending' && (
+                                            <div className="flex justify-end">
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button>
+                                                            <PackagePlus className="mr-2 h-4 w-4" /> Merge & Receive Order
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Receive Order?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                This will update your inventory based on this order. Stock for existing items will be increased, and you'll be prompted to add details for new items. This cannot be undone.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => onMerge(order)}>
+                                                                Yes, Receive & Merge
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
+                                        )}
                                     </AccordionContent>
                                 </AccordionItem>
                             ))}
@@ -109,7 +134,7 @@ const capitalizeWords = (str: string): string => {
     .join(' ');
 };
 
-export default function OrderListTab({ medicines, orders, setOrders }: OrderListTabProps) {
+export default function OrderListTab({ medicines, setMedicines, orders, setOrders, onProcessOrderItem }: OrderListTabProps) {
     const [items, setItems] = useState<OrderItem[]>([]);
     const [itemName, setItemName] = useState('');
     const [itemCategory, setItemCategory] = useState('');
@@ -122,12 +147,12 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
     const orderListRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
     const itemNameInputRef = useRef<HTMLInputElement>(null);
-    const suggestionBoxRef = useRef<HTMLDivElement>(null);
     
     const [pendingItem, setPendingItem] = useState<Omit<OrderItem, 'id'> | null>(null);
     const [clarificationPrompt, setClarificationPrompt] = useState<{ title: string; label: string } | null>(null);
     const [unitsPerPackInput, setUnitsPerPackInput] = useState('');
     const [orderForPrint, setOrderForPrint] = useState<SupplierOrder | null>(null);
+    const [processingOrder, setProcessingOrder] = useState<SupplierOrder | null>(null);
 
     const categories = useMemo(() => {
       const baseCategories = ['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection'];
@@ -147,10 +172,7 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
-            if (
-                itemNameInputRef.current && !itemNameInputRef.current.contains(event.target as Node) &&
-                suggestionBoxRef.current && !suggestionBoxRef.current.contains(event.target as Node)
-            ) {
+            if (itemNameInputRef.current && !itemNameInputRef.current.contains(event.target as Node)) {
                 setShowSuggestions(false);
             }
         }
@@ -159,6 +181,14 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, []);
+    
+    // This effect continues the processing of an order merge
+    useEffect(() => {
+        if (processingOrder) {
+            handleMergeOrder(processingOrder);
+        }
+    }, [medicines, processingOrder]);
+
 
     const finalizeAddItem = (item: Omit<OrderItem, 'id'>) => {
         setItems(prevItems => [...prevItems, { ...item, id: new Date().toISOString() + Math.random() }]);
@@ -318,6 +348,55 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
         setSupplierName('');
     };
 
+    const handleMergeOrder = (order: SupplierOrder) => {
+        let currentItems = [...order.items];
+        
+        if (processingOrder) {
+            // Find the index of the last processed item and continue from there
+            const lastProcessedName = (JSON.parse(sessionStorage.getItem('lastProcessedItemName') || 'null'));
+            if (lastProcessedName) {
+                const lastIndex = currentItems.findIndex(i => i.name === lastProcessedName);
+                if (lastIndex > -1) {
+                    currentItems.splice(0, lastIndex + 1);
+                }
+            }
+        }
+        
+        setProcessingOrder(order); // Keep track of the order being processed
+
+        for (const item of currentItems) {
+            const existingMed = medicines.find(m => m.name.toLowerCase() === item.name.toLowerCase() && m.category.toLowerCase() === item.category.toLowerCase());
+            
+            if (existingMed) {
+                // Update stock for existing medicine
+                setMedicines(currentMeds => currentMeds.map(med => {
+                    if (med.id === existingMed.id) {
+                        const qtyValue = parseInt(item.quantity.match(/\d+/)?.[0] || '0', 10);
+                        if (isTablet(med)) {
+                            const stripsToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
+                            return { ...med, stock: { tablets: med.stock.tablets + (stripsToAdd * med.tabletsPerStrip) } };
+                        } else {
+                            const unitsToAdd = item.unitsPerPack ? qtyValue * item.unitsPerPack : qtyValue;
+                            return { ...med, stock: { quantity: med.stock.quantity + unitsToAdd } };
+                        }
+                    }
+                    return med;
+                }));
+            } else {
+                // New medicine - trigger the form
+                sessionStorage.setItem('lastProcessedItemName', JSON.stringify(item.name));
+                onProcessOrderItem({ orderId: order.id, item: item });
+                return; // Stop the loop and wait for the form
+            }
+        }
+        
+        // If loop completes without interruption, it means all items existed.
+        setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'Completed' } : o));
+        toast({ title: "Order Merged", description: `Order ${order.id} has been merged into inventory.` });
+        setProcessingOrder(null);
+        sessionStorage.removeItem('lastProcessedItemName');
+    };
+
     return (
         <>
             <div className="fixed -left-[9999px] top-0">
@@ -327,6 +406,14 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
                     </div>
                 )}
             </div>
+            {processingOrder && (
+                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
+                    <div className="bg-background p-6 rounded-lg flex items-center gap-4">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                        <p>Processing order... Please wait.</p>
+                    </div>
+                </div>
+            )}
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -341,22 +428,23 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
                     <form onSubmit={handleAddItem} className="mb-6 grid grid-cols-1 md:grid-cols-4 items-end gap-2">
                         <div className="relative md:col-span-2 w-full space-y-2">
                             <Label htmlFor="item-name">Item Name</Label>
-                            <Input
-                                ref={itemNameInputRef}
-                                id="item-name"
-                                placeholder="Type an item name..."
-                                value={itemName}
-                                onChange={(e) => {
-                                    setItemName(e.target.value);
-                                    if (e.target.value) setShowSuggestions(true); else setShowSuggestions(false);
-                                    setHighlightedIndex(-1);
-                                }}
-                                onFocus={() => itemName && setShowSuggestions(true)}
-                                onKeyDown={handleKeyDown}
-                                autoComplete="off"
-                            />
+                            <div ref={itemNameInputRef}>
+                                <Input
+                                    id="item-name"
+                                    placeholder="Type an item name..."
+                                    value={itemName}
+                                    onChange={(e) => {
+                                        setItemName(e.target.value);
+                                        if (e.target.value) setShowSuggestions(true); else setShowSuggestions(false);
+                                        setHighlightedIndex(-1);
+                                    }}
+                                    onFocus={() => itemName && setShowSuggestions(true)}
+                                    onKeyDown={handleKeyDown}
+                                    autoComplete="off"
+                                />
+                            </div>
                             {showSuggestions && suggestedMedicines.length > 0 && (
-                                <div ref={suggestionBoxRef} className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                                     <ul>
                                         {suggestedMedicines.slice(0, 7).map((suggestion, index) => (
                                             <li
@@ -457,7 +545,7 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
                     <Button onClick={handleSaveOrder} disabled={items.length === 0 || !supplierName.trim()} className="w-full sm:w-auto">
                         <Download className="mr-2" /> Save & Download Order
                     </Button>
-                    <OrderHistoryDialog orders={orders} setOrders={setOrders} />
+                    <OrderHistoryDialog orders={orders} setOrders={setOrders} onMerge={handleMergeOrder} />
                 </CardFooter>
             </Card>
 
@@ -489,5 +577,3 @@ export default function OrderListTab({ medicines, orders, setOrders }: OrderList
         </>
     );
 }
-
-    

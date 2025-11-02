@@ -23,6 +23,7 @@ interface BaseMedicine {
   category: string;
   location: string;
   expiry: string; // ISO date string
+  price: number;
   description?: MedicineDescription;
 }
 
@@ -42,7 +43,7 @@ export type GenericMedicine = BaseMedicine & {
 export type Medicine = TabletMedicine | GenericMedicine;
 
 // Type guards
-export function isTablet(medicine?: Medicine | null): medicine is TabletMedicine {
+export function isTablet(medicine?: Medicine | Partial<Medicine> | null): medicine is TabletMedicine {
   if (!medicine) return false;
   return medicine.category === 'Tablet' || medicine.category === 'Capsule';
 }
@@ -123,5 +124,3 @@ export interface SuggestMedicinesOutput {
     reason: string;
   }[];
 }
-
-    

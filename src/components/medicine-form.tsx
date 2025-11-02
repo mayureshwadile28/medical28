@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -86,18 +85,19 @@ const formSchema = z.object({
 });
 
 interface MedicineFormProps {
-  medicineToEdit: Medicine | null;
+  medicineToEdit: Partial<Medicine> | null;
   onSave: (medicine: Medicine) => void;
   onCancel: () => void;
   categories: string[];
+  isFromOrder?: boolean;
 }
 
 type FormData = z.infer<typeof formSchema>;
 
-export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: MedicineFormProps) {
+export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isFromOrder = false }: MedicineFormProps) {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(!!medicineToEdit?.description);
 
-  const isCustomCategory = medicineToEdit && !['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'].includes(medicineToEdit.category);
+  const isCustomCategory = medicineToEdit && medicineToEdit.category && !['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'].includes(medicineToEdit.category);
   
   const getFormattedExpiry = (expiry?: string) => {
     if (!expiry) return '';
@@ -121,7 +121,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
       location: medicineToEdit?.location || '',
       expiry: getFormattedExpiry(medicineToEdit?.expiry),
       price: medicineToEdit?.price || 0,
-      stock_strips: isTablet(medicineToEdit as Medicine) ? (medicineToEdit as TabletMedicine).stock.tablets / ((medicineToEdit as TabletMedicine).tabletsPerStrip || 10) : undefined,
+      stock_strips: isTablet(medicineToEdit as Medicine) ? (medicineToEdit as TabletMedicine).stock.tablets / ((medicineToEdit as TabletMedicine).tabletsPerStrip || 10) : (isFromOrder && (medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule') ? (medicineToEdit?.stock as any)?.tablets / 10 : undefined), // Simplified for order
       stock_quantity: !isTablet(medicineToEdit as Medicine) ? (medicineToEdit?.stock as any)?.quantity : undefined,
       tablets_per_strip: isTablet(medicineToEdit as Medicine) ? (medicineToEdit as TabletMedicine).tabletsPerStrip : 10,
       description_patientType: medicineToEdit?.description?.patientType,
@@ -267,7 +267,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             <FormItem>
               <FormLabel>Medicine Name</FormLabel>
               <FormControl>
-                <Input placeholder={'e.g., Paracetamol 500mg'} {...field} />
+                <Input placeholder={'e.g., Paracetamol 500mg'} {...field} disabled={isFromOrder} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -280,7 +280,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories }: M
             render={({ field }) => (
                 <FormItem>
                 <FormLabel>Category</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isFromOrder}>
                     <FormControl>
                     <SelectTrigger>
                         <SelectValue placeholder={'Category'} />
