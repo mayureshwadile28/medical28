@@ -387,7 +387,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
             <CollapsibleTrigger asChild>
                 <Button type="button" variant="link" className="p-0 h-auto">
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Add Usage Description (for smart search)
+                    Add Usage Description
                     <ChevronsUpDown className="ml-2 h-4 w-4" />
                 </Button>
             </CollapsibleTrigger>
