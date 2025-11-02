@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
-import { type Medicine, type SaleRecord, type WholesalerOrder } from '@/lib/types';
+import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, ShoppingCart, History, KeyRound, ShieldCheck, Unlock, ClipboardList } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -16,6 +17,7 @@ import InventoryTab from '@/components/inventory-tab';
 import HistoryTab from '@/components/history-tab';
 import OrderListTab from '@/components/order-list-tab';
 import { AppService } from '@/lib/service';
+import BillScannerTab from '@/components/bill-scanner';
 
 // This is the hardcoded MASTER password.
 const MASTER_PASSWORD = 'MAYURESH-VINOD-WADILE-2009';
@@ -233,7 +235,7 @@ export default function AppPage() {
       }
   }, [openOrderTab, router]);
   
-  const [orderItemToProcess, setOrderItemToProcess] = useState<{orderId: string, item: any} | null>(null);
+  const [orderItemToProcess, setOrderItemToProcess] = useState<{orderId: string, item: OrderItem, existingMedicine?: Medicine } | null>(null);
 
   useEffect(() => {
     if (orderItemToProcess) {
@@ -303,7 +305,12 @@ export default function AppPage() {
             // Now, determine the overall order status
             const allItemsReceived = orderToUpdate.items.every(i => i.status === 'Received');
             orderToUpdate.status = allItemsReceived ? 'Completed' : 'Partially Received';
-            orderToUpdate.receivedDate = new Date().toISOString();
+            if (orderToUpdate.status === 'Partially Received') {
+                 orderToUpdate.receivedDate = new Date().toISOString();
+            }
+             if (orderToUpdate.status === 'Completed') {
+                orderToUpdate.receivedDate = new Date().toISOString();
+            }
 
             await service.saveWholesalerOrder(orderToUpdate);
             setWholesalerOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate.id ? orderToUpdate : o));
@@ -333,6 +340,10 @@ export default function AppPage() {
     // The dialog in the OrderListTab now controls the start of the merge.
     // This function can be kept for legacy purposes or removed if no longer used.
   };
+  
+   const handleOrderCreated = (newOrder: WholesalerOrder) => {
+        setWholesalerOrders(currentOrders => [newOrder, ...currentOrders]);
+    };
 
   return (
     <>
@@ -370,7 +381,7 @@ export default function AppPage() {
         <div className="container mx-auto p-4 sm:p-6 lg:p-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex justify-center md:justify-start">
-              <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+              <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto">
                 <TabsTrigger value="pos">
                   <ShoppingCart className="mr-2 h-4 w-4" /> POS
                 </TabsTrigger>
@@ -382,6 +393,9 @@ export default function AppPage() {
                 </TabsTrigger>
                 <TabsTrigger value="order_list">
                   <ClipboardList className="mr-2 h-4 w-4" /> Order List
+                </TabsTrigger>
+                 <TabsTrigger value="bill_scanner">
+                  <ClipboardList className="mr-2 h-4 w-4" /> Bill Scanner
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -402,6 +416,7 @@ export default function AppPage() {
                   restockId={openRestockId}
                   onRestockComplete={onRestockComplete}
                   orderItemToProcess={orderItemToProcess?.item}
+                  existingMedicineToProcess={orderItemToProcess?.existingMedicine}
                   onItemProcessed={handleItemProcessed}
                   onSaveMedicine={handleSaveMedicine}
                   onDeleteMedicine={handleDeleteMedicine}
@@ -422,6 +437,9 @@ export default function AppPage() {
                   onStartOrderMerge={handleStartOrderMerge}
                 />
               </TabsContent>
+               <TabsContent value="bill_scanner" className="mt-0">
+                  <BillScannerTab service={service} onOrderCreated={handleOrderCreated} />
+              </TabsContent>
             </div>
           </Tabs>
         </div>
@@ -429,3 +447,6 @@ export default function AppPage() {
     </>
   );
 }
+
+
+    

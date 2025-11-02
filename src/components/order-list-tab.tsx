@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
@@ -26,7 +27,7 @@ interface OrderListTabProps {
     orders: WholesalerOrder[];
     setOrders: React.Dispatch<React.SetStateAction<WholesalerOrder[]>>;
     service: AppService;
-    onProcessOrderItem: (data: { orderId: string, item: any }) => void;
+    onProcessOrderItem: (data: { orderId: string, item: any, existingMedicine?: Medicine }) => void;
     onStartOrderMerge: (order: WholesalerOrder) => void;
 }
 
@@ -235,7 +236,8 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
     
     const startMergeProcess = (order: WholesalerOrder) => {
         setMergeOrder(order);
-        setSelectedItemsToMerge([]);
+        const pendingItemIds = order.items.filter(i => i.status === 'Pending').map(i => i.id);
+        setSelectedItemsToMerge(pendingItemIds);
     };
     
     const handleSelectiveMerge = async () => {
@@ -250,28 +252,30 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
 
         const orderToUpdate = { ...mergeOrder };
         
-        // This is a sequential process. We process one item at a time.
-        // The event listener will re-trigger this flow.
         for (const itemId of selectedItemsToMerge) {
             const itemIndex = orderToUpdate.items.findIndex(i => i.id === itemId);
             if (itemIndex > -1) {
                 const item = orderToUpdate.items[itemIndex];
-                if(item.status === 'Pending') {
-                    // Trigger the processing for this one item.
-                    // This will pause the loop and wait for user input in the inventory tab.
-                    onProcessOrderItem({ orderId: orderToUpdate.id, item: item });
+                if (item.status === 'Pending') {
+                    // Check if medicine exists
+                    const existingMedicine = medicines.find(m => m.name.toLowerCase() === item.name.toLowerCase() && m.category.toLowerCase() === item.category.toLowerCase());
+                    
+                    onProcessOrderItem({ 
+                        orderId: orderToUpdate.id, 
+                        item: item,
+                        existingMedicine: existingMedicine 
+                    });
+
                     setMergeOrder(null);
-                    return; 
+                    return; // Process one at a time
                 }
             }
         }
 
-        // If we get here, it means all selected items were already received.
         setMergeOrder(null);
-        toast({ title: "No Items to Merge", description: "All selected items have already been received." });
+        toast({ title: "No New Items to Merge", description: "All selected items have already been received." });
     };
     
-    // This effect is to resume merge after a new item is added via the InventoryTab
     useEffect(() => {
         const continueMergeHandler = (event: Event) => {
              const order = (event as CustomEvent<WholesalerOrder>).detail;
@@ -665,5 +669,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         </>
     );
 }
+
+    
 
     

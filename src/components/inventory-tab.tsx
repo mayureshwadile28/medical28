@@ -54,6 +54,7 @@ interface InventoryTabProps {
   restockId?: string | null;
   onRestockComplete?: () => void;
   orderItemToProcess?: OrderItem | null;
+  existingMedicineToProcess?: Medicine | null;
   onItemProcessed?: (medicine: Medicine | null) => void;
   onSaveMedicine: (medicine: Medicine) => Promise<void>;
   onDeleteMedicine: (id: string) => Promise<void>;
@@ -85,7 +86,7 @@ const isOutOfStock = (med: Medicine) => {
     return getTotalStock(med) <= 0;
 }
 
-export default function InventoryTab({ medicines, service, restockId, onRestockComplete, orderItemToProcess, onItemProcessed, onSaveMedicine, onDeleteMedicine, onSaveAllMedicines }: InventoryTabProps) {
+export default function InventoryTab({ medicines, service, restockId, onRestockComplete, orderItemToProcess, existingMedicineToProcess, onItemProcessed, onSaveMedicine, onDeleteMedicine, onSaveAllMedicines }: InventoryTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -157,30 +158,43 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     }
   }, [restockId, validMedicines]);
   
-  useEffect(() => {
-      if (orderItemToProcess) {
-          const newBatch: Partial<Medicine['batches'][0]> = {
-            batchNumber: orderItemToProcess.batchNumber || '',
-            stock: {},
-            price: 0,
-          };
+ useEffect(() => {
+    if (orderItemToProcess) {
+      if (existingMedicineToProcess) {
+        // This is an existing medicine, open it for editing to add a new batch.
+        setEditingMedicine(existingMedicineToProcess);
+        setIsFormOpen(true);
+      } else {
+        // This is a new medicine, create a mock medicine to pre-fill the form.
+        const newBatch: Partial<Medicine['batches'][0]> = {
+          batchNumber: orderItemToProcess.batchNumber || '',
+          stock: {},
+          price: 0,
+        };
+        
+        const qtyValue = parseInt(orderItemToProcess.quantity.replace(/\D/g, '')) || 0;
 
-          if (orderItemToProcess.category === 'Tablet' || orderItemToProcess.category === 'Capsule') {
-             newBatch.stock = { tablets: (parseInt(orderItemToProcess.quantity) || 0) * (orderItemToProcess.unitsPerPack || 10) }
-          } else {
-             newBatch.stock = { quantity: (parseInt(orderItemToProcess.quantity) || 0) * (orderItemToProcess.unitsPerPack || 1) }
-          }
+        if (orderItemToProcess.category === 'Tablet' || orderItemToProcess.category === 'Capsule') {
+          // If the quantity string includes 'strip', use it as strips, otherwise it's tablets
+           const strips = orderItemToProcess.quantity.toLowerCase().includes('strip') 
+                ? qtyValue 
+                : qtyValue / (orderItemToProcess.unitsPerPack || 10);
+           newBatch.stock = { tablets: strips * (orderItemToProcess.unitsPerPack || 10) }
+        } else {
+           newBatch.stock = { quantity: qtyValue * (orderItemToProcess.unitsPerPack || 1) }
+        }
 
-          const mockMedicine: Partial<Medicine> = {
-              name: orderItemToProcess.name,
-              category: orderItemToProcess.category,
-              batches: [newBatch as any],
-          };
-          
-          setEditingMedicine(mockMedicine as Medicine);
-          setIsFormOpen(true);
+        const mockMedicine: Partial<Medicine> = {
+          name: orderItemToProcess.name,
+          category: orderItemToProcess.category,
+          batches: [newBatch as any],
+        };
+        
+        setEditingMedicine(mockMedicine as Medicine);
+        setIsFormOpen(true);
       }
-  }, [orderItemToProcess]);
+    }
+  }, [orderItemToProcess, existingMedicineToProcess]);
 
 
   const categories = useMemo(() => {
@@ -413,15 +427,15 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[550px] md:max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>{editingMedicine ? (orderItemToProcess ? `Add New Item from Order` : 'Edit Medicine') : 'Add New Medicine'}</DialogTitle>
-                        {orderItemToProcess && <DialogDescription>Please provide the details for '{orderItemToProcess.name}' to add it to your inventory.</DialogDescription>}
+                        <DialogTitle>{editingMedicine ? (orderItemToProcess ? `Add New Stock: ${editingMedicine.name}` : 'Edit Medicine') : 'Add New Medicine'}</DialogTitle>
+                        {orderItemToProcess && <DialogDescription>Please provide the batch details for the newly received item to add it to your inventory.</DialogDescription>}
                     </DialogHeader>
                     <MedicineForm
                         medicineToEdit={editingMedicine}
                         onSave={handleSaveMedicine}
                         onCancel={handleCancelForm}
                         categories={categories}
-                        isFromOrder={!!orderItemToProcess}
+                        isFromOrder={!!orderItemToProcess && !existingMedicineToProcess}
                     />
                 </DialogContent>
             </Dialog>
@@ -690,3 +704,6 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     </>
   );
 }
+
+
+    
