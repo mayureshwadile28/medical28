@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { type Medicine, type SaleRecord, type PaymentMode, type SaleItem, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, getTotalStock, Batch, MedicineDescription } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,6 +78,22 @@ function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: M
         gender: '' as 'Male' | 'Female' | 'Both' | '',
     });
     const [submittedCriteria, setSubmittedCriteria] = useState<typeof searchCriteria | null>(null);
+    const [isIllnessPopoverOpen, setIsIllnessPopoverOpen] = useState(false);
+
+    const allIllnesses = useMemo(() => {
+        const illnessSet = new Set<string>();
+        medicines.forEach(med => {
+            if (med.description?.illness) {
+                med.description.illness.split(',').forEach(i => {
+                    const trimmed = i.trim();
+                    if (trimmed) {
+                        illnessSet.add(trimmed);
+                    }
+                });
+            }
+        });
+        return Array.from(illnessSet).sort();
+    }, [medicines]);
 
     const handleInputChange = (field: keyof typeof searchCriteria, value: string) => {
         setSearchCriteria(prev => ({ ...prev, [field]: value }));
@@ -150,12 +166,39 @@ function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: M
                 <div className="py-4 space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="search-illness">Illness / Symptom</Label>
-                        <Input 
-                            id="search-illness"
-                            placeholder="e.g., Fever, Cold, Skin Infection..."
-                            value={searchCriteria.illness}
-                            onChange={(e) => handleInputChange('illness', e.target.value)}
-                        />
+                        <Popover open={isIllnessPopoverOpen} onOpenChange={setIsIllnessPopoverOpen}>
+                            <PopoverTrigger asChild>
+                                <Input
+                                    id="search-illness"
+                                    placeholder="e.g., Fever, Cold, Skin Infection..."
+                                    value={searchCriteria.illness}
+                                    onChange={(e) => handleInputChange('illness', e.target.value)}
+                                    onFocus={() => setIsIllnessPopoverOpen(true)}
+                                />
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Search illness..." onValueChange={(value) => handleInputChange('illness', value)} />
+                                    <CommandList>
+                                        <CommandEmpty>No illness found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {allIllnesses.map((illness) => (
+                                                <CommandItem
+                                                    key={illness}
+                                                    value={illness}
+                                                    onSelect={(currentValue) => {
+                                                        handleInputChange('illness', currentValue);
+                                                        setIsIllnessPopoverOpen(false);
+                                                    }}
+                                                >
+                                                    {illness}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -878,5 +921,3 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     </>
   );
 }
-
-    
