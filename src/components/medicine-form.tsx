@@ -4,7 +4,7 @@
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { type Medicine, isTablet, type Batch, type TabletMedicine } from '@/lib/types';
+import { type Medicine, isTablet, type Batch, type TabletMedicine, OrderItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -103,6 +103,7 @@ interface MedicineFormProps {
   categories: string[];
   isFromOrder?: boolean;
   startWithNewBatch?: boolean;
+  orderItem?: OrderItem | null;
 }
 
 type FormData = z.infer<typeof formSchema>;
@@ -123,7 +124,7 @@ const DEFAULT_MEDICINE_VALUES: FormData = {
 };
 
 
-export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isFromOrder = false, startWithNewBatch = false }: MedicineFormProps) {
+export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isFromOrder = false, startWithNewBatch = false, orderItem = null }: MedicineFormProps) {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(!!medicineToEdit?.description);
 
   const isCustomCategory = medicineToEdit && medicineToEdit.category && !['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'].includes(medicineToEdit.category);
@@ -145,7 +146,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
             batches: [{ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 }],
         };
     }
-
+    
+    const qtyValue = orderItem ? parseInt(orderItem.quantity.replace(/\D/g, '')) || 0 : 0;
+    
     let batches: any[] = medicineToEdit.batches?.map(b => {
           const isTabletCategory = medicineToEdit.category === 'Tablet' || medicineToEdit.category === 'Capsule';
           const tabletsPerStrip = (isTabletCategory && (medicineToEdit as TabletMedicine).tabletsPerStrip) || 10;
@@ -159,10 +162,40 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
           };
     }) || [];
     
-    // Only add a new batch if it's a restock/merge AND the medicine already has an ID (i.e., it exists)
     if (startWithNewBatch && medicineToEdit.id) {
-        const newBatch = { id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 };
+        let newBatch: any = { id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0 };
+        
+        if (orderItem) {
+            const isTabletCategory = medicineToEdit.category === 'Tablet' || medicineToEdit.category === 'Capsule';
+            
+            if (isTabletCategory) {
+                // If it's a pack/box, calculate strips. Otherwise, assume qtyValue is strips.
+                 const strips = (orderItem.unitName && orderItem.unitsPerPack) ? qtyValue * orderItem.unitsPerPack : qtyValue;
+                 newBatch.stock_strips = strips;
+                 newBatch.stock_quantity = 0;
+            } else {
+                 const units = (orderItem.unitName && orderItem.unitsPerPack) ? qtyValue * orderItem.unitsPerPack : qtyValue;
+                 newBatch.stock_quantity = units;
+                 newBatch.stock_strips = 0;
+            }
+        } else {
+            newBatch.stock_quantity = 0;
+            newBatch.stock_strips = 0;
+        }
+
         batches = [...batches, newBatch];
+    } else if (isFromOrder && orderItem) {
+        // This is for a completely new medicine from an order
+        const isTabletCategory = medicineToEdit.category === 'Tablet' || medicineToEdit.category === 'Capsule';
+         if (isTabletCategory) {
+            const strips = (orderItem.unitName && orderItem.unitsPerPack) ? qtyValue * orderItem.unitsPerPack : qtyValue;
+            batches[0].stock_strips = strips;
+            batches[0].stock_quantity = 0;
+         } else {
+            const units = (orderItem.unitName && orderItem.unitsPerPack) ? qtyValue * orderItem.unitsPerPack : qtyValue;
+            batches[0].stock_quantity = units;
+            batches[0].stock_strips = 0;
+         }
     }
     
     const tabletsPerStrip = (isTablet(medicineToEdit) && (medicineToEdit as TabletMedicine).tabletsPerStrip) || 10;
@@ -196,7 +229,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
   useEffect(() => {
     form.reset(getInitialFormValues());
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [medicineToEdit, startWithNewBatch]);
+  }, [medicineToEdit, startWithNewBatch, orderItem]);
 
 
   const selectedCategory = form.watch('category');

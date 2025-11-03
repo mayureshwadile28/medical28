@@ -120,6 +120,11 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
         return { text: 'N/A', remainder: 'No active batches', isExpired: false, isNearExpiry: false, diffDays: 9999 };
     }
 
+    // Safety check for invalid expiry date format
+    if (isNaN(new Date(expiry).getTime())) {
+        return { text: 'Invalid Date', remainder: 'Invalid date format', isExpired: false, isNearExpiry: false, diffDays: 9999 };
+    }
+
     const expiryDateUTC = new Date(expiry);
     const expiryDate = new Date(Date.UTC(expiryDateUTC.getUTCFullYear(), expiryDateUTC.getUTCMonth(), expiryDateUTC.getUTCDate()));
 
@@ -166,7 +171,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
       if (existingMedicineToProcess) {
         // This is an existing medicine, open it for editing to add a new batch.
         setEditingMedicine(existingMedicineToProcess);
-        setIsRestockMode(true);
+        setIsRestockMode(true); // Signal to add a new batch
         setIsFormOpen(true);
       } else {
         // This is a new medicine, create a mock medicine to pre-fill the form.
@@ -175,18 +180,6 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
           stock: {},
           price: 0,
         };
-        
-        const qtyValue = parseInt(orderItemToProcess.quantity.replace(/\D/g, '')) || 0;
-
-        if (orderItemToProcess.category === 'Tablet' || orderItemToProcess.category === 'Capsule') {
-          // If the quantity string includes 'strip', use it as strips, otherwise it's tablets
-           const strips = orderItemToProcess.quantity.toLowerCase().includes('strip') 
-                ? qtyValue 
-                : qtyValue / (orderItemToProcess.unitsPerPack || 10);
-           newBatch.stock = { tablets: strips * (orderItemToProcess.unitsPerPack || 10) }
-        } else {
-           newBatch.stock = { quantity: qtyValue * (orderItemToProcess.unitsPerPack || 1) }
-        }
 
         const mockMedicine: Partial<Medicine> = {
           name: orderItemToProcess.name,
@@ -433,7 +426,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[550px] md:max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>{editingMedicine ? (orderItemToProcess ? `Add New Stock: ${editingMedicine.name}` : 'Edit Medicine') : 'Add New Medicine'}</DialogTitle>
+                        <DialogTitle>{editingMedicine?.id ? (isRestockMode ? `Add New Stock: ${editingMedicine.name}` : 'Edit Medicine') : 'Add New Medicine'}</DialogTitle>
                         {orderItemToProcess && <DialogDescription>Please provide the batch details for the newly received item to add it to your inventory.</DialogDescription>}
                     </DialogHeader>
                     <MedicineForm
@@ -443,6 +436,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                         categories={categories}
                         isFromOrder={!!orderItemToProcess && !existingMedicineToProcess}
                         startWithNewBatch={isRestockMode}
+                        orderItem={orderItemToProcess}
                     />
                 </DialogContent>
             </Dialog>
