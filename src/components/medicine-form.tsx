@@ -159,7 +159,8 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
           };
     }) || [];
     
-    if (startWithNewBatch && medicineToEdit.id && !batches.some(b => !b.batchNumber)) {
+    // Only add a new batch if it's a restock/merge AND the medicine already has an ID (i.e., it exists)
+    if (startWithNewBatch && medicineToEdit.id) {
         const newBatch = { id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 };
         batches = [...batches, newBatch];
     }

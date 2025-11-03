@@ -562,7 +562,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                                   size="icon"
                                   onClick={() => {
                                       setEditingMedicine(med);
-                                      setIsRestockMode(true);
+                                      setIsRestockMode(false); // Set to false for standard edit
                                       setIsFormOpen(true);
                                   }}
                               >
