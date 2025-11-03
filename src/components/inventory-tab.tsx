@@ -430,6 +430,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                         {orderItemToProcess && <DialogDescription>Please provide the batch details for the newly received item to add it to your inventory.</DialogDescription>}
                     </DialogHeader>
                     <MedicineForm
+                        medicines={validMedicines}
                         medicineToEdit={editingMedicine}
                         onSave={handleSaveMedicine}
                         onCancel={handleCancelForm}

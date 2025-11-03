@@ -33,7 +33,8 @@ const batchSchema = z.object({
     stock_quantity: z.coerce.number().int().min(0).optional(),
 });
 
-const formSchema = z.object({
+// This is the factory function for the schema
+const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) => z.object({
   id: z.string().optional(),
   name: z.string().min(2, 'Name must be at least 2 characters.'),
   category: z.string().min(1, 'Category is required.'),
@@ -94,9 +95,32 @@ const formSchema = z.object({
             }
         }
     }
+    
+    // Duplicate batch number validation
+    data.batches.forEach((batch, index) => {
+        if (!batch.batchNumber) return;
+
+        for (const med of medicines) {
+            // Don't check against the medicine currently being edited
+            if (med.id === currentMedicineId) continue;
+            
+            for (const existingBatch of med.batches) {
+                if (existingBatch.batchNumber.toLowerCase() === batch.batchNumber.toLowerCase()) {
+                    ctx.addIssue({
+                        code: 'custom',
+                        message: `Batch already exists in: ${med.name}`,
+                        path: [`batches.${index}.batchNumber`],
+                    });
+                    return; // Stop after finding the first duplicate for this batch
+                }
+            }
+        }
+    });
 });
 
+
 interface MedicineFormProps {
+  medicines: Medicine[]; // All medicines for validation
   medicineToEdit: Partial<Medicine> | null;
   onSave: (medicine: Medicine) => void;
   onCancel: () => void;
@@ -106,10 +130,9 @@ interface MedicineFormProps {
   orderItem?: OrderItem | null;
 }
 
-type FormData = z.infer<typeof formSchema>;
+type FormData = z.infer<ReturnType<typeof createFormSchema>>;
 
-const DEFAULT_MEDICINE_VALUES: FormData = {
-    id: undefined,
+const DEFAULT_MEDICINE_VALUES: Omit<FormData, 'id'> = {
     name: '',
     category: '',
     customCategory: '',
@@ -124,7 +147,7 @@ const DEFAULT_MEDICINE_VALUES: FormData = {
 };
 
 
-export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isFromOrder = false, startWithNewBatch = false, orderItem = null }: MedicineFormProps) {
+export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, categories, isFromOrder = false, startWithNewBatch = false, orderItem = null }: MedicineFormProps) {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(!!medicineToEdit?.description);
 
   const isCustomCategory = medicineToEdit && medicineToEdit.category && !['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'].includes(medicineToEdit.category);
@@ -140,14 +163,14 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
   };
 
   const getInitialFormValues = (): FormData => {
+    const baseValues = { ...DEFAULT_MEDICINE_VALUES, id: undefined };
+
     if (!medicineToEdit) {
         return {
-            ...DEFAULT_MEDICINE_VALUES,
+            ...baseValues,
             batches: [{ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 }],
         };
     }
-    
-    const qtyValue = orderItem ? parseInt(orderItem.quantity.replace(/\D/g, '')) || 0 : 0;
     
     let batches: any[] = medicineToEdit.batches?.map(b => {
           const isTabletCategory = medicineToEdit.category === 'Tablet' || medicineToEdit.category === 'Capsule';
@@ -162,14 +185,15 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
           };
     }) || [];
     
-    if (startWithNewBatch && medicineToEdit.id) {
+    // This logic handles adding a new empty batch when restocking/merging
+    if (startWithNewBatch) {
         let newBatch: any = { id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0 };
         
         if (orderItem) {
             const isTabletCategory = medicineToEdit.category === 'Tablet' || medicineToEdit.category === 'Capsule';
+            const qtyValue = orderItem.quantity ? parseInt(orderItem.quantity.replace(/\D/g, '')) || 0 : 0;
             
             if (isTabletCategory) {
-                // If it's a pack/box, calculate strips. Otherwise, assume qtyValue is strips.
                  const strips = (orderItem.unitName && orderItem.unitsPerPack) ? qtyValue * orderItem.unitsPerPack : qtyValue;
                  newBatch.stock_strips = strips;
                  newBatch.stock_quantity = 0;
@@ -185,22 +209,22 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
 
         batches = [...batches, newBatch];
     } else if (isFromOrder && orderItem) {
-        // This is for a completely new medicine from an order
+        // This is for a completely new medicine from an order, pre-fill first batch
         const isTabletCategory = medicineToEdit.category === 'Tablet' || medicineToEdit.category === 'Capsule';
+        const qtyValue = orderItem.quantity ? parseInt(orderItem.quantity.replace(/\D/g, '')) || 0 : 0;
          if (isTabletCategory) {
             const strips = (orderItem.unitName && orderItem.unitsPerPack) ? qtyValue * orderItem.unitsPerPack : qtyValue;
-            batches[0].stock_strips = strips;
-            batches[0].stock_quantity = 0;
+            if (batches.length > 0) batches[0].stock_strips = strips;
          } else {
             const units = (orderItem.unitName && orderItem.unitsPerPack) ? qtyValue * orderItem.unitsPerPack : qtyValue;
-            batches[0].stock_quantity = units;
-            batches[0].stock_strips = 0;
+            if (batches.length > 0) batches[0].stock_quantity = units;
          }
     }
     
     const tabletsPerStrip = (isTablet(medicineToEdit) && (medicineToEdit as TabletMedicine).tabletsPerStrip) || 10;
 
     return {
+      ...baseValues,
       id: medicineToEdit.id,
       name: medicineToEdit.name || '',
       category: isCustomCategory ? 'Other' : (medicineToEdit.category || ''),
@@ -210,18 +234,20 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
       batches: batches.length > 0 ? batches : [{ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 }],
       description_patientType: medicineToEdit.description?.patientType,
       description_illness: medicineToEdit.description?.illness || '',
-      description_minAge: medicineToEdit.description?.minAge === 0 ? undefined : medicineToEdit.description?.minAge,
-      description_maxAge: medicineToEdit.description?.maxAge === 0 ? undefined : medicineToEdit.description?.maxAge,
+      description_minAge: medicineToEdit.description?.minAge,
+      description_maxAge: medicineToEdit.description?.maxAge,
       description_gender: medicineToEdit.description?.gender,
     };
   };
+
+  const formSchema = createFormSchema(medicines, medicineToEdit?.id);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: getInitialFormValues(),
   });
 
-  const { fields, append, remove, replace } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "batches",
   });
@@ -229,7 +255,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
   useEffect(() => {
     form.reset(getInitialFormValues());
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [medicineToEdit, startWithNewBatch, orderItem]);
+  }, [medicineToEdit, startWithNewBatch, orderItem, medicines]);
 
 
   const selectedCategory = form.watch('category');
@@ -534,7 +560,6 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
                                             placeholder="e.g., 5"
                                             {...field}
                                             value={field.value ?? ''}
-                                            onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -553,7 +578,6 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
                                             placeholder="e.g., 60"
                                             {...field}
                                             value={field.value ?? ''}
-                                            onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
                                         />
                                     </FormControl>
                                     <FormMessage />
