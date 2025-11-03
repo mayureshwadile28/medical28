@@ -57,7 +57,7 @@ const formSchema = z.object({
                  ctx.addIssue({ code: 'custom', message: 'Strips required.', path: [`batches.${index}.stock_strips`] });
             }
         });
-    } else {
+    } else if (data.category) { // Only check if category is selected
         data.batches.forEach((batch, index) => {
              if (batch.stock_quantity === undefined || batch.stock_quantity < 0) {
                 ctx.addIssue({ code: 'custom', message: 'Quantity required.', path: [`batches.${index}.stock_quantity`] });
@@ -70,7 +70,7 @@ const formSchema = z.object({
     
     // Description fields validation
     const descriptionFields = [data.description_patientType, data.description_illness, data.description_minAge, data.description_maxAge, data.description_gender];
-    const filledDescriptionFields = descriptionFields.filter(f => f !== undefined && f !== null && f !== '' && f !== 0).length;
+    const filledDescriptionFields = descriptionFields.filter(f => f !== undefined && f !== null && f !== '').length;
 
     if (filledDescriptionFields > 0) {
         if (!data.description_patientType) {
@@ -107,6 +107,22 @@ interface MedicineFormProps {
 
 type FormData = z.infer<typeof formSchema>;
 
+const DEFAULT_MEDICINE_VALUES: FormData = {
+    id: undefined,
+    name: '',
+    category: '',
+    customCategory: '',
+    location: '',
+    tablets_per_strip: 10,
+    batches: [],
+    description_patientType: undefined,
+    description_illness: '',
+    description_minAge: undefined,
+    description_maxAge: undefined,
+    description_gender: undefined,
+};
+
+
 export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isFromOrder = false, startWithNewBatch = false }: MedicineFormProps) {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(!!medicineToEdit?.description);
 
@@ -122,9 +138,53 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
     }
   };
 
+  const getInitialFormValues = (): FormData => {
+    if (!medicineToEdit) {
+        return {
+            ...DEFAULT_MEDICINE_VALUES,
+            batches: [{ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 }],
+        };
+    }
+
+    let batches: any[] = medicineToEdit.batches?.map(b => {
+          const isTabletCategory = medicineToEdit.category === 'Tablet' || medicineToEdit.category === 'Capsule';
+          const tabletsPerStrip = (isTabletCategory && (medicineToEdit as TabletMedicine).tabletsPerStrip) || 10;
+          return {
+              id: b.id || new Date().toISOString() + Math.random(),
+              batchNumber: b.batchNumber,
+              expiry: getFormattedExpiry(b.expiry),
+              price: b.price,
+              stock_strips: isTabletCategory ? (b.stock.tablets || 0) / tabletsPerStrip : 0,
+              stock_quantity: !isTabletCategory ? b.stock.quantity : 0,
+          };
+    }) || [];
+    
+    if (startWithNewBatch && !batches.some(b => !b.batchNumber)) {
+        const newBatch = { id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 };
+        batches = [...batches, newBatch];
+    }
+    
+    const tabletsPerStrip = (isTablet(medicineToEdit) && (medicineToEdit as TabletMedicine).tabletsPerStrip) || 10;
+
+    return {
+      id: medicineToEdit.id,
+      name: medicineToEdit.name || '',
+      category: isCustomCategory ? 'Other' : (medicineToEdit.category || ''),
+      customCategory: isCustomCategory ? medicineToEdit.category : '',
+      location: medicineToEdit.location || '',
+      tablets_per_strip: tabletsPerStrip,
+      batches: batches.length > 0 ? batches : [{ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 }],
+      description_patientType: medicineToEdit.description?.patientType,
+      description_illness: medicineToEdit.description?.illness || '',
+      description_minAge: medicineToEdit.description?.minAge === 0 ? undefined : medicineToEdit.description?.minAge,
+      description_maxAge: medicineToEdit.description?.maxAge === 0 ? undefined : medicineToEdit.description?.maxAge,
+      description_gender: medicineToEdit.description?.gender,
+    };
+  };
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {},
+    defaultValues: getInitialFormValues(),
   });
 
   const { fields, append, remove, replace } = useFieldArray({
@@ -133,44 +193,9 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
   });
   
   useEffect(() => {
-    const isEditing = !!medicineToEdit?.id;
-    
-    let batches: any[] = medicineToEdit?.batches?.map(b => {
-          const isTabletCategory = medicineToEdit?.category === 'Tablet' || medicineToEdit?.category === 'Capsule';
-          const tabletsPerStrip = (isTabletCategory && (medicineToEdit as TabletMedicine).tabletsPerStrip) || 10;
-          return {
-              id: b.id,
-              batchNumber: b.batchNumber,
-              expiry: getFormattedExpiry(b.expiry),
-              price: b.price,
-              stock_strips: isTabletCategory ? (b.stock.tablets || 0) / tabletsPerStrip : undefined,
-              stock_quantity: !isTabletCategory ? b.stock.quantity : undefined,
-          };
-    }) || [];
-    
-    if (isEditing && startWithNewBatch && !batches.some(b => !b.batchNumber)) {
-        const newBatch = { id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 };
-        batches = [...batches, newBatch];
-    }
-    
-    const tabletsPerStrip = (isTablet(medicineToEdit) && (medicineToEdit as TabletMedicine).tabletsPerStrip) || 10;
-
-    form.reset({
-      id: medicineToEdit?.id,
-      name: medicineToEdit?.name || '',
-      category: isCustomCategory ? 'Other' : (medicineToEdit?.category || ''),
-      customCategory: isCustomCategory ? medicineToEdit.category : '',
-      location: medicineToEdit?.location || '',
-      tablets_per_strip: tabletsPerStrip,
-      batches: batches,
-      description_patientType: medicineToEdit?.description?.patientType,
-      description_illness: medicineToEdit?.description?.illness || '',
-      description_minAge: medicineToEdit?.description?.minAge === 0 ? undefined : medicineToEdit?.description?.minAge,
-      description_maxAge: medicineToEdit?.description?.maxAge === 0 ? undefined : medicineToEdit?.description?.maxAge,
-      description_gender: medicineToEdit?.description?.gender,
-    });
-    
-  }, [medicineToEdit, form, isCustomCategory, startWithNewBatch]);
+    form.reset(getInitialFormValues());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [medicineToEdit, startWithNewBatch]);
 
 
   const selectedCategory = form.watch('category');
@@ -560,3 +585,5 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
     </Form>
   );
 }
+
+    
