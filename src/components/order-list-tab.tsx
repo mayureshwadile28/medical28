@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2, Download, ClipboardList, Info, History, PackagePlus, Loader2, CheckCircle2 } from 'lucide-react';
+import { PlusCircle, Trash2, Download, ClipboardList, Info, History, PackagePlus, Loader2, CheckCircle2, MapPin, X } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { PrintableOrderList } from './printable-order-list';
@@ -31,7 +31,7 @@ interface OrderListTabProps {
     onStartOrderMerge: (order: WholesalerOrder) => void;
 }
 
-const getDisplayQuantity = (item: OrderItem) => {
+const getDisplayQuantity = (item: Partial<OrderItem>) => {
     if (item.unitsPerPack && item.unitName) {
         return `${item.quantity} (${item.unitsPerPack} ${item.unitName}/pack)`;
     }
@@ -668,5 +668,6 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         </>
     );
 }
+
 
     
