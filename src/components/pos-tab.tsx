@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2, Search, RotateCcw } from 'lucide-react';
+import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2, Search, RotateCcw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
@@ -46,6 +46,7 @@ import { Label } from '@/components/ui/label';
 import { useLocalStorage } from '@/lib/hooks';
 import { AppService } from '@/lib/service';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 
 interface PosTabProps {
   medicines: Medicine[];
@@ -71,14 +72,17 @@ const generateNewBillNumber = (sales: SaleRecord[]): string => {
 
 function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: Medicine[], onSelectMedicine: (medicineId: string) => void }) {
     const [isOpen, setIsOpen] = useState(false);
+    const [selectedIllnesses, setSelectedIllnesses] = useState<string[]>([]);
     const [searchCriteria, setSearchCriteria] = useState({
-        illness: '',
         patientType: '' as 'Human' | 'Animal' | '',
         age: '',
         gender: '' as 'Male' | 'Female' | 'Both' | '',
     });
-    const [submittedCriteria, setSubmittedCriteria] = useState<typeof searchCriteria | null>(null);
+    const [submittedCriteria, setSubmittedCriteria] = useState<typeof searchCriteria & { illnesses: string[] } | null>(null);
+    
+    const inputRef = useRef<HTMLInputElement>(null);
     const [isIllnessPopoverOpen, setIsIllnessPopoverOpen] = useState(false);
+    const [illnessSearch, setIllnessSearch] = useState('');
 
     const allIllnesses = useMemo(() => {
         const illnessSet = new Set<string>();
@@ -100,11 +104,12 @@ function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: M
     };
     
     const handleSearch = () => {
-        setSubmittedCriteria(searchCriteria);
+        setSubmittedCriteria({ ...searchCriteria, illnesses: selectedIllnesses });
     };
 
     const handleClear = () => {
-        setSearchCriteria({ illness: '', patientType: '', age: '', gender: '' });
+        setSelectedIllnesses([]);
+        setSearchCriteria({ patientType: '', age: '', gender: '' });
         setSubmittedCriteria(null);
     };
 
@@ -113,22 +118,26 @@ function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: M
             return [];
         }
 
-        const trimmedIllness = submittedCriteria.illness.trim().toLowerCase();
-        const ageNum = parseInt(submittedCriteria.age, 10);
+        const { illnesses, patientType, age, gender } = submittedCriteria;
+        if (illnesses.length === 0) return [];
+        
+        const ageNum = parseInt(age, 10);
 
         return medicines.filter(med => {
             if (!med.description) return false;
             
             const desc = med.description;
+            const medIllnesses = desc.illness?.toLowerCase().split(',').map(i => i.trim());
 
-            const illnessMatch = trimmedIllness ? desc.illness?.toLowerCase().includes(trimmedIllness) : true;
+            // Check if all selected illnesses are present in the medicine's description
+            const illnessMatch = illnesses.every(ill => medIllnesses?.includes(ill.toLowerCase()));
             if (!illnessMatch) return false;
 
-            const patientTypeMatch = submittedCriteria.patientType ? desc.patientType === submittedCriteria.patientType : true;
+            const patientTypeMatch = patientType ? desc.patientType === patientType : true;
             if (!patientTypeMatch) return false;
             
-            if (submittedCriteria.patientType === 'Human') {
-                 const genderMatch = submittedCriteria.gender ? (desc.gender === 'Both' || desc.gender === submittedCriteria.gender) : true;
+            if (patientType === 'Human') {
+                 const genderMatch = gender ? (desc.gender === 'Both' || desc.gender === gender) : true;
                  if (!genderMatch) return false;
 
                  if (!isNaN(ageNum) && ageNum > 0) {
@@ -150,6 +159,16 @@ function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: M
         handleClear();
     };
 
+    const handleIllnessSelect = (illness: string) => {
+        setSelectedIllnesses(prev => {
+            if (prev.includes(illness)) {
+                return prev.filter(i => i !== illness);
+            }
+            return [...prev, illness];
+        });
+        setIllnessSearch('');
+    }
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
@@ -161,36 +180,52 @@ function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: M
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle>Find Medicine by Description</DialogTitle>
-                    <DialogDescription>Search for medicines based on the illness, patient type, age, and gender. Click Search to see results.</DialogDescription>
+                    <DialogDescription>Select symptoms, then specify patient details and click Search to find matching medicines.</DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="search-illness">Illness / Symptom</Label>
+                        <Label>Illness / Symptom(s)</Label>
                         <Popover open={isIllnessPopoverOpen} onOpenChange={setIsIllnessPopoverOpen}>
                             <PopoverTrigger asChild>
-                                <Input
-                                    id="search-illness"
-                                    placeholder="e.g., Fever, Cold, Skin Infection..."
-                                    value={searchCriteria.illness}
-                                    onChange={(e) => handleInputChange('illness', e.target.value)}
-                                    onFocus={() => setIsIllnessPopoverOpen(true)}
-                                />
+                                <div className="flex flex-wrap gap-1 rounded-md border border-input bg-background p-2 text-sm min-h-10 items-center">
+                                    {selectedIllnesses.map(illness => (
+                                        <Badge key={illness} variant="secondary" className="gap-1">
+                                            {illness}
+                                            <button onClick={() => handleIllnessSelect(illness)} className="ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    ))}
+                                    <input 
+                                        ref={inputRef}
+                                        value={illnessSearch}
+                                        onChange={e => setIllnessSearch(e.target.value)}
+                                        onFocus={() => setIsIllnessPopoverOpen(true)}
+                                        className="bg-transparent outline-none placeholder:text-muted-foreground flex-1"
+                                        placeholder={selectedIllnesses.length === 0 ? "Select symptoms..." : ""}
+                                    />
+                                </div>
                             </PopoverTrigger>
                             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                                 <Command>
-                                    <CommandInput placeholder="Search illness..." onValueChange={(value) => handleInputChange('illness', value)} />
+                                    <CommandInput 
+                                        placeholder="Search illness..." 
+                                        value={illnessSearch}
+                                        onValueChange={setIllnessSearch}
+                                    />
                                     <CommandList>
                                         <CommandEmpty>No illness found.</CommandEmpty>
                                         <CommandGroup>
-                                            {allIllnesses.map((illness) => (
+                                            {allIllnesses
+                                                .filter(illness => !selectedIllnesses.includes(illness))
+                                                .filter(illness => illness.toLowerCase().includes(illnessSearch.toLowerCase()))
+                                                .map((illness) => (
                                                 <CommandItem
                                                     key={illness}
                                                     value={illness}
-                                                    onSelect={(currentValue) => {
-                                                        handleInputChange('illness', currentValue);
-                                                        setIsIllnessPopoverOpen(false);
-                                                    }}
+                                                    onSelect={() => handleIllnessSelect(illness)}
                                                 >
+                                                    <Check className={cn("mr-2 h-4 w-4", selectedIllnesses.includes(illness) ? "opacity-100" : "opacity-0")} />
                                                     {illness}
                                                 </CommandItem>
                                             ))}
@@ -260,18 +295,17 @@ function DescriptionSearchDialog({ medicines, onSelectMedicine }: { medicines: M
                                 <ul className="space-y-2">
                                     {searchResults.map(med => (
                                         <li key={med.id}>
-                                            <Button 
-                                                variant="ghost" 
-                                                className="w-full justify-start h-auto"
+                                            <button
+                                                type="button"
+                                                className="w-full text-left p-3 rounded-md border bg-card hover:bg-accent transition-colors flex justify-between items-center"
                                                 onClick={() => handleSelect(med.id)}
                                             >
-                                                <div className="flex-1 text-left">
-                                                    <p className="font-semibold">{med.name}</p>
-                                                </div>
-                                                <div className="text-sm text-muted-foreground ml-4">
-                                                    Location: <span className="font-medium text-foreground">{med.location}</span>
-                                                </div>
-                                            </Button>
+                                                <span className="font-semibold">{med.name}</span>
+                                                <Badge variant="secondary" className="flex items-center">
+                                                    <MapPin className="mr-1.5" />
+                                                    {med.location}
+                                                </Badge>
+                                            </button>
                                         </li>
                                     ))}
                                 </ul>
@@ -921,3 +955,5 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     </>
   );
 }
+
+    
