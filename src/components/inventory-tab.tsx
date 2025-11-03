@@ -427,7 +427,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
           <div className="flex flex-col sm:flex-row gap-2">
             <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
-                    <Button onClick={() => { setEditingMedicine(null); setIsRestockMode(false); }}>
+                    <Button onClick={() => { setEditingMedicine(null); setIsRestockMode(false); setIsFormOpen(true); }}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Medicine
                     </Button>
                 </DialogTrigger>

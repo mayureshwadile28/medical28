@@ -159,7 +159,7 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
           };
     }) || [];
     
-    if (startWithNewBatch && !batches.some(b => !b.batchNumber)) {
+    if (startWithNewBatch && medicineToEdit.id && !batches.some(b => !b.batchNumber)) {
         const newBatch = { id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 };
         batches = [...batches, newBatch];
     }
@@ -585,5 +585,3 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
     </Form>
   );
 }
-
-    
