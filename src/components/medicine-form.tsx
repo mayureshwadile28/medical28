@@ -124,7 +124,19 @@ export function MedicineForm({ medicineToEdit, onSave, onCancel, categories, isF
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {},
+    defaultValues: {
+        name: '',
+        category: '',
+        customCategory: '',
+        location: '',
+        tablets_per_strip: undefined,
+        batches: [],
+        description_patientType: undefined,
+        description_illness: '',
+        description_minAge: undefined,
+        description_maxAge: undefined,
+        description_gender: undefined,
+    },
   });
 
   const { fields, append, remove, replace } = useFieldArray({
