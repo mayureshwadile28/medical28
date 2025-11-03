@@ -33,6 +33,21 @@ const batchSchema = z.object({
     stock_quantity: z.coerce.number().int().min(0).optional(),
 });
 
+const DEFAULT_MEDICINE_VALUES: Omit<FormData, 'id'> = {
+    name: '',
+    category: '',
+    customCategory: '',
+    location: '',
+    tablets_per_strip: 10,
+    batches: [],
+    description_patientType: undefined,
+    description_illness: '',
+    description_minAge: undefined,
+    description_maxAge: undefined,
+    description_gender: undefined,
+};
+
+
 // This is the factory function for the schema
 const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) => z.object({
   id: z.string().optional(),
@@ -97,15 +112,32 @@ const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) => 
     }
     
     // Duplicate batch number validation
+    const batchNumbersInForm = new Set<string>();
     data.batches.forEach((batch, index) => {
-        if (!batch.batchNumber) return;
+        const batchNum = batch.batchNumber.toLowerCase();
+        if (!batchNum) return;
 
+        // 1. Check for duplicates within the form itself
+        if (batchNumbersInForm.has(batchNum)) {
+            ctx.addIssue({
+                code: 'custom',
+                message: 'This batch number is duplicated in this form.',
+                path: [`batches.${index}.batchNumber`],
+            });
+        }
+        batchNumbersInForm.add(batchNum);
+        
+        // 2. Check for duplicates in the entire inventory
         for (const med of medicines) {
-            // Don't check against the medicine currently being edited
-            if (med.id === currentMedicineId) continue;
-            
             for (const existingBatch of med.batches) {
-                if (existingBatch.batchNumber.toLowerCase() === batch.batchNumber.toLowerCase()) {
+                // If we are editing, we should not compare a batch against itself.
+                // We identify a batch as "itself" if both the medicine ID and batch ID match.
+                const isSelf = med.id === currentMedicineId && existingBatch.id === batch.id;
+                if (isSelf) {
+                    continue;
+                }
+
+                if (existingBatch.batchNumber.toLowerCase() === batchNum) {
                     ctx.addIssue({
                         code: 'custom',
                         message: `Batch already exists in: ${med.name}`,
@@ -131,21 +163,6 @@ interface MedicineFormProps {
 }
 
 type FormData = z.infer<ReturnType<typeof createFormSchema>>;
-
-const DEFAULT_MEDICINE_VALUES: Omit<FormData, 'id'> = {
-    name: '',
-    category: '',
-    customCategory: '',
-    location: '',
-    tablets_per_strip: 10,
-    batches: [],
-    description_patientType: undefined,
-    description_illness: '',
-    description_minAge: undefined,
-    description_maxAge: undefined,
-    description_gender: undefined,
-};
-
 
 export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, categories, isFromOrder = false, startWithNewBatch = false, orderItem = null }: MedicineFormProps) {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(!!medicineToEdit?.description);
@@ -189,7 +206,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
     if (startWithNewBatch) {
         let newBatch: any = { id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0 };
         
-        if (orderItem) {
+        if (orderItem && medicineToEdit.category) {
             const isTabletCategory = medicineToEdit.category === 'Tablet' || medicineToEdit.category === 'Capsule';
             const qtyValue = orderItem.quantity ? parseInt(orderItem.quantity.replace(/\D/g, '')) || 0 : 0;
             
