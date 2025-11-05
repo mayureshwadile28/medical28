@@ -27,9 +27,14 @@ export class AppService {
         this.wholesalerOrders = wholesalerOrders;
     }
 
-    private async simulateLatency<T>(data?: T): Promise<T | void> {
+    private async simulateLatency<T>(data: T): Promise<T> {
       // await new Promise(resolve => setTimeout(resolve, 50));
       return data;
+    }
+    
+    private async simulateLatencyVoid(): Promise<void> {
+        // await new Promise(resolve => setTimeout(resolve, 50));
+        return;
     }
 
     // --- Medicine Management ---
@@ -56,7 +61,7 @@ export class AppService {
     async saveAllMedicines(medicines: Medicine[]): Promise<void> {
         this.medicines = medicines;
         localStorage.setItem('medicines', JSON.stringify(this.medicines));
-        return this.simulateLatency();
+        return this.simulateLatencyVoid();
     }
 
     async deleteMedicine(id: string): Promise<string> {
@@ -84,7 +89,7 @@ export class AppService {
     async deleteAllSales(): Promise<void> {
         this.sales = [];
         localStorage.setItem('sales', JSON.stringify(this.sales));
-        return this.simulateLatency();
+        return this.simulateLatencyVoid();
     }
 
     // --- Wholesaler Order Management ---
@@ -114,6 +119,6 @@ export class AppService {
     async deleteAllWholesalerOrders(): Promise<void> {
         this.wholesalerOrders = [];
         localStorage.setItem('wholesalerOrders', JSON.stringify(this.wholesalerOrders));
-        return this.simulateLatency();
+        return this.simulateLatencyVoid();
     }
 }
