@@ -232,13 +232,10 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     if (onItemProcessed) {
         await onSaveMedicine(medicine);
         onItemProcessed(medicine); // Pass the full saved medicine back
-        setIsFormOpen(false);
-        setEditingMedicine(null);
-        return;
+    } else {
+        await onSaveMedicine(medicine);
     }
   
-    await onSaveMedicine(medicine);
-
     setEditingMedicine(null);
     setIsFormOpen(false);
     if(onRestockComplete) onRestockComplete();
@@ -264,11 +261,14 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   };
   
   const handleCancelForm = () => {
+    // If the form was opened for an order, signal cancellation
+    if (onItemProcessed && (orderItemToProcess || existingMedicineToProcess)) {
+        onItemProcessed(null);
+    }
     setEditingMedicine(null);
     setIsFormOpen(false);
     setIsRestockMode(false);
     if(onRestockComplete) onRestockComplete();
-    if(onItemProcessed) onItemProcessed(null); // Send empty object to signal cancellation
   }
 
   const handleOpenChange = (open: boolean) => {

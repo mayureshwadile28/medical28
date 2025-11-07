@@ -287,13 +287,13 @@ export default function AppPage() {
   }
 
   const handleItemProcessed = async (medicine: Medicine | null) => {
-    if (!orderItemToProcess) return;
+    const processingItem = orderItemToProcess; // Capture the state at the time of the call
+    if (!processingItem) return;
     
-    const { orderId, item } = orderItemToProcess;
+    const { orderId, item } = processingItem;
 
     setOrderItemToProcess(null); // Clear the item being processed
 
-    // Only update the order if a medicine was actually saved (not cancelled).
     // The medicine object will have an ID if it's a real, saved medicine.
     if (medicine && medicine.id) {
         const orderToUpdate = wholesalerOrders.find(o => o.id === orderId);
@@ -319,16 +319,16 @@ export default function AppPage() {
 
             // Resume the merge process by dispatching an event
             setTimeout(() => {
-                const continueEvent = new CustomEvent('continue-merge', { detail: orderToUpdate });
+                const continueEvent = new CustomEvent('continue-merge', { detail: { ...orderToUpdate } });
                 window.dispatchEvent(continueEvent);
             }, 100);
         }
     } else { // User cancelled adding the new medicine
-        // Find the order and just re-trigger the merge to show the dialog again
+        // Find the order and re-trigger the merge to show the dialog again
         const orderToContinue = wholesalerOrders.find(o => o.id === orderId);
         if (orderToContinue) {
              setTimeout(() => {
-                const continueEvent = new CustomEvent('continue-merge', { detail: orderToContinue });
+                const continueEvent = new CustomEvent('continue-merge', { detail: { ...orderToContinue } });
                 window.dispatchEvent(continueEvent);
             }, 100);
         }
@@ -439,5 +439,3 @@ export default function AppPage() {
     </>
   );
 }
-
-    
