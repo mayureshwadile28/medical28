@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
 import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type UserRole, type PinSettings } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, ShoppingCart, History, ClipboardList, LayoutDashboard, Settings } from 'lucide-react';
+import { Package, ShoppingCart, History, ClipboardList, LayoutDashboard, Settings, KeyRound } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 import PosTab from '@/components/pos-tab';
@@ -17,6 +16,58 @@ import { PinDialog } from '@/components/pin-dialog';
 import { SettingsDialog } from '@/components/settings-dialog';
 import { AppService } from '@/lib/service';
 import { Button } from './ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { useToast } from '@/hooks/use-toast';
+
+function AdminAuthDialog({ open, onOpenChange, pinSettings, onVerified }: { open: boolean, onOpenChange: (open: boolean) => void, pinSettings: PinSettings | null, onVerified: () => void }) {
+    const [pin, setPin] = useState('');
+    const { toast } = useToast();
+
+    const handleVerify = () => {
+        if (!pinSettings) {
+            toast({ variant: 'destructive', title: 'Error', description: 'PINs are not set up.' });
+            return;
+        }
+        if (pin === pinSettings.adminPin) {
+            onVerified();
+            onOpenChange(false);
+        } else {
+            toast({ variant: 'destructive', title: 'Incorrect PIN', description: 'The Admin PIN is incorrect.' });
+        }
+        setPin('');
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Admin Access Required</DialogTitle>
+                    <DialogDescription>
+                        Please enter the Admin PIN to access this section.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <Label htmlFor="admin-pin-auth">Admin PIN</Label>
+                    <Input
+                        id="admin-pin-auth"
+                        type="password"
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
+                        placeholder="****"
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleVerify}><KeyRound className="mr-2 h-4 w-4" /> Verify</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 
 export default function AppPage() {
   const [service] = useState(() => new AppService());
@@ -35,6 +86,8 @@ export default function AppPage() {
   const openOrderTab = searchParams.get('open_order_tab');
 
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isAwaitingAdminPin, setIsAwaitingAdminPin] = useState(false);
+  const [pendingTab, setPendingTab] = useState('');
   
   useEffect(() => {
     service.initialize(medicines, sales, wholesalerOrders);
@@ -75,6 +128,8 @@ export default function AppPage() {
     setActiveRole(role);
     if (role === 'Staff') {
         setActiveTab('pos'); // Default staff to POS
+    } else {
+        setActiveTab('dashboard'); // Default admin to dashboard
     }
   };
 
@@ -128,7 +183,28 @@ export default function AppPage() {
       }
       
       setOrderItemToProcess(null);
-      setActiveTab('order_list');
+      // Do not force active tab change here on cancellation (medicine is null)
+      if (medicine) {
+        setActiveTab('order_list');
+      }
+    }
+  };
+
+  const handleTabChange = (tabValue: string) => {
+    const isAdminTab = ['dashboard', 'history', 'order_list'].includes(tabValue);
+    if (activeRole !== 'Admin' && isAdminTab) {
+        setPendingTab(tabValue);
+        setIsAwaitingAdminPin(true);
+    } else {
+        setActiveTab(tabValue);
+    }
+  };
+
+  const handleAdminPinVerified = () => {
+    setActiveRole('Admin');
+    if (pendingTab) {
+        setActiveTab(pendingTab);
+        setPendingTab('');
     }
   };
   
@@ -143,6 +219,14 @@ export default function AppPage() {
             setLicenseKey={setLicenseKey}
         />
       )}
+
+      <AdminAuthDialog 
+        open={isAwaitingAdminPin}
+        onOpenChange={setIsAwaitingAdminPin}
+        pinSettings={pinSettings}
+        onVerified={handleAdminPinVerified}
+      />
+
       <main className={`min-h-screen bg-background text-foreground ${!activeRole ? 'blur-sm pointer-events-none' : ''}`}>
         <div className="border-b">
           <div className="container mx-auto flex h-16 items-center px-4">
@@ -181,10 +265,10 @@ export default function AppPage() {
           </div>
         </div>
         <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <div className="flex justify-center md:justify-start">
               <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto">
-                 <TabsTrigger value="dashboard" disabled={activeRole !== 'Admin'}>
+                 <TabsTrigger value="dashboard">
                   <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
                 </TabsTrigger>
                 <TabsTrigger value="pos">
@@ -193,10 +277,10 @@ export default function AppPage() {
                 <TabsTrigger value="inventory">
                   <Package className="mr-2 h-4 w-4" /> Inventory
                 </TabsTrigger>
-                <TabsTrigger value="history" disabled={activeRole !== 'Admin'}>
+                <TabsTrigger value="history">
                   <History className="mr-2 h-4 w-4" /> History
                 </TabsTrigger>
-                <TabsTrigger value="order_list" disabled={activeRole !== 'Admin'}>
+                <TabsTrigger value="order_list">
                   <ClipboardList className="mr-2 h-4 w-4" /> Order List
                 </TabsTrigger>
               </TabsList>
