@@ -92,16 +92,17 @@ function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: Sale
             paymentSettledDate: new Date().toISOString(),
         };
 
-        await service.saveSale(updatedSale);
+        const savedSale = await service.saveSale(updatedSale);
+        if (savedSale) {
+            setSales(currentSales => currentSales.map(sale => 
+                sale.id === settlingSale.id ? savedSale : sale
+            ));
 
-        setSales(currentSales => currentSales.map(sale => 
-            sale.id === settlingSale.id ? updatedSale : sale
-        ));
-
-        toast({
-            title: "Payment Settled",
-            description: `Bill ${settlingSale.id} for ${settlingSale.customerName} has been marked as paid.`,
-        });
+            toast({
+                title: "Payment Settled",
+                description: `Bill ${settlingSale.id} for ${settlingSale.customerName} has been marked as paid.`,
+            });
+        }
 
         setSettlingSale(null);
     };
@@ -364,6 +365,8 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
     let sortedSales = [...uniqueSales].filter(s => s.paymentMode !== 'Pending');
 
     sortedSales.sort((a, b) => {
+        const subtotalA = a.items.reduce((sum, item) => sum + item.total, 0);
+        const subtotalB = b.items.reduce((sum, item) => sum + item.total, 0);
         switch (sortOption) {
             case 'date_asc':
                 return new Date(a.saleDate).getTime() - new Date(b.saleDate).getTime();
@@ -372,9 +375,9 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
             case 'name_desc':
                 return b.customerName.localeCompare(a.customerName);
             case 'amount_asc':
-                return a.totalAmount - b.totalAmount;
+                return subtotalA - subtotalB;
             case 'amount_desc':
-                return b.totalAmount - a.totalAmount;
+                return subtotalB - subtotalA;
             case 'date_desc':
             default:
                 return new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime();
@@ -559,7 +562,9 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
         </div>
         {filteredSales.length > 0 ? (
           <Accordion type="single" collapsible className="w-full">
-            {filteredSales.map(sale => (
+            {filteredSales.map(sale => {
+              const subtotal = sale.items.reduce((sum, item) => sum + item.total, 0);
+              return (
               <AccordionItem value={sale.id} key={sale.id}>
                 <AccordionTrigger>
                   <div className="flex flex-col sm:flex-row w-full items-start sm:items-center justify-between pr-4 gap-2">
@@ -587,7 +592,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                         <span className="text-muted-foreground">{new Date(sale.saleDate).toLocaleDateString(undefined, { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })}</span>
                       </ClientOnly>
                       <Badge variant={sale.paymentMode === 'Pending' ? 'destructive' : 'secondary'}>{sale.paymentMode}</Badge>
-                      <span className="font-mono text-right text-foreground">{formatToINR(sale.totalAmount)}</span>
+                      <span className="font-mono text-right text-foreground">{formatToINR(subtotal)}</span>
                     </div>
                   </div>
                 </AccordionTrigger>
@@ -624,7 +629,8 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                   </div>
                 </AccordionContent>
               </AccordionItem>
-            ))}
+              );
+            })}
           </Accordion>
         ) : (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-10 text-center">
