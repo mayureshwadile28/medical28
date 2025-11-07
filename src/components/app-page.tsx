@@ -1,204 +1,20 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
-import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem } from '@/lib/types';
+import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type UserRole, type PinSettings } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, ShoppingCart, History, KeyRound, ShieldCheck, Unlock, ClipboardList } from 'lucide-react';
+import { Package, ShoppingCart, History, ClipboardList, LayoutDashboard, Settings } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { Label } from '@/components/ui/label';
+
 import PosTab from '@/components/pos-tab';
 import InventoryTab from '@/components/inventory-tab';
 import HistoryTab from '@/components/history-tab';
 import OrderListTab from '@/components/order-list-tab';
+import DashboardTab from '@/components/dashboard-tab';
+import { PinDialog } from '@/components/pin-dialog';
+import { SettingsDialog } from '@/components/settings-dialog';
 import { AppService } from '@/lib/service';
-
-// This is the hardcoded MASTER password.
-const MASTER_PASSWORD = 'MAYURESH-VINOD-WADILE-2009';
-
-type DialogState = 'request_license' | 'request_master_password' | 'create_license';
-
-function LicenseDialog({
-  onLicenseValid,
-  onLicenseCreated,
-  hasLicenseBeenCreated,
-  storedLicenseKey, // Receive the key as a prop
-}: {
-  onLicenseValid: () => void;
-  onLicenseCreated: (newKey: string) => void;
-  hasLicenseBeenCreated: boolean;
-  storedLicenseKey: string | null;
-}) {
-  const [dialogState, setDialogState] = useState<DialogState>(
-    hasLicenseBeenCreated ? 'request_license' : 'request_master_password'
-  );
-  const [input, setInput] = useState('');
-  const [newLicenseKey, setNewLicenseKey] = useState('');
-  const { toast } = useToast();
-
-  const handleMasterPasswordSubmit = () => {
-    if (input === MASTER_PASSWORD) {
-      toast({
-        title: 'Master Password Verified!',
-        description: 'You can now create a new license key.',
-      });
-      setDialogState('create_license');
-      setInput('');
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Incorrect Master Password',
-        description: 'The password you entered is incorrect. Please try again.',
-      });
-    }
-  };
-
-  const handleCreateLicenseSubmit = () => {
-    if (newLicenseKey.trim().length < 6) {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid License Key',
-        description: 'The new license key must be at least 6 characters long.',
-      });
-      return;
-    }
-    onLicenseCreated(newLicenseKey.trim());
-    toast({
-      title: 'License Key Created!',
-      description: 'The application can now be activated with the new key.',
-    });
-    setDialogState('request_license');
-    setInput(''); // Clear the input field for the next step
-    setNewLicenseKey('');
-  };
-
-  const handleActivate = () => {
-    if (input.trim() === storedLicenseKey) {
-      toast({
-        title: 'License Activated!',
-        description: 'Thank you for activating your software.',
-      });
-      onLicenseValid();
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid License Key',
-        description: 'The key you entered is incorrect. Please try again.',
-      });
-    }
-  };
-
-  const renderContent = () => {
-    switch (dialogState) {
-      case 'request_master_password':
-        return (
-          <>
-            <DialogHeader>
-              <DialogTitle>Administrator Access</DialogTitle>
-              <DialogDescription>
-                To set up this application, please enter the master password.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid flex-1 gap-2">
-              <Label htmlFor="master-password">Master Password</Label>
-              <Input
-                id="master-password"
-                type="password"
-                placeholder="Enter your master password"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleMasterPasswordSubmit()}
-              />
-            </div>
-            <DialogFooter className="sm:justify-end">
-              <Button type="button" onClick={handleMasterPasswordSubmit}>
-                <Unlock className="mr-2 h-4 w-4" />
-                Authorize
-              </Button>
-            </DialogFooter>
-          </>
-        );
-
-      case 'create_license':
-        return (
-          <>
-            <DialogHeader>
-              <DialogTitle>Create New License Key</DialogTitle>
-              <DialogDescription>
-                Create a unique license key for this installation. The user will need this key to activate the software.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid flex-1 gap-2">
-              <Label htmlFor="new-license-key">New License Key</Label>
-              <Input
-                id="new-license-key"
-                placeholder="Enter the new license key"
-                value={newLicenseKey}
-                onChange={(e) => setNewLicenseKey(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateLicenseSubmit()}
-              />
-            </div>
-            <DialogFooter className="sm:justify-end">
-              <Button type="button" onClick={handleCreateLicenseSubmit}>
-                <ShieldCheck className="mr-2 h-4 w-4" />
-                Create and Save Key
-              </Button>
-            </DialogFooter>
-          </>
-        );
-
-      case 'request_license':
-        return (
-          <>
-            <DialogHeader>
-              <DialogTitle>Software Activation</DialogTitle>
-              <DialogDescription>
-                Please enter your license key to activate and use the application.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid flex-1 gap-2">
-              <Label htmlFor="license-key">License Key</Label>
-              <Input
-                id="license-key"
-                placeholder="Enter your license key"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleActivate()}
-              />
-            </div>
-            <DialogFooter className="flex-col sm:flex-row sm:justify-between w-full">
-              <Button
-                type="button"
-                variant="link"
-                className="p-0 h-auto"
-                onClick={() => setDialogState('request_master_password')}
-              >
-                Forgot License Key?
-              </Button>
-              <Button type="button" onClick={handleActivate}>
-                <KeyRound className="mr-2 h-4 w-4" />
-                Activate
-              </Button>
-            </DialogFooter>
-          </>
-        );
-    }
-  };
-
-  return (
-    <Dialog open={true}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} hideCloseButton>
-        {renderContent()}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 
 export default function AppPage() {
   const [service] = useState(() => new AppService());
@@ -206,20 +22,21 @@ export default function AppPage() {
   const [sales, setSales, salesLoading] = useLocalStorage<SaleRecord[]>('sales', []);
   const [wholesalerOrders, setWholesalerOrders, ordersLoading] = useLocalStorage<WholesalerOrder[]>('wholesalerOrders', []);
 
+  const [pinSettings, setPinSettings, pinsLoading] = useLocalStorage<PinSettings | null>('vicky-medical-pins', null);
   const [licenseKey, setLicenseKey, licenseLoading] = useLocalStorage<string | null>('vicky-medical-license', null);
-  const [isActivated, setIsActivated, isActivatedLoading] = useLocalStorage<boolean>('vicky-medical-activated', false);
+  const [isActivated, setIsActivated] = useState(false);
   
   const searchParams = useSearchParams();
   const router = useRouter();
   const openRestockId = searchParams.get('restock');
   const openOrderTab = searchParams.get('open_order_tab');
 
-  const [activeTab, setActiveTab] = useState('pos');
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeRole, setActiveRole] = useState<UserRole | null>(null);
   
   useEffect(() => {
     service.initialize(medicines, sales, wholesalerOrders);
   }, [service, medicines, sales, wholesalerOrders]);
-
 
   useEffect(() => {
     if (openRestockId) {
@@ -230,7 +47,7 @@ export default function AppPage() {
   useEffect(() => {
       if (openOrderTab) {
           setActiveTab('order_list');
-          router.replace('/', { scroll: false }); // Clear search param
+          router.replace('/', { scroll: false });
       }
   }, [openOrderTab, router]);
   
@@ -242,29 +59,30 @@ export default function AppPage() {
     }
   }, [orderItemToProcess]);
 
-  const isLoading = medicinesLoading || salesLoading || ordersLoading || licenseLoading || isActivatedLoading;
+  const isLoading = medicinesLoading || salesLoading || ordersLoading || licenseLoading || pinsLoading;
   
   if (isLoading) {
     return null; // Return nothing while loading to prevent flash of content
   }
-
-  const isLicensed = !!licenseKey && isActivated;
-  const hasLicenseBeenCreated = !!licenseKey;
   
   const onRestockComplete = () => {
-    // Navigating to the same path but without search params clears them
     router.push('/', { scroll: false });
   }
-
-  const handleLicenseValidation = () => {
+  
+  const handlePinSuccess = (role: UserRole) => {
+    setActiveRole(role);
     setIsActivated(true);
+    if (role === 'Staff') {
+        setActiveTab('pos'); // Default staff to POS
+    }
   };
-  
-  const handleLicenseCreation = (newKey: string) => {
-    setLicenseKey(newKey);
-    setIsActivated(false); // Make sure they have to re-activate with the new key
+
+  const handleLogout = () => {
+    setActiveRole(null);
+    setIsActivated(false);
+    setActiveTab('dashboard'); // Reset to a safe default
   }
-  
+
   const handleSaveMedicine = async (medicine: Medicine) => {
     const savedMedicine = await service.saveMedicine(medicine);
     setMedicines(prevMeds => {
@@ -287,51 +105,31 @@ export default function AppPage() {
   }
 
   const handleItemProcessed = async (medicine: Medicine | null) => {
-    const processingItem = orderItemToProcess; // Capture the state at the time of the call
-    if (!processingItem) return;
-
-    const { orderId, item } = processingItem;
-    
-    // The medicine object will have an ID if it's a real, saved medicine.
-    if (medicine && medicine.id) {
-        const orderToUpdate = await service.updateWholesalerOrderItemStatus(orderId, item.id, 'Received');
-        if (orderToUpdate) {
-            setWholesalerOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate.id ? orderToUpdate : o));
-
-            // Continue the merge process
-            const continueEvent = new CustomEvent('continue-merge', { detail: { ...orderToUpdate } });
-            window.dispatchEvent(continueEvent);
-        }
-    } else { // User cancelled adding the new medicine
-        // Find the order and re-trigger the merge to show the dialog again
-        const orderToContinue = wholesalerOrders.find(o => o.id === orderId);
-        if (orderToContinue) {
-            const continueEvent = new CustomEvent('continue-merge', { detail: { ...orderToContinue } });
-            window.dispatchEvent(continueEvent);
-        }
+    if (orderItemToProcess) {
+      const { orderId, item } = orderItemToProcess;
+      if (medicine && medicine.id) {
+          const orderToUpdate = await service.updateWholesalerOrderItemStatus(orderId, item.id, 'Received');
+          if (orderToUpdate) {
+              setWholesalerOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate.id ? orderToUpdate : o));
+          }
+      }
+      setOrderItemToProcess(null);
+      setActiveTab('order_list');
     }
-    
-    setOrderItemToProcess(null); // Clear the item being processed
-    setActiveTab('order_list');
-};
-
-  const handleStartOrderMerge = (order: WholesalerOrder) => {
-    // This is now handled by a custom event which the order list tab listens for.
-    // The dialog in the OrderListTab now controls the start of the merge.
-    // This function can be kept for legacy purposes or removed if no longer used.
   };
   
   return (
     <>
-      {!isLicensed && (
-        <LicenseDialog
-          onLicenseValid={handleLicenseValidation}
-          onLicenseCreated={handleLicenseCreation}
-          hasLicenseBeenCreated={hasLicenseBeenCreated}
-          storedLicenseKey={licenseKey}
+      {!isActivated && (
+        <PinDialog
+            onPinSuccess={handlePinSuccess}
+            pinSettings={pinSettings}
+            setPinSettings={setPinSettings}
+            licenseKey={licenseKey}
+            setLicenseKey={setLicenseKey}
         />
       )}
-      <main className={`min-h-screen bg-background text-foreground ${!isLicensed ? 'blur-sm pointer-events-none' : ''}`}>
+      <main className={`min-h-screen bg-background text-foreground ${!isActivated ? 'blur-sm pointer-events-none' : ''}`}>
         <div className="border-b">
           <div className="container mx-auto flex h-16 items-center px-4">
             <div className="flex items-center gap-3 flex-1">
@@ -352,19 +150,30 @@ export default function AppPage() {
                 </svg>
               <h1 className="text-2xl font-bold font-headline text-foreground">Vicky Medical POS</h1>
             </div>
+             <div className="flex items-center gap-2">
+                <SettingsDialog 
+                    licenseKey={licenseKey}
+                    pinSettings={pinSettings}
+                    setPinSettings={setPinSettings}
+                    disabled={activeRole !== 'Admin'}
+                />
+            </div>
           </div>
         </div>
         <div className="container mx-auto p-4 sm:p-6 lg:p-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex justify-center md:justify-start">
-              <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+              <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto">
+                 <TabsTrigger value="dashboard" disabled={activeRole !== 'Admin'}>
+                  <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+                </TabsTrigger>
                 <TabsTrigger value="pos">
                   <ShoppingCart className="mr-2 h-4 w-4" /> POS
                 </TabsTrigger>
                 <TabsTrigger value="inventory">
                   <Package className="mr-2 h-4 w-4" /> Inventory
                 </TabsTrigger>
-                <TabsTrigger value="history">
+                <TabsTrigger value="history" disabled={activeRole !== 'Admin'}>
                   <History className="mr-2 h-4 w-4" /> History
                 </TabsTrigger>
                 <TabsTrigger value="order_list">
@@ -373,6 +182,9 @@ export default function AppPage() {
               </TabsList>
             </div>
             <div className="mt-6">
+               <TabsContent value="dashboard" className="mt-0">
+                <DashboardTab sales={sales} medicines={medicines} />
+              </TabsContent>
               <TabsContent value="pos" className="mt-0">
                 <PosTab
                   medicines={medicines}
@@ -407,7 +219,6 @@ export default function AppPage() {
                   setOrders={setWholesalerOrders}
                   service={service}
                   onProcessOrderItem={setOrderItemToProcess}
-                  onStartOrderMerge={handleStartOrderMerge}
                 />
               </TabsContent>
             </div>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
@@ -28,7 +27,6 @@ interface OrderListTabProps {
     setOrders: React.Dispatch<React.SetStateAction<WholesalerOrder[]>>;
     service: AppService;
     onProcessOrderItem: (data: { orderId: string, item: any, existingMedicine?: Medicine }) => void;
-    onStartOrderMerge: (order: WholesalerOrder) => void;
 }
 
 const getDisplayQuantity = (item: Partial<OrderItem>) => {
@@ -180,8 +178,8 @@ const capitalizeWords = (str: string): string => {
     .join(' ');
 };
 
-export default function OrderListTab({ medicines, setMedicines, orders, setOrders, service, onProcessOrderItem, onStartOrderMerge }: OrderListTabProps) {
-    const [items, setItems] = useState<(Omit<OrderItem, 'id' | 'status'>)[]>([]);
+export default function OrderListTab({ medicines, setMedicines, orders, setOrders, service, onProcessOrderItem }: OrderListTabProps) {
+    const [items, setItems] = useState<Partial<OrderItem>[]>([]);
     const [itemName, setItemName] = useState('');
     const [itemCategory, setItemCategory] = useState('');
     const [customCategory, setCustomCategory] = useState('');
@@ -194,11 +192,10 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
     const { toast } = useToast();
     const itemNameInputRef = useRef<HTMLInputElement>(null);
     
-    const [pendingItem, setPendingItem] = useState<Omit<OrderItem, 'id' | 'status'> | null>(null);
+    const [pendingItem, setPendingItem] = useState<Partial<OrderItem> | null>(null);
     const [clarificationPrompt, setClarificationPrompt] = useState<{ title: string; label: string } | null>(null);
     const [unitsPerPackInput, setUnitsPerPackInput] = useState('');
     const [orderForPrint, setOrderForPrint] = useState<WholesalerOrder | null>(null);
-    const [processingOrder, setProcessingOrder] = useState<WholesalerOrder | null>(null);
     
     const [mergeOrder, setMergeOrder] = useState<WholesalerOrder | null>(null);
     const [selectedItemsToMerge, setSelectedItemsToMerge] = useState<string[]>([]);
@@ -243,23 +240,19 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
     const handleSelectiveMerge = async () => {
         if (!mergeOrder) return;
         
-        // Find the first selected item that is still pending
-        const itemToProcessId = selectedItemsToMerge.find(id => {
-            const item = mergeOrder.items.find(i => i.id === id);
-            return item && item.status === 'Pending';
-        });
+        const itemToProcessId = mergeOrder.items.find(item => 
+            selectedItemsToMerge.includes(item.id) && item.status === 'Pending'
+        )?.id;
 
         if (!itemToProcessId) {
             setMergeOrder(null);
-            toast({ title: "No New Items to Merge", description: "All selected items have already been received." });
+            toast({ title: "No New Items to Merge", description: "All selected items have already been received or none were selected." });
             return;
         }
 
         const item = mergeOrder.items.find(i => i.id === itemToProcessId)!;
         
-        // Check if medicine exists
         const existingMedicine = medicines.find(m =>
-            m && m.name && m.category && item.name && item.category &&
             m.name.toLowerCase() === item.name.toLowerCase() &&
             m.category.toLowerCase() === item.category.toLowerCase()
         );
@@ -277,20 +270,16 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         const continueMergeHandler = (event: Event) => {
              const order = (event as CustomEvent<WholesalerOrder>).detail;
              if (order) {
-                // This will re-open the merge dialog and continue the process
                 startMergeProcess(order);
              }
         };
-
         window.addEventListener('continue-merge', continueMergeHandler);
-
         return () => {
             window.removeEventListener('continue-merge', continueMergeHandler);
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [medicines, orders, service]);
 
-    const finalizeAddItem = (item: Omit<OrderItem, 'id' | 'status'>) => {
+    const finalizeAddItem = (item: Partial<OrderItem>) => {
         setItems(prevItems => [...prevItems, item]);
         setItemName('');
         setItemCategory('');
@@ -324,7 +313,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         const formattedName = capitalizeWords(itemName.trim());
         const formattedQuantity = quantity.trim().toLowerCase();
 
-        const newItem: Omit<OrderItem, 'id' | 'status'> = {
+        const newItem: Partial<OrderItem> = {
             name: formattedName,
             category: finalCategory,
             quantity: quantity.trim(),
@@ -355,7 +344,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         const isTabletOrCapsule = pendingItem.category === 'Tablet' || pendingItem.category === 'Capsule';
         const unitName = isTabletOrCapsule ? 'strips' : 'units';
 
-        const itemWithDetails: Omit<OrderItem, 'id' | 'status'> = {
+        const itemWithDetails: Partial<OrderItem> = {
             ...pendingItem,
             unitsPerPack: units,
             unitName: unitName,
@@ -434,7 +423,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
 
         const newOrder = await service.addWholesalerOrder({
             wholesalerName: wholesalerName.trim(),
-            items: items,
+            items: items as Omit<OrderItem, 'id' | 'status'>[],
         });
 
         setOrders(currentOrders => [newOrder, ...currentOrders]);
@@ -668,6 +657,3 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         </>
     );
 }
-
-
-    

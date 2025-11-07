@@ -134,3 +134,11 @@ export interface WholesalerOrder {
     status: 'Pending' | 'Partially Received' | 'Completed' | 'Cancelled';
     receivedDate?: string; // ISO date string
 }
+
+// PIN and Role Management
+export type UserRole = 'Admin' | 'Staff';
+
+export interface PinSettings {
+  adminPin: string;
+  staffPin: string;
+}

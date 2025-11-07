@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -232,9 +231,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     await onSaveMedicine(medicine);
     
     if (onItemProcessed) {
-        // Find the newly saved medicine from the main list to ensure we pass the complete object back
-        const savedMedicineFromState = medicines.find(m => m.id === medicine.id) || medicine;
-        onItemProcessed(savedMedicineFromState);
+        onItemProcessed(medicine);
     }
   
     setEditingMedicine(null);
