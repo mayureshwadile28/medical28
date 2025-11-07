@@ -191,7 +191,7 @@ export default function AppPage() {
   };
 
   const handleTabChange = (tabValue: string) => {
-    const isAdminTab = ['dashboard', 'history', 'order_list'].includes(tabValue);
+    const isAdminTab = ['dashboard'].includes(tabValue);
     if (activeRole !== 'Admin' && isAdminTab) {
         setPendingTab(tabValue);
         setIsAwaitingAdminPin(true);
