@@ -129,7 +129,9 @@ const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) => 
         
         // 2. Check for duplicates in the entire inventory
         for (const med of medicines) {
+            if (!med || !med.batches) continue;
             for (const existingBatch of med.batches) {
+                if (!existingBatch) continue;
                 // If we are editing, we should not compare a batch against itself.
                 // We identify a batch as "itself" if both the medicine ID and batch ID match.
                 const isSelf = med.id === currentMedicineId && existingBatch.id === batch.id;
@@ -303,7 +305,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
         
         let stock: Batch['stock'] = {};
         if (finalCategory === 'Tablet' || finalCategory === 'Capsule') {
-            stock.tablets = Math.round((b.stock_strips || 0) * (values.tablets_per_strip || 10));
+            stock.tablets = Math.round((b.stock_strips || 0) * (values.tablets_per_strip || 1));
         } else {
             stock.quantity = b.stock_quantity || 0;
         }
@@ -660,3 +662,5 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
     </Form>
   );
 }
+
+    
