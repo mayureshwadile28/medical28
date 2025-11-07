@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
@@ -253,6 +254,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         const item = mergeOrder.items.find(i => i.id === itemToProcessId)!;
         
         const existingMedicine = medicines.find(m =>
+            m && m.name && m.category && item.name && item.category &&
             m.name.toLowerCase() === item.name.toLowerCase() &&
             m.category.toLowerCase() === item.category.toLowerCase()
         );
@@ -656,4 +658,5 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
             </AlertDialog>
         </>
     );
-}
+
+    
