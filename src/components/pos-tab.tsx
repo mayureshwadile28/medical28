@@ -582,7 +582,9 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     };
     
     const savedSale = await service.saveSale(newSaleRecord);
-    setSales(currentSales => [...currentSales, savedSale]);
+    
+    const latestSales = await service.getSales();
+    setSales(latestSales);
     
     setCustomerName('');
     setDoctorName('');
@@ -955,3 +957,5 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     </>
   );
 }
+
+    
