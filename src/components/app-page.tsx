@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,6 +16,7 @@ import DashboardTab from '@/components/dashboard-tab';
 import { PinDialog } from '@/components/pin-dialog';
 import { SettingsDialog } from '@/components/settings-dialog';
 import { AppService } from '@/lib/service';
+import { Button } from './ui/button';
 
 export default function AppPage() {
   const [service] = useState(() => new AppService());
@@ -24,7 +26,8 @@ export default function AppPage() {
 
   const [pinSettings, setPinSettings, pinsLoading] = useLocalStorage<PinSettings | null>('vicky-medical-pins', null);
   const [licenseKey, setLicenseKey, licenseLoading] = useLocalStorage<string | null>('vicky-medical-license', null);
-  const [isActivated, setIsActivated] = useState(false);
+  
+  const [activeRole, setActiveRole] = useState<UserRole | null>(null);
   
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -32,7 +35,6 @@ export default function AppPage() {
   const openOrderTab = searchParams.get('open_order_tab');
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [activeRole, setActiveRole] = useState<UserRole | null>(null);
   
   useEffect(() => {
     service.initialize(medicines, sales, wholesalerOrders);
@@ -71,7 +73,6 @@ export default function AppPage() {
   
   const handlePinSuccess = (role: UserRole) => {
     setActiveRole(role);
-    setIsActivated(true);
     if (role === 'Staff') {
         setActiveTab('pos'); // Default staff to POS
     }
@@ -79,7 +80,6 @@ export default function AppPage() {
 
   const handleLogout = () => {
     setActiveRole(null);
-    setIsActivated(false);
     setActiveTab('dashboard'); // Reset to a safe default
   }
 
@@ -107,12 +107,26 @@ export default function AppPage() {
   const handleItemProcessed = async (medicine: Medicine | null) => {
     if (orderItemToProcess) {
       const { orderId, item } = orderItemToProcess;
+      let orderToUpdate: WholesalerOrder | null = null;
+      
       if (medicine && medicine.id) {
-          const orderToUpdate = await service.updateWholesalerOrderItemStatus(orderId, item.id, 'Received');
-          if (orderToUpdate) {
-              setWholesalerOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate.id ? orderToUpdate : o));
-          }
+          orderToUpdate = await service.updateWholesalerOrderItemStatus(orderId, item.id, 'Received');
       }
+
+      if (orderToUpdate) {
+        setWholesalerOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate!.id ? orderToUpdate! : o));
+        
+        const hasMorePending = orderToUpdate.items.some(i => i.status === 'Pending');
+        if (hasMorePending) {
+            // Re-trigger the merge process for the next item in the same order
+            // Using a timeout to allow React state to settle before dispatching a new event
+            setTimeout(() => {
+                const event = new CustomEvent('continue-merge', { detail: orderToUpdate });
+                window.dispatchEvent(event);
+            }, 100);
+        }
+      }
+      
       setOrderItemToProcess(null);
       setActiveTab('order_list');
     }
@@ -120,7 +134,7 @@ export default function AppPage() {
   
   return (
     <>
-      {!isActivated && (
+      {!activeRole && (
         <PinDialog
             onPinSuccess={handlePinSuccess}
             pinSettings={pinSettings}
@@ -129,7 +143,7 @@ export default function AppPage() {
             setLicenseKey={setLicenseKey}
         />
       )}
-      <main className={`min-h-screen bg-background text-foreground ${!isActivated ? 'blur-sm pointer-events-none' : ''}`}>
+      <main className={`min-h-screen bg-background text-foreground ${!activeRole ? 'blur-sm pointer-events-none' : ''}`}>
         <div className="border-b">
           <div className="container mx-auto flex h-16 items-center px-4">
             <div className="flex items-center gap-3 flex-1">
@@ -151,6 +165,12 @@ export default function AppPage() {
               <h1 className="text-2xl font-bold font-headline text-foreground">Vicky Medical POS</h1>
             </div>
              <div className="flex items-center gap-2">
+                <div className="text-right">
+                    <p className="font-semibold text-sm">{activeRole}</p>
+                    <Button variant="link" className="h-auto p-0 text-xs" onClick={handleLogout}>
+                        Logout
+                    </Button>
+                </div>
                 <SettingsDialog 
                     licenseKey={licenseKey}
                     pinSettings={pinSettings}
@@ -176,7 +196,7 @@ export default function AppPage() {
                 <TabsTrigger value="history" disabled={activeRole !== 'Admin'}>
                   <History className="mr-2 h-4 w-4" /> History
                 </TabsTrigger>
-                <TabsTrigger value="order_list">
+                <TabsTrigger value="order_list" disabled={activeRole !== 'Admin'}>
                   <ClipboardList className="mr-2 h-4 w-4" /> Order List
                 </TabsTrigger>
               </TabsList>

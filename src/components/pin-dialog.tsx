@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -11,7 +12,7 @@ import type { PinSettings, UserRole } from '@/lib/types';
 // This is the hardcoded MASTER password.
 const MASTER_PASSWORD = 'MAYURESH-VINOD-WADILE-2009';
 
-type DialogState = 'request_license' | 'request_master_password' | 'create_license' | 'pin_entry';
+type DialogState = 'request_license' | 'request_master_password' | 'create_license' | 'pin_entry' | 'awaiting_pin_setup';
 
 export function PinDialog({
   onPinSuccess,
@@ -22,9 +23,9 @@ export function PinDialog({
 }: {
   onPinSuccess: (role: UserRole) => void;
   pinSettings: PinSettings | null;
-  setPinSettings: (settings: PinSettings) => void;
+  setPinSettings: (settings: PinSettings | null) => void;
   licenseKey: string | null;
-  setLicenseKey: (key: string) => void;
+  setLicenseKey: (key: string | null) => void;
 }) {
   const [dialogState, setDialogState] = useState<DialogState>('pin_entry');
   const [input, setInput] = useState('');
@@ -34,14 +35,17 @@ export function PinDialog({
     if (licenseKey && pinSettings) {
       setDialogState('pin_entry');
     } else if (licenseKey && !pinSettings) {
-      // If there's a license but no PINs, admin needs to create them
-      toast({ title: 'Setup Required', description: 'Please create Admin and Staff PINs.'});
-      setDialogState('request_master_password');
+      // If there's a license but no PINs, admin needs to create them via Settings
+      toast({ title: 'Setup Required', description: 'Admin access required. Please use Settings to create your Admin and Staff PINs.'});
+      // We go to a waiting state, which effectively unlocks the app for the admin to use the settings dialog
+      setDialogState('awaiting_pin_setup');
+      // The admin is logged in implicitly to perform setup
+      onPinSuccess('Admin');
     } else {
-      // First time setup
+      // First time setup: no license, no pins
       setDialogState('request_master_password');
     }
-  }, [licenseKey, pinSettings, toast]);
+  }, [licenseKey, pinSettings]);
 
   const handleMasterPasswordSubmit = () => {
     if (input === MASTER_PASSWORD) {
@@ -69,20 +73,19 @@ export function PinDialog({
       });
       return;
     }
-    setLicenseKey(input.trim());
+    const newLicenseKey = input.trim();
+    setLicenseKey(newLicenseKey);
     toast({
       title: 'License Key Created!',
       description: 'The application is now licensed. Please set up your PINs.',
     });
-    // Don't create PINs here, let the SettingsDialog handle it
-    // Force a reload or state change to trigger useEffect to show PIN setup
-    // For simplicity, we just guide the user.
-    setDialogState('request_master_password'); // Go back to a safe state, useEffect will guide.
+    // This will trigger the useEffect to move to 'awaiting_pin_setup' state
   };
 
   const handlePinEntry = () => {
     if (!pinSettings) {
       toast({ variant: 'destructive', title: 'Setup Error', description: 'PINs have not been set up yet.' });
+      setDialogState('request_master_password');
       return;
     }
 
@@ -181,13 +184,21 @@ export function PinDialog({
           </>
         );
       
+      case 'awaiting_pin_setup':
+         // This is a transient state. The dialog will be closed by the parent, so we render null.
+         return null;
+
       default:
         return null;
     }
   };
 
+  // If the state is 'awaiting_pin_setup', the dialog's purpose is complete for the initial setup.
+  // The parent component `AppPage` will now be active, and the admin can use the Settings dialog.
+  const isDialogOpen = dialogState !== 'awaiting_pin_setup';
+
   return (
-    <Dialog open={true}>
+    <Dialog open={isDialogOpen}>
       <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} hideCloseButton>
         {renderContent()}
       </DialogContent>
