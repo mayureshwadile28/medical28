@@ -32,11 +32,12 @@ export default function ReportsTab({ sales, medicines }: { sales: SaleRecord[], 
             
             let saleCost = 0;
             sale.items.forEach(item => {
+                // If purchase price isn't available, use sale price for cost to calculate zero profit
                 saleCost += (item.purchasePricePerUnit || item.pricePerUnit) * item.quantity;
             });
             
             // Adjust sale cost for discount
-            const subtotal = sale.items.reduce((sum, item) => sum + item.total, 0);
+            const subtotal = sale.items.reduce((sum, item) => sum + (item.pricePerUnit * item.quantity), 0);
             const discountMultiplier = subtotal > 0 ? sale.totalAmount / subtotal : 1;
             
             dailyProfit[date].revenue += sale.totalAmount;
@@ -65,9 +66,13 @@ export default function ReportsTab({ sales, medicines }: { sales: SaleRecord[], 
         return { totalRevenue, totalCost, totalProfit, profitMargin };
     }, [profitData]);
 
-    const hasPurchasePriceData = useMemo(() => {
-        return sales.some(sale => sale.items.some(item => item.purchasePricePerUnit !== undefined && item.purchasePricePerUnit > 0));
-    }, [sales]);
+    const hasMissingPurchasePrice = useMemo(() => {
+        if (filteredSales.length === 0) return false;
+        // The warning should appear if any item within the filtered sales lacks a purchase price.
+        return filteredSales.some(sale => 
+            sale.items.some(item => item.purchasePricePerUnit === undefined || item.purchasePricePerUnit === 0)
+        );
+    }, [filteredSales]);
 
 
     return (
@@ -89,14 +94,14 @@ export default function ReportsTab({ sales, medicines }: { sales: SaleRecord[], 
                 </div>
             </div>
 
-            {!hasPurchasePriceData && (
+            {hasMissingPurchasePrice && (
                  <Card className="border-amber-500/50 bg-amber-500/5">
                     <CardHeader className="flex flex-row items-center gap-4">
                         <AlertTriangle className="h-8 w-8 text-amber-500" />
                         <div>
                             <CardTitle className="text-amber-700 dark:text-amber-400">Limited Profit Data</CardTitle>
                             <CardDescription className="text-amber-600 dark:text-amber-500">
-                                Profit calculations may be inaccurate because purchase prices have not been recorded for all sold items. Please update your inventory batches with purchase prices for accurate reporting.
+                                Profit calculations may be inaccurate because purchase prices have not been recorded for all sold items in this period. Please update your inventory batches with purchase prices for accurate reporting.
                             </CardDescription>
                         </div>
                     </CardHeader>
