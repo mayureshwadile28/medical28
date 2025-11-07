@@ -229,11 +229,12 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   }, [validMedicines, searchTerm, categoryFilters, sortOption]);
 
   const proceedWithSave = async (medicine: Medicine) => {
+    await onSaveMedicine(medicine);
+    
     if (onItemProcessed) {
-        await onSaveMedicine(medicine);
-        onItemProcessed(medicine); // Pass the full saved medicine back
-    } else {
-        await onSaveMedicine(medicine);
+        // Find the newly saved medicine from the main list to ensure we pass the complete object back
+        const savedMedicineFromState = medicines.find(m => m.id === medicine.id) || medicine;
+        onItemProcessed(savedMedicineFromState);
     }
   
     setEditingMedicine(null);
@@ -535,7 +536,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                   const soonestExpiry = getSoonestExpiry(med);
                   const expiry = getExpiryInfo(soonestExpiry);
                   return (
-                      <TableRow key={med.id} className={cn(expiry.isExpired && "bg-destructive/20 hover:bg-destructive/30 text-destructive-foreground", isOutOfStock(med) && "bg-muted/50")}>
+                      <TableRow key={med.id} className={cn(expiry.isExpired && "bg-destructive/10 text-destructive-foreground", isOutOfStock(med) && "bg-muted/50")}>
                           <TableCell className="font-medium">{med.name}</TableCell>
                           <TableCell className="hidden md:table-cell">{med.category}</TableCell>
                           <TableCell className="hidden lg:table-cell">{med.location}</TableCell>

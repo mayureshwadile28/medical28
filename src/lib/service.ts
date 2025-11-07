@@ -34,7 +34,6 @@ export class AppService {
     
     private async simulateLatencyVoid(): Promise<void> {
         // await new Promise(resolve => setTimeout(resolve, 50));
-        return;
     }
 
     // --- Medicine Management ---
@@ -50,7 +49,7 @@ export class AppService {
             savedMedicine = medicine;
             this.medicines = this.medicines.map(m => m.id === medicine.id ? savedMedicine : m);
         } else {
-            savedMedicine = { ...medicine, id: new Date().toISOString() };
+            savedMedicine = { ...medicine, id: new Date().toISOString() + Math.random() };
             this.medicines = [...this.medicines, savedMedicine];
         }
         
@@ -61,7 +60,7 @@ export class AppService {
     async saveAllMedicines(medicines: Medicine[]): Promise<void> {
         this.medicines = medicines;
         localStorage.setItem('medicines', JSON.stringify(this.medicines));
-        return this.simulateLatencyVoid();
+        await this.simulateLatencyVoid();
     }
 
     async deleteMedicine(id: string): Promise<string> {
@@ -89,12 +88,38 @@ export class AppService {
     async deleteAllSales(): Promise<void> {
         this.sales = [];
         localStorage.setItem('sales', JSON.stringify(this.sales));
-        return this.simulateLatencyVoid();
+        await this.simulateLatencyVoid();
     }
 
     // --- Wholesaler Order Management ---
     async getWholesalerOrders(): Promise<WholesalerOrder[]> {
         return this.simulateLatency(this.wholesalerOrders);
+    }
+    
+    async updateWholesalerOrderItemStatus(orderId: string, itemId: string, status: 'Received'): Promise<WholesalerOrder | null> {
+        const orderIndex = this.wholesalerOrders.findIndex(o => o.id === orderId);
+        if (orderIndex === -1) return null;
+
+        const order = { ...this.wholesalerOrders[orderIndex] };
+        const itemIndex = order.items.findIndex(i => i.id === itemId);
+        if (itemIndex > -1) {
+            order.items[itemIndex].status = status;
+        }
+
+        const allItemsReceived = order.items.every(i => i.status === 'Received');
+        if (allItemsReceived) {
+            order.status = 'Completed';
+        } else {
+            order.status = 'Partially Received';
+        }
+        
+        if (order.status === 'Completed' || order.status === 'Partially Received') {
+            order.receivedDate = new Date().toISOString();
+        }
+        
+        this.wholesalerOrders[orderIndex] = order;
+        localStorage.setItem('wholesalerOrders', JSON.stringify(this.wholesalerOrders));
+        return this.simulateLatency(order);
     }
 
     async saveWholesalerOrder(order: WholesalerOrder): Promise<WholesalerOrder> {
@@ -119,6 +144,6 @@ export class AppService {
     async deleteAllWholesalerOrders(): Promise<void> {
         this.wholesalerOrders = [];
         localStorage.setItem('wholesalerOrders', JSON.stringify(this.wholesalerOrders));
-        return this.simulateLatencyVoid();
+        await this.simulateLatencyVoid();
     }
 }

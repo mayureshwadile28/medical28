@@ -289,51 +289,29 @@ export default function AppPage() {
   const handleItemProcessed = async (medicine: Medicine | null) => {
     const processingItem = orderItemToProcess; // Capture the state at the time of the call
     if (!processingItem) return;
-    
+
     const { orderId, item } = processingItem;
-
-    setOrderItemToProcess(null); // Clear the item being processed
-
+    
     // The medicine object will have an ID if it's a real, saved medicine.
     if (medicine && medicine.id) {
-        const orderToUpdate = wholesalerOrders.find(o => o.id === orderId);
+        const orderToUpdate = await service.updateWholesalerOrderItemStatus(orderId, item.id, 'Received');
         if (orderToUpdate) {
-            const itemIndex = orderToUpdate.items.findIndex(i => i.id === item.id);
-            if(itemIndex > -1) {
-                orderToUpdate.items[itemIndex].status = 'Received';
-            }
-
-            const allItemsReceived = orderToUpdate.items.every(i => i.status === 'Received');
-            if (allItemsReceived) {
-                orderToUpdate.status = 'Completed';
-            } else {
-                orderToUpdate.status = 'Partially Received';
-            }
-            
-            if (orderToUpdate.status === 'Completed' || orderToUpdate.status === 'Partially Received') {
-                orderToUpdate.receivedDate = new Date().toISOString();
-            }
-
-            await service.saveWholesalerOrder(orderToUpdate);
             setWholesalerOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate.id ? orderToUpdate : o));
 
-            // Resume the merge process by dispatching an event
-            setTimeout(() => {
-                const continueEvent = new CustomEvent('continue-merge', { detail: { ...orderToUpdate } });
-                window.dispatchEvent(continueEvent);
-            }, 100);
+            // Continue the merge process
+            const continueEvent = new CustomEvent('continue-merge', { detail: { ...orderToUpdate } });
+            window.dispatchEvent(continueEvent);
         }
     } else { // User cancelled adding the new medicine
         // Find the order and re-trigger the merge to show the dialog again
         const orderToContinue = wholesalerOrders.find(o => o.id === orderId);
         if (orderToContinue) {
-             setTimeout(() => {
-                const continueEvent = new CustomEvent('continue-merge', { detail: { ...orderToContinue } });
-                window.dispatchEvent(continueEvent);
-            }, 100);
+            const continueEvent = new CustomEvent('continue-merge', { detail: { ...orderToContinue } });
+            window.dispatchEvent(continueEvent);
         }
     }
     
+    setOrderItemToProcess(null); // Clear the item being processed
     setActiveTab('order_list');
 };
 

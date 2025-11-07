@@ -1,6 +1,19 @@
 import type { Metadata, Viewport } from 'next';
 import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
+import { Inter } from 'next/font/google';
+import { cn } from '@/lib/utils';
+import { Fira_Code } from 'next/font/google';
+
+const fontSans = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+});
+
+const fontMono = Fira_Code({
+  subsets: ['latin'],
+  variable: '--font-mono',
+});
 
 export const metadata: Metadata = {
   title: 'Vicky Medical POS',
@@ -9,7 +22,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#4DB6AC', // Updated theme color
+  themeColor: '#FFFFFF',
 };
 
 export default function RootLayout({
@@ -18,13 +31,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Space+Grotesk:wght@300..700&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet" />
-      </head>
-      <body className="font-body antialiased">
+    <html lang="en" suppressHydrationWarning>
+      <body className={cn("font-sans", fontSans.variable, fontMono.variable)}>
         {children}
         <Toaster />
       </body>

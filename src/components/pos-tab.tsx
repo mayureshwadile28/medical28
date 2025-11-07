@@ -636,7 +636,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
           <CardHeader>
             <CardTitle>Create a New Bill</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <div className="flex flex-col sm:flex-row gap-2 flex-wrap items-center">
                 <Popover open={isMedicinePopoverOpen} onOpenChange={setIsMedicinePopoverOpen}>
                     <PopoverTrigger asChild>
@@ -686,7 +686,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
             </div>
 
             {selectedMedicine && (
-              <div className="flex items-center gap-2 rounded-md bg-primary/10 p-3 text-primary border border-primary/20">
+              <div className="flex items-center gap-2 rounded-md bg-primary/10 p-3 text-primary border border-primary/20 mt-4">
                 <MapPin className="h-5 w-5" />
                 <p className="text-sm font-medium">
                   <span className="font-semibold">{selectedMedicine.name}</span> &middot;{' '}
@@ -955,5 +955,3 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     </>
   );
 }
-
-    
