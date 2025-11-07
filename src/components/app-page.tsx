@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
-import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type UserRole, type PinSettings } from '@/lib/types';
+import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type UserRole, type PinSettings, type Wholesaler } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, ShoppingCart, History, ClipboardList, LayoutDashboard, Settings, KeyRound } from 'lucide-react';
+import { Package, ShoppingCart, History, ClipboardList, LayoutDashboard, Settings, KeyRound, Users, LineChart } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 import PosTab from '@/components/pos-tab';
@@ -12,6 +12,8 @@ import InventoryTab from '@/components/inventory-tab';
 import HistoryTab from '@/components/history-tab';
 import OrderListTab from '@/components/order-list-tab';
 import DashboardTab from '@/components/dashboard-tab';
+import CustomersTab from '@/components/customers-tab';
+import ReportsTab from '@/components/reports-tab';
 import { PinDialog } from '@/components/pin-dialog';
 import { SettingsDialog } from '@/components/settings-dialog';
 import { AppService } from '@/lib/service';
@@ -74,6 +76,7 @@ export default function AppPage() {
   const [medicines, setMedicines, medicinesLoading] = useLocalStorage<Medicine[]>('medicines', []);
   const [sales, setSales, salesLoading] = useLocalStorage<SaleRecord[]>('sales', []);
   const [wholesalerOrders, setWholesalerOrders, ordersLoading] = useLocalStorage<WholesalerOrder[]>('wholesalerOrders', []);
+  const [wholesalers, setWholesalers, wholesalersLoading] = useLocalStorage<Wholesaler[]>('wholesalers', []);
 
   const [pinSettings, setPinSettings, pinsLoading] = useLocalStorage<PinSettings | null>('vicky-medical-pins', null);
   const [licenseKey, setLicenseKey, licenseLoading] = useLocalStorage<string | null>('vicky-medical-license', null);
@@ -90,8 +93,13 @@ export default function AppPage() {
   const [pendingTab, setPendingTab] = useState('');
   
   useEffect(() => {
-    service.initialize(medicines, sales, wholesalerOrders);
-  }, [service, medicines, sales, wholesalerOrders]);
+    service.initialize({
+      medicines,
+      sales,
+      wholesalerOrders,
+      wholesalers,
+    });
+  }, [service, medicines, sales, wholesalerOrders, wholesalers]);
 
   useEffect(() => {
     if (openRestockId) {
@@ -114,7 +122,7 @@ export default function AppPage() {
     }
   }, [orderItemToProcess]);
 
-  const isLoading = medicinesLoading || salesLoading || ordersLoading || licenseLoading || pinsLoading;
+  const isLoading = medicinesLoading || salesLoading || ordersLoading || licenseLoading || pinsLoading || wholesalersLoading;
   
   if (isLoading) {
     return null; // Return nothing while loading to prevent flash of content
@@ -158,6 +166,16 @@ export default function AppPage() {
       await service.saveAllMedicines(allMedicines);
       setMedicines(allMedicines);
   }
+  
+  const handleSaveWholesalers = async (allWholesalers: Wholesaler[]) => {
+      await service.saveAllWholesalers(allWholesalers);
+      setWholesalers(allWholesalers);
+  }
+  
+  const handleSaveSales = async (allSales: SaleRecord[]) => {
+      await service.saveAllSales(allSales);
+      setSales(allSales);
+  }
 
   const handleItemProcessed = async (medicine: Medicine | null) => {
     if (orderItemToProcess) {
@@ -191,7 +209,8 @@ export default function AppPage() {
   };
 
   const handleTabChange = (tabValue: string) => {
-    const isAdminTab = ['dashboard'].includes(tabValue);
+    const adminOnlyTabs = ['dashboard', 'reports'];
+    const isAdminTab = adminOnlyTabs.includes(tabValue);
     if (activeRole !== 'Admin' && isAdminTab) {
         setPendingTab(tabValue);
         setIsAwaitingAdminPin(true);
@@ -267,7 +286,7 @@ export default function AppPage() {
         <div className="container mx-auto p-4 sm:p-6 lg:p-8">
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <div className="flex justify-center md:justify-start">
-              <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto">
+              <TabsList className="grid w-full grid-cols-3 md:grid-cols-7 h-auto">
                  <TabsTrigger value="dashboard">
                   <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
                 </TabsTrigger>
@@ -277,11 +296,17 @@ export default function AppPage() {
                 <TabsTrigger value="inventory">
                   <Package className="mr-2 h-4 w-4" /> Inventory
                 </TabsTrigger>
-                <TabsTrigger value="history">
-                  <History className="mr-2 h-4 w-4" /> History
+                 <TabsTrigger value="customers">
+                  <Users className="mr-2 h-4 w-4" /> Customers
                 </TabsTrigger>
                 <TabsTrigger value="order_list">
                   <ClipboardList className="mr-2 h-4 w-4" /> Order List
+                </TabsTrigger>
+                <TabsTrigger value="history">
+                  <History className="mr-2 h-4 w-4" /> History
+                </TabsTrigger>
+                <TabsTrigger value="reports">
+                  <LineChart className="mr-2 h-4 w-4" /> Reports
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -292,7 +317,6 @@ export default function AppPage() {
               <TabsContent value="pos" className="mt-0">
                 <PosTab
                   medicines={medicines}
-                  setMedicines={setMedicines}
                   sales={sales}
                   setSales={setSales}
                   service={service}
@@ -312,18 +336,25 @@ export default function AppPage() {
                   onSaveAllMedicines={handleSaveAllMedicines}
                 />
               </TabsContent>
-               <TabsContent value="history" className="mt-0">
-                <HistoryTab sales={sales} setSales={setSales} service={service} />
+              <TabsContent value="customers" className="mt-0">
+                  <CustomersTab sales={sales} />
               </TabsContent>
                <TabsContent value="order_list" className="mt-0">
                 <OrderListTab 
                   medicines={medicines}
-                  setMedicines={setMedicines}
                   orders={wholesalerOrders}
                   setOrders={setWholesalerOrders}
+                  wholesalers={wholesalers}
+                  setWholesalers={setWholesalers}
                   service={service}
                   onProcessOrderItem={setOrderItemToProcess}
                 />
+              </TabsContent>
+               <TabsContent value="history" className="mt-0">
+                <HistoryTab sales={sales} setSales={handleSaveSales} service={service} />
+              </TabsContent>
+              <TabsContent value="reports" className="mt-0">
+                  <ReportsTab sales={sales} medicines={medicines} />
               </TabsContent>
             </div>
           </Tabs>

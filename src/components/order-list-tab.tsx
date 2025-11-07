@@ -6,11 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2, Download, ClipboardList, Info, History, PackagePlus, Loader2, CheckCircle2, MapPin, X } from 'lucide-react';
+import { PlusCircle, Trash2, Download, ClipboardList, Info, History, PackagePlus, CheckCircle2, MapPin, X } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import { PrintableOrderList } from './printable-order-list';
-import { type Medicine, type OrderItem, type WholesalerOrder, isTablet, isGeneric } from '@/lib/types';
+import { type Medicine, type OrderItem, type WholesalerOrder, type Wholesaler } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
@@ -23,9 +23,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 interface OrderListTabProps {
     medicines: Medicine[];
-    setMedicines: React.Dispatch<React.SetStateAction<Medicine[]>>;
     orders: WholesalerOrder[];
     setOrders: React.Dispatch<React.SetStateAction<WholesalerOrder[]>>;
+    wholesalers: Wholesaler[];
+    setWholesalers: React.Dispatch<React.SetStateAction<Wholesaler[]>>;
     service: AppService;
     onProcessOrderItem: (data: { orderId: string, item: any, existingMedicine?: Medicine }) => void;
 }
@@ -36,6 +37,88 @@ const getDisplayQuantity = (item: Partial<OrderItem>) => {
     }
     return item.quantity;
 };
+
+function WholesalerManager({ wholesalers, setWholesalers }: { wholesalers: Wholesaler[], setWholesalers: (wholesalers: Wholesaler[]) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [name, setName] = useState('');
+    const [contact, setContact] = useState('');
+    const [gstin, setGstin] = useState('');
+    const { toast } = useToast();
+
+    const handleAddWholesaler = () => {
+        if (!name.trim()) {
+            toast({ variant: 'destructive', title: 'Name is required' });
+            return;
+        }
+        const newWholesaler: Wholesaler = {
+            id: new Date().toISOString(),
+            name: name.trim(),
+            contact: contact.trim(),
+            gstin: gstin.trim(),
+        };
+        setWholesalers([...wholesalers, newWholesaler]);
+        setName('');
+        setContact('');
+        setGstin('');
+    };
+
+    const handleRemoveWholesaler = (id: string) => {
+        setWholesalers(wholesalers.filter(w => w.id !== id));
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">Manage Wholesalers</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Wholesaler Management</DialogTitle>
+                    <DialogDescription>Add, view, or remove your suppliers.</DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                    <div className="flex gap-2 items-end">
+                        <div className="flex-1 space-y-1">
+                            <Label htmlFor="w-name">Name</Label>
+                            <Input id="w-name" value={name} onChange={e => setName(e.target.value)} />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                            <Label htmlFor="w-contact">Contact</Label>
+                            <Input id="w-contact" value={contact} onChange={e => setContact(e.target.value)} />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                            <Label htmlFor="w-gstin">GSTIN</Label>
+                            <Input id="w-gstin" value={gstin} onChange={e => setGstin(e.target.value)} />
+                        </div>
+                        <Button onClick={handleAddWholesaler}>Add</Button>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto border rounded-md">
+                        {wholesalers.length > 0 ? (
+                            <ul className="divide-y">
+                                {wholesalers.map(w => (
+                                    <li key={w.id} className="flex justify-between items-center p-2">
+                                        <div>
+                                            <p className="font-semibold">{w.name}</p>
+                                            <p className="text-xs text-muted-foreground">{w.contact} {w.gstin && `· ${w.gstin}`}</p>
+                                        </div>
+                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveWholesaler(w.id)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-center text-muted-foreground p-4">No wholesalers added yet.</p>
+                        )}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: WholesalerOrder[], onMerge: (order: WholesalerOrder) => void, onClearHistory: () => void }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -51,7 +134,7 @@ function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: Whole
     
     const getStatusBadge = (status: WholesalerOrder['status']) => {
         switch (status) {
-            case 'Completed': return <Badge variant="default">Completed</Badge>;
+            case 'Completed': return <Badge variant="default" className="bg-green-600">Completed</Badge>;
             case 'Partially Received': return <Badge variant="secondary" className="bg-amber-500 text-black">Partially Received</Badge>;
             case 'Pending': return <Badge variant="secondary">Pending</Badge>;
             case 'Cancelled': return <Badge variant="destructive">Cancelled</Badge>;
@@ -179,7 +262,7 @@ const capitalizeWords = (str: string): string => {
     .join(' ');
 };
 
-export default function OrderListTab({ medicines, setMedicines, orders, setOrders, service, onProcessOrderItem }: OrderListTabProps) {
+export default function OrderListTab({ medicines, orders, setOrders, wholesalers, setWholesalers, service, onProcessOrderItem }: OrderListTabProps) {
     const [items, setItems] = useState<Partial<OrderItem>[]>([]);
     const [itemName, setItemName] = useState('');
     const [itemCategory, setItemCategory] = useState('');
@@ -279,6 +362,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
         return () => {
             window.removeEventListener('continue-merge', continueMergeHandler);
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [medicines, orders, service]);
 
     const finalizeAddItem = (item: Partial<OrderItem>) => {
@@ -565,14 +649,23 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                             </div>
                         )}
                         {items.length > 0 && (
-                            <div className="w-full space-y-2 pt-4">
-                                <Label htmlFor="wholesaler-name">Wholesaler Name</Label>
+                             <div className="w-full space-y-2 pt-4">
+                                <Label>Wholesaler</Label>
+                                <div className="flex items-center gap-2">
+                                <Select onValueChange={setWholesalerName} value={wholesalerName}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select or type a wholesaler" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {wholesalers.map(w => <SelectItem key={w.id} value={w.name}>{w.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
                                 <Input
-                                    id="wholesaler-name"
-                                    placeholder="Enter the wholesaler's name"
+                                    placeholder="Or type a new wholesaler name"
                                     value={wholesalerName}
                                     onChange={(e) => setWholesalerName(e.target.value)}
                                 />
+                                </div>
                             </div>
                         )}
                     </div>
@@ -582,6 +675,7 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
                         <Download className="mr-2" /> Save & Download Order
                     </Button>
                     <OrderHistoryDialog orders={orders} onMerge={startMergeProcess} onClearHistory={handleClearOrderHistory} />
+                    <WholesalerManager wholesalers={wholesalers} setWholesalers={setWholesalers} />
                 </CardFooter>
             </Card>
 
@@ -660,3 +754,4 @@ export default function OrderListTab({ medicines, setMedicines, orders, setOrder
     );
 
     
+}

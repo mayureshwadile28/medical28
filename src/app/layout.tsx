@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
-import { Inter } from 'next/font/google';
+import { Inter, Fira_Code } from 'next/font/google';
 import { cn } from '@/lib/utils';
-import { Fira_Code } from 'next/font/google';
 
 const fontSans = Inter({
   subsets: ['latin'],
@@ -32,7 +31,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn("font-sans", fontSans.variable, fontMono.variable)}>
+      <body className={cn("min-h-screen bg-background font-sans antialiased", fontSans.variable, fontMono.variable)}>
         {children}
         <Toaster />
       </body>

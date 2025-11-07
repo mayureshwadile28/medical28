@@ -10,6 +10,7 @@ export interface Batch {
     stock: Stock;
     expiry: string; // ISO date string for the last day of the month
     price: number; // MRP for this batch (per strip or per unit)
+    purchasePrice?: number; // Purchase price for this batch (per strip or per unit)
 }
 
 export interface MedicineDescription {
@@ -85,6 +86,7 @@ export interface SaleItem {
   batchNumber: string;
   quantity: number | ''; // Allow empty string for controlled input, represents tablets for Tablet category
   pricePerUnit: number; // Price for the unit sold (e.g., price per tablet, price per bottle)
+  purchasePricePerUnit?: number; // Purchase price for the unit sold
   total: number;
 }
 
@@ -102,6 +104,7 @@ export interface SaleRecord {
     batchNumber: string;
     quantity: number;
     pricePerUnit: number;
+    purchasePricePerUnit?: number;
     total: number;
   }[];
   totalAmount: number;
@@ -133,6 +136,13 @@ export interface WholesalerOrder {
     items: OrderItem[];
     status: 'Pending' | 'Partially Received' | 'Completed' | 'Cancelled';
     receivedDate?: string; // ISO date string
+}
+
+export interface Wholesaler {
+    id: string;
+    name: string;
+    contact?: string;
+    gstin?: string;
 }
 
 // PIN and Role Management

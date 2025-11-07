@@ -50,9 +50,8 @@ import { Badge } from '@/components/ui/badge';
 
 interface PosTabProps {
   medicines: Medicine[];
-  setMedicines: React.Dispatch<React.SetStateAction<Medicine[]>>;
   sales: SaleRecord[];
-  setSales: React.Dispatch<React.SetStateAction<SaleRecord[]>>;
+  setSales: (sales: SaleRecord[]) => void;
   service: AppService;
 }
 
@@ -393,7 +392,7 @@ function BatchSelectorDialog({ medicine, onSelect, onCancel }: { medicine: Medic
     );
 }
 
-export default function PosTab({ medicines, setMedicines, sales, setSales, service }: PosTabProps) {
+export default function PosTab({ medicines, sales, setSales, service }: PosTabProps) {
   const [isMedicinePopoverOpen, setIsMedicinePopoverOpen] = useState(false);
   const [isDoctorPopoverOpen, setIsDoctorPopoverOpen] = useState(false);
   const [selectedMedicineId, setSelectedMedicineId] = useState('');
@@ -444,8 +443,13 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     }
     
     let pricePerUnit = batch.price;
+    let purchasePricePerUnit = batch.purchasePrice;
+
     if (isTablet(medicineToAdd)) {
         pricePerUnit = batch.price / medicineToAdd.tabletsPerStrip;
+        if (purchasePricePerUnit) {
+            purchasePricePerUnit = purchasePricePerUnit / medicineToAdd.tabletsPerStrip;
+        }
     }
 
     const newItem: SaleItem = {
@@ -455,6 +459,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
       batchNumber: batch.batchNumber,
       quantity: 1,
       pricePerUnit: pricePerUnit,
+      purchasePricePerUnit: purchasePricePerUnit,
       total: pricePerUnit,
     };
     setBillItems([...billItems, newItem]);
@@ -538,11 +543,11 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
         return;
     }
 
-    const updatedMeds = [...medicines];
+    // No need to update medicines state here, service handles it
     for (const item of billItems) {
-      const medIndex = updatedMeds.findIndex(m => m.id === item.medicineId);
+      const medIndex = medicines.findIndex(m => m.id === item.medicineId);
       if (medIndex !== -1) {
-        const med = updatedMeds[medIndex];
+        const med = medicines[medIndex];
         const batchIndex = med.batches.findIndex(b => b.batchNumber === item.batchNumber);
 
         if (batchIndex !== -1) {
@@ -558,7 +563,6 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
         await service.saveMedicine(med);
       }
     }
-    setMedicines(updatedMeds);
 
     const trimmedDoctorName = doctorName.trim();
     if (trimmedDoctorName && !doctorNames.includes(trimmedDoctorName)) {
@@ -957,5 +961,3 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, servi
     </>
   );
 }
-
-    

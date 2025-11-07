@@ -28,7 +28,8 @@ const batchSchema = z.object({
         const selectedDate = new Date(`${val}-01T00:00:00Z`);
         return selectedDate.getTime() >= firstDayOfCurrentMonth.getTime();
     }, { message: 'Expiry month cannot be in the past.' }),
-    price: z.coerce.number().positive('Price must be a positive number.'),
+    price: z.coerce.number().positive('MRP must be a positive number.'),
+    purchasePrice: z.coerce.number().min(0, 'Purchase price cannot be negative.').optional(),
     stock_strips: z.coerce.number().min(0).optional(),
     stock_quantity: z.coerce.number().int().min(0).optional(),
 });
@@ -187,7 +188,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
     if (!medicineToEdit) {
         return {
             ...baseValues,
-            batches: [{ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 }],
+            batches: [{ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, purchasePrice: 0, stock_quantity: 0, stock_strips: 0 }],
         };
     }
     
@@ -199,6 +200,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
               batchNumber: b.batchNumber,
               expiry: getFormattedExpiry(b.expiry),
               price: b.price,
+              purchasePrice: b.purchasePrice,
               stock_strips: isTabletCategory ? (b.stock.tablets || 0) / tabletsPerStrip : 0,
               stock_quantity: !isTabletCategory ? b.stock.quantity : 0,
           };
@@ -206,7 +208,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
     
     // This logic handles adding a new empty batch when restocking/merging
     if (startWithNewBatch) {
-        let newBatch: any = { id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0 };
+        let newBatch: any = { id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, purchasePrice: 0 };
         
         if (orderItem && medicineToEdit.category) {
             const isTabletCategory = medicineToEdit.category === 'Tablet' || medicineToEdit.category === 'Capsule';
@@ -250,7 +252,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
       customCategory: isCustomCategory ? medicineToEdit.category : '',
       location: medicineToEdit.location || '',
       tablets_per_strip: tabletsPerStrip,
-      batches: batches.length > 0 ? batches : [{ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 }],
+      batches: batches.length > 0 ? batches : [{ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, purchasePrice: 0, stock_quantity: 0, stock_strips: 0 }],
       description_patientType: medicineToEdit.description?.patientType,
       description_illness: medicineToEdit.description?.illness || '',
       description_minAge: medicineToEdit.description?.minAge,
@@ -315,6 +317,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
             batchNumber: b.batchNumber,
             expiry: expiryDate.toISOString(),
             price: b.price,
+            purchasePrice: b.purchasePrice,
             stock: stock,
         };
     });
@@ -432,12 +435,12 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
         <div className="space-y-4">
             <Label className="text-lg font-semibold">Batches</Label>
             {fields.map((field, index) => (
-                 <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2 p-3 border rounded-lg relative bg-muted/50">
+                 <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 p-3 border rounded-lg relative bg-muted/50">
                      <FormField
                         control={form.control}
                         name={`batches.${index}.batchNumber`}
                         render={({ field }) => (
-                            <FormItem>
+                            <FormItem className="lg:col-span-2">
                                 <FormLabel>Batch #</FormLabel>
                                 <FormControl><Input placeholder="Batch Number" {...field} /></FormControl>
                                 <FormMessage />
@@ -486,12 +489,23 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>MRP</FormLabel>
-                                <FormControl><Input type="number" step="0.01" placeholder="Price" {...field} value={field.value ?? ''} /></FormControl>
+                                <FormControl><Input type="number" step="0.01" placeholder="MRP" {...field} value={field.value ?? ''} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
                     />
-                    <div className="flex items-end">
+                     <FormField
+                        control={form.control}
+                        name={`batches.${index}.purchasePrice`}
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Purchase Price</FormLabel>
+                                <FormControl><Input type="number" step="0.01" placeholder="Cost" {...field} value={field.value ?? ''} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <div className="flex items-end self-center justify-self-center lg:absolute lg:right-1 lg:top-1/2 lg:-translate-y-1/2">
                         <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => remove(index)}>
                             <Trash2 className="h-4 w-4" />
                         </Button>
@@ -502,7 +516,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => append({ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, stock_quantity: 0, stock_strips: 0 })}
+                onClick={() => append({ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, purchasePrice: 0, stock_quantity: 0, stock_strips: 0 })}
             >
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Batch
             </Button>
@@ -662,5 +676,3 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
     </Form>
   );
 }
-
-    

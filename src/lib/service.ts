@@ -1,30 +1,39 @@
-import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem } from './types';
+import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type Wholesaler } from './types';
 
 // Helper to get all data from localStorage
 const getLocalStorageData = () => {
     if (typeof window === 'undefined') {
-        return { medicines: [], sales: [], wholesalerOrders: [] };
+        return { medicines: [], sales: [], wholesalerOrders: [], wholesalers: [] };
     }
     const medicines = JSON.parse(localStorage.getItem('medicines') || '[]');
     const sales = JSON.parse(localStorage.getItem('sales') || '[]');
     const wholesalerOrders = JSON.parse(localStorage.getItem('wholesalerOrders') || '[]');
-    return { medicines, sales, wholesalerOrders };
+    const wholesalers = JSON.parse(localStorage.getItem('wholesalers') || '[]');
+    return { medicines, sales, wholesalerOrders, wholesalers };
 };
 
+interface AppData {
+    medicines: Medicine[];
+    sales: SaleRecord[];
+    wholesalerOrders: WholesalerOrder[];
+    wholesalers: Wholesaler[];
+}
 export class AppService {
     private medicines: Medicine[] = [];
     private sales: SaleRecord[] = [];
     private wholesalerOrders: WholesalerOrder[] = [];
+    private wholesalers: Wholesaler[] = [];
 
     constructor() {
         // Data is now initialized via the initialize method to ensure it's in sync with React state
     }
     
     // This method is called from AppPage to pass the current state from useLocalStorage
-    initialize(medicines: Medicine[], sales: SaleRecord[], wholesalerOrders: WholesalerOrder[]): void {
-        this.medicines = medicines;
-        this.sales = sales;
-        this.wholesalerOrders = wholesalerOrders;
+    initialize(data: AppData): void {
+        this.medicines = data.medicines;
+        this.sales = data.sales;
+        this.wholesalerOrders = data.wholesalerOrders;
+        this.wholesalers = data.wholesalers;
     }
 
     private async simulateLatency<T>(data: T): Promise<T> {
@@ -83,6 +92,12 @@ export class AppService {
         }
         localStorage.setItem('sales', JSON.stringify(this.sales));
         return this.simulateLatency(sale);
+    }
+    
+    async saveAllSales(sales: SaleRecord[]): Promise<void> {
+        this.sales = sales;
+        localStorage.setItem('sales', JSON.stringify(this.sales));
+        await this.simulateLatencyVoid();
     }
     
     async deleteAllSales(): Promise<void> {
@@ -146,6 +161,15 @@ export class AppService {
         localStorage.setItem('wholesalerOrders', JSON.stringify(this.wholesalerOrders));
         await this.simulateLatencyVoid();
     }
-}
-
     
+    // --- Wholesaler (Supplier) Management ---
+    async getWholesalers(): Promise<Wholesaler[]> {
+        return this.simulateLatency(this.wholesalers);
+    }
+    
+    async saveAllWholesalers(wholesalers: Wholesaler[]): Promise<void> {
+        this.wholesalers = wholesalers;
+        localStorage.setItem('wholesalers', JSON.stringify(this.wholesalers));
+        await this.simulateLatencyVoid();
+    }
+}

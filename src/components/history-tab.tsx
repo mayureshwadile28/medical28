@@ -69,13 +69,13 @@ import { AppService } from '@/lib/service';
 
 interface HistoryTabProps {
   sales: SaleRecord[];
-  setSales: React.Dispatch<React.SetStateAction<SaleRecord[]>>;
+  setSales: (sales: SaleRecord[]) => void;
   service: AppService;
 }
 
 type SortOption = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'amount_desc' | 'amount_asc';
 
-function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: SaleRecord[], setSales: React.Dispatch<React.SetStateAction<SaleRecord[]>>, service: AppService }) {
+function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: SaleRecord[], setSales: (sales: SaleRecord[]) => void, service: AppService }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [settlingSale, setSettlingSale] = React.useState<SaleRecord | null>(null);
     const [settlePaymentMode, setSettlePaymentMode] = React.useState<PaymentMode>('Cash');
@@ -94,9 +94,8 @@ function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: Sale
 
         const savedSale = await service.saveSale(updatedSale);
         if (savedSale) {
-            setSales(currentSales => currentSales.map(sale => 
-                sale.id === settlingSale.id ? savedSale : sale
-            ));
+            const allSales = await service.getSales();
+            setSales(allSales);
 
             toast({
                 title: "Payment Settled",
@@ -410,11 +409,12 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
 
 
   const handleExportCSV = () => {
-    const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'PaymentMode', 'DiscountPercentage', 'TotalAmount', 'PaymentSettledDate', 'MedicineName', 'Category', 'BatchNumber', 'Quantity', 'PricePerUnit', 'ItemTotal'];
+    const headers = ['SaleID', 'CustomerName', 'DoctorName', 'SaleDate', 'PaymentMode', 'DiscountPercentage', 'TotalAmount', 'PaymentSettledDate', 'MedicineName', 'Category', 'BatchNumber', 'PurchasePricePerUnit', 'SalePricePerUnit', 'Quantity', 'ItemTotal', 'ItemProfit'];
     const csvRows = [headers.join(',')];
 
     filteredSales.forEach(sale => {
       sale.items.forEach(item => {
+        const profit = (item.pricePerUnit - (item.purchasePricePerUnit || 0)) * item.quantity;
         const row = [
           sale.id,
           `"${sale.customerName.replace(/"/g, '""')}"`,
@@ -427,9 +427,11 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
           `"${item.name.replace(/"/g, '""')}"`,
           item.category,
           item.batchNumber,
-          item.quantity,
+          item.purchasePricePerUnit || 0,
           item.pricePerUnit,
+          item.quantity,
           item.total,
+          profit
         ].join(',');
         csvRows.push(row);
       });
@@ -581,7 +583,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                             </ClientOnly>
                           )}
                            {sale.discountPercentage && sale.discountPercentage > 0 && (
-                            <Badge variant="secondary" className="bg-amber-200 text-amber-900">
+                            <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
                                 {sale.discountPercentage}% off
                             </Badge>
                           )}
