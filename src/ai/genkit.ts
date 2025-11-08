@@ -1,3 +1,5 @@
+'use server';
+
 import {genkit, type Plugin} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
 
@@ -25,7 +27,9 @@ function genkitCorsPlugin(): Plugin {
 
 export const ai = genkit({
   plugins: [
-    googleAI(),
+    googleAI({
+      apiVersion: 'v1',
+    }),
     genkitCorsPlugin,
   ],
   // Log developer-friendly errors to the console.
