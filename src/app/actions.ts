@@ -4,7 +4,6 @@ import {
   extractBatchDetailsFlow,
   type BatchDetails,
 } from '@/ai/flows/extract-batch-details-flow';
-import {run} from 'genkit';
 
 /**
  * Extracts batch details from a photo of a medicine box.
@@ -14,5 +13,5 @@ import {run} from 'genkit';
 export async function extractBatchDetailsAction(
   photo: string
 ): Promise<BatchDetails> {
-  return await run(extractBatchDetailsFlow, {photo});
+  return await extractBatchDetailsFlow({photo});
 }
