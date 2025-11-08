@@ -4,15 +4,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 type ScanMode = 'full' | 'batchOnly';
 type ScanResult<T extends ScanMode> = T extends 'full'
     ? {
-          name: string;
-          category: string;
+          name?: string;
+          category?: string;
           batchNumber?: string;
           mfg?: string;
           expiry?: string;
@@ -33,57 +33,49 @@ const monthMap: { [key: string]: string } = {
 };
 
 const parseQrCode = (decodedText: string) => {
-    // --- Name and Category Extraction ---
-    let name = 'Unknown';
-    let category = 'Other';
-    const categoryKeywords = ['Tablets', 'Tablet', 'Capsules', 'Capsule', 'Syrup', 'Ointment', 'Injection'];
-    
-    let parts = decodedText.split(',');
+    const parts = decodedText.split(',');
 
-    const compositionPartIndex = parts.findIndex(part => 
+    let name: string | undefined = undefined;
+    let category: string | undefined = undefined;
+
+    const categoryKeywords = ['Tablets', 'Tablet', 'Capsules', 'Capsule', 'Syrup', 'Ointment', 'Injection'];
+    const categoryPartIndex = parts.findIndex(part => 
         categoryKeywords.some(keyword => part.toLowerCase().includes(keyword.toLowerCase()))
     );
 
-    if (compositionPartIndex !== -1 && parts.length > compositionPartIndex + 1) {
-        name = parts[compositionPartIndex + 1].trim();
-        const compositionPart = parts[compositionPartIndex];
-        const foundCategoryKeyword = categoryKeywords.find(keyword => compositionPart.toLowerCase().includes(keyword.toLowerCase()));
+    if (categoryPartIndex !== -1) {
+        const categoryPart = parts[categoryPartIndex];
+        const foundCategoryKeyword = categoryKeywords.find(keyword => categoryPart.toLowerCase().includes(keyword.toLowerCase()));
+        
         if (foundCategoryKeyword) {
             category = foundCategoryKeyword.endsWith('s') && foundCategoryKeyword !== 'Capsules' ? foundCategoryKeyword.slice(0, -1) : foundCategoryKeyword;
             if (category === 'Capsules') category = 'Capsule';
         }
-    }
 
-    // --- Batch Number Extraction ---
-    let batchNumber: string | undefined = undefined;
-    const batchRegex = /(?:B\.\s*No\.|B\.No\.)\s*([A-Z0-9]+)/i;
-    const batchMatch = decodedText.match(batchRegex);
-    if (batchMatch && batchMatch[1]) {
-        batchNumber = batchMatch[1];
+        if (parts.length > categoryPartIndex + 1) {
+             const namePart = parts[categoryPartIndex + 1];
+             if(namePart) name = namePart.trim();
+        }
     }
     
-    // --- Manufacturing Date Extraction ---
-    let mfg: string | undefined = undefined;
-    const mfgRegex = /MFD\.\s*([A-Z]{3})\.(\d{4})/i;
+    const batchRegex = /(?:B\.\s*No\.|B\.No\.)\s*([A-Z0-9\-/]+)/i;
+    const batchMatch = decodedText.match(batchRegex);
+    const batchNumber = batchMatch ? batchMatch[1] : undefined;
+
+    const mfgRegex = /(?:Mfg\.|Mfd\.|M\.?D\.)\s*[:.]?\s*([A-Z]{3})\.?\s*(\d{4}|\d{2})/i;
     const mfgMatch = decodedText.match(mfgRegex);
-    if (mfgMatch && mfgMatch[1] && mfgMatch[2]) {
-        const month = mfgMatch[1].toUpperCase();
-        const year = mfgMatch[2];
-        if (monthMap[month]) {
-            mfg = `${year}-${monthMap[month]}`;
-        }
+    let mfg: string | undefined = undefined;
+    if (mfgMatch && monthMap[mfgMatch[1].toUpperCase()]) {
+        const year = mfgMatch[2].length === 2 ? `20${mfgMatch[2]}` : mfgMatch[2];
+        mfg = `${year}-${monthMap[mfgMatch[1].toUpperCase()]}`;
     }
 
-    // --- Expiry Date Extraction ---
-    let expiry: string | undefined = undefined;
-    const expiryRegex = /EXP\.\s*([A-Z]{3})\.(\d{4})/i;
+    const expiryRegex = /(?:Exp\.|Expiry|E\.?D\.)\s*[:.]?\s*([A-Z]{3})\.?\s*(\d{4}|\d{2})/i;
     const expiryMatch = decodedText.match(expiryRegex);
-    if (expiryMatch && expiryMatch[1] && expiryMatch[2]) {
-        const month = expiryMatch[1].toUpperCase();
-        const year = expiryMatch[2];
-        if (monthMap[month]) {
-            expiry = `${year}-${monthMap[month]}`;
-        }
+    let expiry: string | undefined = undefined;
+    if (expiryMatch && monthMap[expiryMatch[1].toUpperCase()]) {
+        const year = expiryMatch[2].length === 2 ? `20${expiryMatch[2]}` : expiryMatch[2];
+        expiry = `${year}-${monthMap[expiryMatch[1].toUpperCase()]}`;
     }
 
     return { name, category, batchNumber, mfg, expiry };
@@ -108,7 +100,6 @@ export function QrScannerDialog<T extends ScanMode = 'full'>({
                     await Html5Qrcode.getCameras();
                     setHasCameraPermission(true);
 
-                    // Ensure the container is clean before starting
                     const container = document.getElementById(scannerContainerId);
                     if(container) container.innerHTML = '';
                     
@@ -118,7 +109,7 @@ export function QrScannerDialog<T extends ScanMode = 'full'>({
                     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
                     
                     const successCallback = async (decodedText: string, decodedResult: any) => {
-                         if (scannerRef.current?.isScanning) {
+                        if (scannerRef.current?.isScanning) {
                             await scannerRef.current.stop();
                         }
                         
@@ -164,7 +155,6 @@ export function QrScannerDialog<T extends ScanMode = 'full'>({
                 });
             }
         }
-
     }, [open, onScanSuccess, toast, scanMode]);
     
      useEffect(() => {
