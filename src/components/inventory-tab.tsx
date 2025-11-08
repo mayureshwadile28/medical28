@@ -423,8 +423,8 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                 }
             });
 
-            // Extract medicine name from the third part
-            const name = parts[2]?.trim();
+            // Extract medicine name from the fourth part (Brand Name)
+            const name = parts[3]?.trim();
             const batchNumber = data['B. No.'] || data['B.No.'];
             const expiry = data['EXP.'];
 
