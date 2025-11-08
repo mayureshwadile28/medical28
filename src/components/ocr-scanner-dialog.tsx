@@ -28,6 +28,8 @@ interface OcrScannerDialogProps {
   }) => void
 }
 
+type ScanPhase = "idle" | "requesting" | "streaming" | "captured" | "processing" | "error";
+
 const monthMap: { [key: string]: string } = {
     JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06",
     JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12",
@@ -144,10 +146,18 @@ export function OcrScannerDialog({
   const [ocrProgress, setOcrProgress] = useState(0)
   const [ocrStatus, setOcrStatus] = useState("")
 
-  const startCamera = useCallback(async () => {
+  const stopCamera = useCallback(() => {
     if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
     }
+    if (videoRef.current) {
+        videoRef.current.srcObject = null;
+    }
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    stopCamera(); // Ensure any existing stream is stopped
 
     setPhase("requesting")
     try {
@@ -157,23 +167,19 @@ export function OcrScannerDialog({
       streamRef.current = stream
       if (videoRef.current) {
         videoRef.current.srcObject = stream
+        // The onloadedmetadata event is more reliable
+        videoRef.current.onloadedmetadata = () => {
+             setHasCameraPermission(true)
+             setPhase("streaming")
+        }
       }
-      setHasCameraPermission(true)
-      setPhase("streaming")
     } catch (error) {
       console.error("Error accessing camera:", error)
       setHasCameraPermission(false)
       setPhase("error")
     }
-  }, [])
+  }, [stopCamera])
 
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
-      streamRef.current = null
-    }
-    setPhase("idle")
-  }, [])
 
   useEffect(() => {
     if (open) {
@@ -181,15 +187,31 @@ export function OcrScannerDialog({
     } else {
       stopCamera()
     }
-    return () => stopCamera()
+    // Cleanup function
+    return () => {
+      stopCamera()
+    }
   }, [open, startCamera, stopCamera])
 
   const handleCapture = async () => {
-    if (!videoRef.current || !canvasRef.current) return
-    setPhase("captured")
-
+    if (!videoRef.current || !canvasRef.current || phase !== 'streaming') return;
+    
     const video = videoRef.current
     const canvas = canvasRef.current
+    
+    // Check if video dimensions are valid
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+        toast({
+            variant: "destructive",
+            title: "Camera Error",
+            description: "Could not get video dimensions. Please try again.",
+        });
+        setPhase('error');
+        return;
+    }
+
+    setPhase("captured");
+
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
     const context = canvas.getContext("2d")
@@ -197,6 +219,7 @@ export function OcrScannerDialog({
       context.drawImage(video, 0, 0, canvas.width, canvas.height)
       const dataUrl = canvas.toDataURL("image/png")
       
+      // Stop the camera stream after capture to save resources
       stopCamera();
       setPhase("processing")
       
@@ -267,14 +290,29 @@ export function OcrScannerDialog({
                 <Progress value={ocrProgress} className="w-full" />
             </div>
           )}
-           {!hasCameraPermission && phase === "error" && (
-                <Alert variant="destructive">
-                    <Zap className="h-4 w-4" />
-                    <AlertTitle>Camera Access Denied</AlertTitle>
-                    <AlertDescription>
-                        Please enable camera permissions in your browser settings to use this feature.
-                    </AlertDescription>
-                </Alert>
+           {(phase === "error") && (
+                <div className="flex flex-col items-center gap-4 p-4">
+                    {!hasCameraPermission ? (
+                        <Alert variant="destructive">
+                            <Zap className="h-4 w-4" />
+                            <AlertTitle>Camera Access Denied</AlertTitle>
+                            <AlertDescription>
+                                Please enable camera permissions in your browser settings to use this feature.
+                            </AlertDescription>
+                        </Alert>
+                    ) : (
+                         <Alert variant="destructive">
+                            <Zap className="h-4 w-4" />
+                            <AlertTitle>Camera Error</AlertTitle>
+                            <AlertDescription>
+                                The camera could not be started. Please try again.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                    <Button onClick={startCamera}>
+                        <RotateCw className="mr-2" /> Try Again
+                    </Button>
+                </div>
             )}
         </div>
         <DialogFooter>
