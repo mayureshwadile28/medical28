@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock, QrCode } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock, QrCode, Camera } from 'lucide-react';
 import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
@@ -48,6 +48,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { AppService } from '@/lib/service';
 import { QrScannerDialog } from './qr-scanner-dialog';
+import { OcrScannerDialog } from './ocr-scanner-dialog';
 
 interface InventoryTabProps {
   medicines: Medicine[];
@@ -101,7 +102,8 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   const [isImportAlertOpen, setIsImportAlertOpen] = useState(false);
   const [importMode, setImportMode] = useState<ImportMode>('merge');
   const [isRestockMode, setIsRestockMode] = useState(false);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
+  const [isOcrScannerOpen, setIsOcrScannerOpen] = useState(false);
 
 
   // State for sequential import with user prompts
@@ -412,10 +414,10 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     fileInputRef.current?.click();
   };
   
-  const handleQrScan = (data: { name: string; category: string; batchNumber?: string; mfg?: string, expiry?: string; }) => {
+  const handleScan = (data: { name?: string; category?: string; batchNumber?: string; mfg?: string, expiry?: string; }) => {
     const mockMedicine: Partial<Medicine> = {
-        name: data.name,
-        category: data.category,
+        name: data.name || '',
+        category: data.category || '',
         location: '',
         batches: [{
             id: new Date().toISOString() + Math.random(),
@@ -430,8 +432,9 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
 
     setEditingMedicine(mockMedicine as Medicine);
     setIsFormOpen(true);
-    setIsScannerOpen(false);
-    toast({ title: "QR Code Scanned", description: "Please review the extracted information and add stock." });
+    setIsQrScannerOpen(false);
+    setIsOcrScannerOpen(false);
+    toast({ title: "Scan Complete", description: "Please review the extracted information and add remaining details." });
   };
 
   
@@ -443,11 +446,19 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
            <CardTitle>Inventory ({validMedicines.length} items)</CardTitle>
           <div className="flex flex-col sm:flex-row gap-2">
             <QrScannerDialog 
-                open={isScannerOpen}
-                onOpenChange={setIsScannerOpen}
-                onScanSuccess={handleQrScan}
+                open={isQrScannerOpen}
+                onOpenChange={setIsQrScannerOpen}
+                onScanSuccess={handleScan}
             />
-            <Button onClick={() => setIsScannerOpen(true)}>
+            <OcrScannerDialog
+                open={isOcrScannerOpen}
+                onOpenChange={setIsOcrScannerOpen}
+                onScanSuccess={handleScan}
+            />
+            <Button onClick={() => setIsOcrScannerOpen(true)}>
+                <Camera className="mr-2 h-4 w-4" /> Scan from Image
+            </Button>
+            <Button onClick={() => setIsQrScannerOpen(true)}>
                 <QrCode className="mr-2 h-4 w-4" /> Scan from QR
             </Button>
             <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>

@@ -17,6 +17,8 @@ import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { QrScannerDialog } from './qr-scanner-dialog';
+import { OcrScannerDialog } from './ocr-scanner-dialog';
+
 
 const batchSchema = z.object({
     id: z.string(),
@@ -180,7 +182,8 @@ const getFormattedDate = (dateStr?: string) => {
 
 export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, categories, isFromOrder = false, startWithNewBatch = false, orderItem = null }: MedicineFormProps) {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(!!medicineToEdit?.description);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
+  const [isOcrScannerOpen, setIsOcrScannerOpen] = useState(false);
   const [scanningBatchIndex, setScanningBatchIndex] = useState<number | null>(null);
 
 
@@ -365,22 +368,39 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
                 form.setValue(`batches.${scanningBatchIndex}.expiry`, data.expiry);
             }
         }
-        setIsScannerOpen(false);
+        setIsQrScannerOpen(false);
+        setIsOcrScannerOpen(false);
         setScanningBatchIndex(null);
     };
 
-    const openScannerForBatch = (index: number) => {
+    const openQrScannerForBatch = (index: number) => {
         setScanningBatchIndex(index);
-        setIsScannerOpen(true);
+        setIsQrScannerOpen(true);
+    };
+    
+    const openOcrScannerForBatch = (index: number) => {
+        setScanningBatchIndex(index);
+        setIsOcrScannerOpen(true);
     };
 
   return (
     <>
     <QrScannerDialog
-        open={isScannerOpen}
+        open={isQrScannerOpen}
         onOpenChange={(open) => {
             if (!open) {
-                setIsScannerOpen(false);
+                setIsQrScannerOpen(false);
+                setScanningBatchIndex(null);
+            }
+        }}
+        onScanSuccess={handleScanSuccess}
+        scanMode="batchOnly"
+    />
+    <OcrScannerDialog
+        open={isOcrScannerOpen}
+        onOpenChange={(open) => {
+            if (!open) {
+                setIsOcrScannerOpen(false);
                 setScanningBatchIndex(null);
             }
         }}
@@ -483,7 +503,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
                                     <FormControl>
                                       <Input placeholder="Batch Number" {...batchField} />
                                     </FormControl>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => openScannerForBatch(index)}>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => openQrScannerForBatch(index)}>
                                         <QrCode className="h-5 w-5"/>
                                     </Button>
                                 </div>
