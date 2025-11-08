@@ -32,10 +32,10 @@ export function QrScannerDialog({ open, onOpenChange, onScanSuccess }: QrScanner
                     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
                     
                     const successCallback = (decodedText: string, decodedResult: any) => {
-                        onScanSuccess(decodedText);
                         if (scannerRef.current?.isScanning) {
                             scannerRef.current.stop().catch(err => console.error("Failed to stop scanner", err));
                         }
+                        onScanSuccess(decodedText);
                     };
 
                     const errorCallback = (errorMessage: string) => {
