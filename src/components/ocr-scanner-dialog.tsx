@@ -28,8 +28,6 @@ interface OcrScannerDialogProps {
   }) => void
 }
 
-type ScanPhase = "idle" | "requesting" | "streaming" | "captured" | "processing" | "error"
-
 const monthMap: { [key: string]: string } = {
     JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06",
     JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12",
@@ -47,11 +45,16 @@ const parseDate = (text: string): string | undefined => {
             return `${year}-${month}`;
         }
     }
+     // Format: MM/YYYY
+    const slashMatch = text.match(/(\d{2})\/(\d{4})/);
+    if (slashMatch) {
+        return `${slashMatch[2]}-${slashMatch[1]}`;
+    }
     return undefined;
 };
 
 const parseOcrText = (text: string) => {
-    const lines = text.split('\n').filter(line => line.trim() !== '');
+    const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
     let result: {
         batchNumber?: string;
         mfgDate?: string;
@@ -61,63 +64,67 @@ const parseOcrText = (text: string) => {
 
     lines.forEach((line, index) => {
         const lowerLine = line.toLowerCase();
+        
+        // --- Keyword-based extraction ---
 
         // Batch Number
-        if (lowerLine.includes('batch no')) {
-            const nextLine = lines[index + 1];
-            if (nextLine && !nextLine.toLowerCase().includes('date')) {
-                 result.batchNumber = nextLine.split(/[:\s]/).pop()?.trim().toUpperCase();
-            } else {
-                 result.batchNumber = line.split(/[:\s]/).pop()?.trim().toUpperCase();
-            }
-        } else if (!result.batchNumber && /^[A-Z0-9]{8,}$/.test(line.trim())) {
-             if(!/M\/\d{3}\/\d{4}/.test(line.trim())) { // Avoid matching M.L.
-                result.batchNumber = line.trim();
-            }
+        if (lowerLine.includes('batch no') || lowerLine.includes('b. no')) {
+            const value = line.split(/[:.]/).pop()?.trim().toUpperCase();
+            if (value && value.length > 2) result.batchNumber = value;
+            else if (lines[index + 1]) result.batchNumber = lines[index + 1].toUpperCase();
         }
 
-        // Dates
-        if (lowerLine.includes('mfg. date') || lowerLine.includes('mfg date')) {
-            result.mfgDate = parseDate(line.split(/[:]/).pop() || lines[index+1]);
+        // Dates (MFG and EXP)
+        if (lowerLine.includes('mfg')) {
+            const dateStr = line.split(/[:.]/).pop() || lines[index + 1];
+            if (!result.mfgDate) result.mfgDate = parseDate(dateStr);
+        }
+        if (lowerLine.includes('exp')) {
+            const dateStr = line.split(/[:.]/).pop() || lines[index + 1];
+            if (!result.expiryDate) result.expiryDate = parseDate(dateStr);
         }
         
-        if (lowerLine.includes('expiry date') || lowerLine.includes('exp. date') || lowerLine.includes('exp date')) {
-            result.expiryDate = parseDate(line.split(/[:]/).pop() || lines[index+1]);
-        }
-
-        // Fallback for dates if they are on separate lines
-        const dateMatch = parseDate(line);
-        if(dateMatch) {
-            const date = new Date(dateMatch);
-            // Heuristic: Mfg date is usually in the past, expiry in the future
-            if (date < new Date()) {
-                if (!result.mfgDate) result.mfgDate = dateMatch;
-            } else {
-                if (!result.expiryDate) result.expiryDate = dateMatch;
-            }
-        }
-
-        // Price
-        if (lowerLine.includes('price') || lowerLine.includes('m.r.p')) {
-            const priceMatch = line.match(/(\d+\.\d{2})/);
+        // Price / MRP
+        if (lowerLine.includes('m.r.p') || lowerLine.includes('mrp')) {
+            const priceMatch = line.match(/(\d[\d,.]*\d)/);
             if (priceMatch) {
-                result.price = parseFloat(priceMatch[1]);
+                result.price = parseFloat(priceMatch[1].replace(/,/g, ''));
             }
         }
     });
 
-    // Special handling for the example image format
-    const potentialBatch = lines.find(l => /^[A-Z0-9]{10,}/.test(l));
-    if (potentialBatch && !result.batchNumber) result.batchNumber = potentialBatch;
+    // --- Positional fallbacks (if keywords failed) ---
 
-    const potentialMfg = lines.find(l => /[A-Z]{3}\.\d{4}/.test(l));
-    const potentialExp = lines.find(l => /[A-Z]{3}\.\d{4}.*/.test(l) && l !== potentialMfg);
-     if (potentialMfg && !result.mfgDate) result.mfgDate = parseDate(potentialMfg);
-    if (potentialExp && !result.expiryDate) result.expiryDate = parseDate(potentialExp);
+    // 1. Find Batch Number (usually alphanumeric, 5+ chars)
+    if (!result.batchNumber) {
+        const potentialBatch = lines.find(l => /^[A-Z0-9]{5,}[A-Z0-9]*$/.test(l) && !/\d{4}/.test(l) && !/price/i.test(l));
+        if (potentialBatch) result.batchNumber = potentialBatch;
+    }
     
-    const potentialPrice = lines.find(l => /^\d+\.\d{2}$/.test(l));
-    if(potentialPrice && !result.price) result.price = parseFloat(potentialPrice);
+    // 2. Find Dates
+    const potentialDates = lines.map(parseDate).filter((d): d is string => !!d);
+    if (potentialDates.length >= 2) {
+        const sortedDates = potentialDates.sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
+        if (!result.mfgDate) result.mfgDate = sortedDates[0];
+        if (!result.expiryDate) result.expiryDate = sortedDates[1];
+    } else if (potentialDates.length === 1) {
+        // Guess based on whether it's past or future
+        if (new Date(potentialDates[0]) < new Date()) {
+             if (!result.mfgDate) result.mfgDate = potentialDates[0];
+        } else {
+             if (!result.expiryDate) result.expiryDate = potentialDates[0];
+        }
+    }
 
+    // 3. Find Price (looks for a number with decimals at the end)
+    if (!result.price) {
+        const potentialPriceLine = lines.find(l => /(?:₹|\bRs\b|\bINR\b)?[.\s]*(\d+\.\d{2})/.test(l));
+        if (potentialPriceLine) {
+            const priceMatch = potentialPriceLine.match(/(\d+\.\d{2})/);
+            if (priceMatch) result.price = parseFloat(priceMatch[1]);
+        }
+    }
+    
     return result;
 };
 
