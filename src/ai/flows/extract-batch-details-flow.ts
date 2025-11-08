@@ -45,7 +45,7 @@ export async function extractBatchDetails(
 
 const prompt = ai.definePrompt({
   name: 'extractBatchDetailsPrompt',
-  model: 'googleai/gemini-1.5-pro-latest',
+  model: 'gemini-1.5-pro-latest',
   input: { schema: ExtractBatchDetailsInputSchema },
   output: { schema: ExtractBatchDetailsOutputSchema },
   prompt: `You are a specialized text extraction tool for pharmaceutical products.
