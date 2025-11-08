@@ -1,4 +1,3 @@
-'use server';
 import { genkit, type GenkitErrorCode } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 
