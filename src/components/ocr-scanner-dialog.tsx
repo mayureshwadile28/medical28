@@ -169,8 +169,6 @@ export function OcrScannerDialog({
       context.drawImage(video, 0, 0, canvas.width, canvas.height)
       const dataUrl = canvas.toDataURL("image/png")
       
-      // Stop the camera stream after capture to save resources
-      stopCamera();
       setPhase("processing")
       
       try {
