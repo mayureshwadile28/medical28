@@ -1,3 +1,4 @@
+
 'use client';
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -5,7 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { type Medicine, type SaleRecord, isTablet } from '@/lib/types';
 import { formatToINR } from '@/lib/currency';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { IndianRupee, Pill, Package, Activity, ShoppingBag } from 'lucide-react';
+import { IndianRupee, Pill, Package, Activity, ShoppingBag, CalendarCheck2 } from 'lucide-react';
 import { subDays, format, startOfDay } from 'date-fns';
 
 type Period = '7' | '30' | '90';
@@ -27,18 +28,24 @@ export default function DashboardTab({ sales, medicines }: { sales: SaleRecord[]
     const [period, setPeriod] = useState<Period>('30');
     const periodDays = parseInt(period, 10);
     const now = new Date();
-    const startDate = subDays(startOfDay(now), periodDays -1);
+    const todayStart = startOfDay(now);
+    const startDate = subDays(todayStart, periodDays -1);
 
     const periodSales = useMemo(() => {
         return sales.filter(s => new Date(s.saleDate) >= startDate && s.paymentMode !== 'Pending');
     }, [sales, startDate]);
 
+    const todaySales = useMemo(() => {
+        return sales.filter(s => new Date(s.saleDate) >= todayStart && s.paymentMode !== 'Pending');
+    }, [sales, todayStart]);
+
     const stats = useMemo(() => {
         const totalRevenue = periodSales.reduce((acc, s) => acc + s.totalAmount, 0);
-        const totalSales = periodSales.length;
-        const avgSaleValue = totalSales > 0 ? totalRevenue / totalSales : 0;
-        return { totalRevenue, totalSales, avgSaleValue };
-    }, [periodSales]);
+        const totalSalesInPeriod = periodSales.length;
+        const avgSaleValue = totalSalesInPeriod > 0 ? totalRevenue / totalSalesInPeriod : 0;
+        const totalSalesToday = todaySales.length;
+        return { totalRevenue, totalSalesInPeriod, avgSaleValue, totalSalesToday };
+    }, [periodSales, todaySales]);
 
     const dailySalesChartData = useMemo(() => {
         const dailyData: { [key: string]: number } = {};
@@ -120,7 +127,7 @@ export default function DashboardTab({ sales, medicines }: { sales: SaleRecord[]
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -137,8 +144,18 @@ export default function DashboardTab({ sales, medicines }: { sales: SaleRecord[]
                         <ShoppingBag className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">+{stats.totalSales}</div>
-                        <p className="text-xs text-muted-foreground">bills generated</p>
+                        <div className="text-2xl font-bold">+{stats.totalSalesInPeriod}</div>
+                        <p className="text-xs text-muted-foreground">bills in the last {periodDays} days</p>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Today's Sales</CardTitle>
+                        <CalendarCheck2 className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">+{stats.totalSalesToday}</div>
+                        <p className="text-xs text-muted-foreground">bills generated today</p>
                     </CardContent>
                 </Card>
                 <Card>

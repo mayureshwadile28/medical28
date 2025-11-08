@@ -50,7 +50,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -351,7 +351,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
   const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(undefined);
+  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(startOfDay(new Date()));
   const [sortOption, setSortOption] = React.useState<SortOption>('date_desc');
 
   const uniqueSales = React.useMemo(() => {
