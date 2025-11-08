@@ -19,12 +19,16 @@ const corsPlugin: Plugin = {
   },
 };
 
+function genkitCorsPlugin(): Plugin {
+  return corsPlugin;
+}
+
 export const ai = genkit({
   plugins: [
     googleAI({
       apiVersion: 'v1beta',
     }),
-    corsPlugin,
+    genkitCorsPlugin(),
   ],
   // Log developer-friendly errors to the console.
   devLogger: 'genkit',
