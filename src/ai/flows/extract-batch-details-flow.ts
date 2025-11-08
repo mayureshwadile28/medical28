@@ -9,6 +9,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const ExtractBatchDetailsInputSchema = z.object({
   imageDataUri: z
@@ -44,6 +45,7 @@ export async function extractBatchDetails(
 
 const prompt = ai.definePrompt({
   name: 'extractBatchDetailsPrompt',
+  model: googleAI('gemini-1.5-flash-latest'),
   input: { schema: ExtractBatchDetailsInputSchema },
   output: { schema: ExtractBatchDetailsOutputSchema },
   prompt: `You are a specialized text extraction tool for pharmaceutical products.
