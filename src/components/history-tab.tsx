@@ -395,9 +395,10 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
   }, [uniqueSales, searchTerm, selectedDate, sortOption]);
 
   const dailySummary = React.useMemo(() => {
-    if (!selectedDate) return null;
+    if (!selectedDate || filteredSales.length === 0) return null;
     
-    const summarySales = uniqueSales.filter(sale => new Date(sale.saleDate).toDateString() === selectedDate.toDateString() && sale.paymentMode !== 'Pending');
+    // Use the already filtered sales for the summary
+    const summarySales = filteredSales.filter(sale => new Date(sale.saleDate).toDateString() === selectedDate.toDateString());
     
     if(summarySales.length === 0) return null;
 
@@ -405,7 +406,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
     const totalAmount = summarySales.reduce((acc, sale) => acc + sale.totalAmount, 0);
 
     return { totalEntries, totalAmount };
-  }, [uniqueSales, selectedDate]);
+  }, [filteredSales, selectedDate]);
 
 
   const handleExportCSV = () => {
@@ -594,7 +595,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                         <span className="text-muted-foreground">{new Date(sale.saleDate).toLocaleDateString(undefined, { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })}</span>
                       </ClientOnly>
                       <Badge variant={sale.paymentMode === 'Pending' ? 'destructive' : 'secondary'}>{sale.paymentMode}</Badge>
-                      <span className="font-mono text-right text-foreground">{formatToINR(subtotal)}</span>
+                      <span className="font-mono text-right text-foreground">{formatToINR(sale.totalAmount)}</span>
                     </div>
                   </div>
                 </AccordionTrigger>
