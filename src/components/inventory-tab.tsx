@@ -412,7 +412,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     fileInputRef.current?.click();
   };
   
-  const handleQrScan = (data: { name: string; category: string; batchNumber?: string; expiry?: string; }) => {
+  const handleQrScan = (data: { name: string; category: string; batchNumber?: string; mfg?: string, expiry?: string; }) => {
     const mockMedicine: Partial<Medicine> = {
         name: data.name,
         category: data.category,
@@ -420,6 +420,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
         batches: [{
             id: new Date().toISOString() + Math.random(),
             batchNumber: data.batchNumber || '',
+            mfg: data.mfg || '',
             expiry: data.expiry || '',
             price: 0,
             purchasePrice: 0,

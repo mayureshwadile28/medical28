@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -13,9 +14,10 @@ type ScanResult<T extends ScanMode> = T extends 'full'
           name: string;
           category: string;
           batchNumber?: string;
+          mfg?: string;
           expiry?: string;
       }
-    : { batchNumber?: string, expiry?: string };
+    : { batchNumber?: string, mfg?: string, expiry?: string };
 
 
 interface QrScannerDialogProps<T extends ScanMode> {
@@ -25,30 +27,30 @@ interface QrScannerDialogProps<T extends ScanMode> {
     scanMode?: T;
 }
 
+const monthMap: { [key: string]: string } = {
+    JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06',
+    JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12'
+};
+
 const parseQrCode = (decodedText: string) => {
-    const parts = decodedText.split(',');
-    
     // --- Name and Category Extraction ---
     let name = 'Unknown';
-    let category = 'Other'; // Default category
+    let category = 'Other';
     const categoryKeywords = ['Tablets', 'Tablet', 'Capsules', 'Capsule', 'Syrup', 'Ointment', 'Injection'];
     
-    // Find the keyword that indicates a category
-    const categoryPartIndex = parts.findIndex(part => 
-        categoryKeywords.some(keyword => part.toLowerCase().endsWith(keyword.toLowerCase()))
+    let parts = decodedText.split(',');
+
+    const compositionPartIndex = parts.findIndex(part => 
+        categoryKeywords.some(keyword => part.toLowerCase().includes(keyword.toLowerCase()))
     );
 
-    if (categoryPartIndex !== -1 && parts.length > categoryPartIndex + 1) {
-        // The name is the part immediately following the category part
-        name = parts[categoryPartIndex + 1].trim();
-        
-        // Find which keyword was in the category part
-        const compositionPart = parts[categoryPartIndex];
+    if (compositionPartIndex !== -1 && parts.length > compositionPartIndex + 1) {
+        name = parts[compositionPartIndex + 1].trim();
+        const compositionPart = parts[compositionPartIndex];
         const foundCategoryKeyword = categoryKeywords.find(keyword => compositionPart.toLowerCase().includes(keyword.toLowerCase()));
-        
         if (foundCategoryKeyword) {
-            // Standardize the category name (e.g., "Tablets" -> "Tablet")
-            category = foundCategoryKeyword.endsWith('s') ? foundCategoryKeyword.slice(0, -1) : foundCategoryKeyword;
+            category = foundCategoryKeyword.endsWith('s') && foundCategoryKeyword !== 'Capsules' ? foundCategoryKeyword.slice(0, -1) : foundCategoryKeyword;
+            if (category === 'Capsules') category = 'Capsule';
         }
     }
 
@@ -59,16 +61,24 @@ const parseQrCode = (decodedText: string) => {
     if (batchMatch && batchMatch[1]) {
         batchNumber = batchMatch[1];
     }
+    
+    // --- Manufacturing Date Extraction ---
+    let mfg: string | undefined = undefined;
+    const mfgRegex = /MFD\.\s*([A-Z]{3})\.(\d{4})/i;
+    const mfgMatch = decodedText.match(mfgRegex);
+    if (mfgMatch && mfgMatch[1] && mfgMatch[2]) {
+        const month = mfgMatch[1].toUpperCase();
+        const year = mfgMatch[2];
+        if (monthMap[month]) {
+            mfg = `${year}-${monthMap[month]}`;
+        }
+    }
 
     // --- Expiry Date Extraction ---
     let expiry: string | undefined = undefined;
     const expiryRegex = /EXP\.\s*([A-Z]{3})\.(\d{4})/i;
     const expiryMatch = decodedText.match(expiryRegex);
     if (expiryMatch && expiryMatch[1] && expiryMatch[2]) {
-        const monthMap: { [key: string]: string } = {
-            JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06',
-            JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12'
-        };
         const month = expiryMatch[1].toUpperCase();
         const year = expiryMatch[2];
         if (monthMap[month]) {
@@ -76,7 +86,7 @@ const parseQrCode = (decodedText: string) => {
         }
     }
 
-    return { name, category, batchNumber, expiry };
+    return { name, category, batchNumber, mfg, expiry };
 };
 
 
@@ -98,24 +108,24 @@ export function QrScannerDialog<T extends ScanMode = 'full'>({
                     await Html5Qrcode.getCameras();
                     setHasCameraPermission(true);
 
+                    // Ensure the container is clean before starting
+                    const container = document.getElementById(scannerContainerId);
+                    if(container) container.innerHTML = '';
+                    
                     const html5QrCode = new Html5Qrcode(scannerContainerId);
                     scannerRef.current = html5QrCode;
 
                     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
                     
                     const successCallback = async (decodedText: string, decodedResult: any) => {
-                        if (scannerRef.current?.isScanning) {
-                            try {
-                                await scannerRef.current.stop();
-                            } catch (err) {
-                                console.error("Failed to stop scanner", err);
-                            }
+                         if (scannerRef.current?.isScanning) {
+                            await scannerRef.current.stop();
                         }
-
+                        
                         const parsedData = parseQrCode(decodedText);
                         
                         if (scanMode === 'batchOnly') {
-                            onScanSuccess({ batchNumber: parsedData.batchNumber, expiry: parsedData.expiry } as ScanResult<T>);
+                            onScanSuccess({ batchNumber: parsedData.batchNumber, mfg: parsedData.mfg, expiry: parsedData.expiry } as ScanResult<T>);
                         } else {
                             onScanSuccess(parsedData as ScanResult<T>);
                         }
@@ -144,27 +154,25 @@ export function QrScannerDialog<T extends ScanMode = 'full'>({
                 }
             };
             
-            const timer = setTimeout(startScanner, 300);
+            const timer = setTimeout(startScanner, 100);
             return () => clearTimeout(timer);
 
         } else {
              if (scannerRef.current && scannerRef.current.isScanning) {
                 scannerRef.current.stop().catch(err => {
-                    console.error("Error stopping the scanner on dialog close:", err);
+                    // This error can happen if the scanner is already stopped, so we can ignore it.
                 });
             }
         }
 
     }, [open, onScanSuccess, toast, scanMode]);
-
-    useEffect(() => {
+    
+     useEffect(() => {
         return () => {
-             if (scannerRef.current) {
-                if (scannerRef.current.isScanning) {
-                     scannerRef.current.stop().catch(err => {
-                        console.error("Error stopping the scanner on cleanup:", err);
-                    });
-                }
+             if (scannerRef.current && scannerRef.current.isScanning) {
+                scannerRef.current.stop().catch(err => {
+                    // This error can happen if the scanner is already stopped, so we can ignore it on cleanup.
+                });
             }
         }
     }, []);
@@ -179,7 +187,7 @@ export function QrScannerDialog<T extends ScanMode = 'full'>({
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
-                    <div id={scannerContainerId} className="w-full border rounded-lg overflow-hidden"></div>
+                    <div id={scannerContainerId} className="w-full border rounded-lg overflow-hidden aspect-square"></div>
                     {hasCameraPermission === false && (
                          <Alert variant="destructive" className="mt-4">
                             <AlertTitle>Camera Access Denied</AlertTitle>

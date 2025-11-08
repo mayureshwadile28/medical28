@@ -21,25 +21,18 @@ import { QrScannerDialog } from './qr-scanner-dialog';
 const batchSchema = z.object({
     id: z.string(),
     batchNumber: z.string().min(1, 'Batch number is required.'),
-    expiry: z.string().refine((val) => {
-        if (!val) return false;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const firstDayOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        try {
-            // Ensure val is in YYYY-MM format before creating a date
-            if (!/^\d{4}-\d{2}$/.test(val)) return false;
-            const selectedDate = new Date(`${val}-01T00:00:00Z`);
-            return selectedDate.getTime() >= firstDayOfCurrentMonth.getTime();
-        } catch {
-            return false;
-        }
-    }, { message: 'Expiry month cannot be in the past.' }),
+    mfg: z.string().refine(val => /^\d{4}-\d{2}$/.test(val), { message: 'MFG date is required.' }),
+    expiry: z.string().refine(val => /^\d{4}-\d{2}$/.test(val), { message: 'Expiry date is required.' }),
     price: z.coerce.number().positive('MRP must be a positive number.'),
     purchasePrice: z.coerce.number().min(0, 'Purchase price cannot be negative.').optional(),
     stock_strips: z.coerce.number().min(0).optional(),
     stock_quantity: z.coerce.number().int().min(0).optional(),
-});
+}).refine(data => {
+    if (data.mfg && data.expiry) {
+        return new Date(data.expiry) > new Date(data.mfg);
+    }
+    return true;
+}, { message: 'Expiry must be after manufacturing date.', path: ['expiry'] });
 
 const DEFAULT_MEDICINE_VALUES: Omit<FormData, 'id'> = {
     name: '',
@@ -174,6 +167,17 @@ interface MedicineFormProps {
 
 type FormData = z.infer<ReturnType<typeof createFormSchema>>;
 
+const getFormattedDate = (dateStr?: string) => {
+    if (!dateStr) return '';
+    try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return '';
+        return date.toISOString().substring(0, 7);
+    } catch(e) {
+        return '';
+    }
+};
+
 export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, categories, isFromOrder = false, startWithNewBatch = false, orderItem = null }: MedicineFormProps) {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(!!medicineToEdit?.description);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -181,26 +185,16 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
 
 
   const isCustomCategory = medicineToEdit && medicineToEdit.category && !['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'].includes(medicineToEdit.category);
-  
-  const getFormattedExpiry = (expiry?: string) => {
-    if (!expiry) return '';
-    try {
-        // Handles full ISO date strings and YYYY-MM strings
-        const date = new Date(expiry);
-        if (isNaN(date.getTime())) return '';
-        return date.toISOString().substring(0, 7);
-    } catch(e) {
-        return '';
-    }
-  };
 
   const getInitialFormValues = (): FormData => {
     const baseValues = { ...DEFAULT_MEDICINE_VALUES, id: undefined };
+    const defaultBatch: any = { id: new Date().toISOString() + Math.random(), batchNumber: '', mfg: '', expiry: '', price: 0, purchasePrice: 0, stock_quantity: 0, stock_strips: 0 };
+
 
     if (!medicineToEdit) {
         return {
             ...baseValues,
-            batches: [{ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, purchasePrice: 0, stock_quantity: 0, stock_strips: 0 }],
+            batches: [defaultBatch],
         };
     }
     
@@ -210,7 +204,8 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
           return {
               id: b.id || new Date().toISOString() + Math.random(),
               batchNumber: b.batchNumber,
-              expiry: getFormattedExpiry(b.expiry),
+              mfg: getFormattedDate(b.mfg),
+              expiry: getFormattedDate(b.expiry),
               price: b.price,
               purchasePrice: b.purchasePrice,
               stock_strips: isTabletCategory ? (b.stock.tablets || 0) / tabletsPerStrip : 0,
@@ -220,7 +215,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
     
     // This logic handles adding a new empty batch when restocking/merging
     if (startWithNewBatch) {
-        let newBatch: any = { id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, purchasePrice: 0 };
+        let newBatch = { ...defaultBatch };
         
         if (orderItem && medicineToEdit.category) {
             const isTabletCategory = medicineToEdit.category === 'Tablet' || medicineToEdit.category === 'Capsule';
@@ -229,15 +224,10 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
             if (isTabletCategory) {
                  const strips = (orderItem.unitName && orderItem.unitsPerPack) ? qtyValue * orderItem.unitsPerPack : qtyValue;
                  newBatch.stock_strips = strips;
-                 newBatch.stock_quantity = 0;
             } else {
                  const units = (orderItem.unitName && orderItem.unitsPerPack) ? qtyValue * orderItem.unitsPerPack : qtyValue;
                  newBatch.stock_quantity = units;
-                 newBatch.stock_strips = 0;
             }
-        } else {
-            newBatch.stock_quantity = 0;
-            newBatch.stock_strips = 0;
         }
 
         batches = [...batches, newBatch];
@@ -264,7 +254,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
       customCategory: isCustomCategory ? medicineToEdit.category : '',
       location: medicineToEdit.location || '',
       tablets_per_strip: tabletsPerStrip,
-      batches: batches.length > 0 ? batches : [{ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, purchasePrice: 0, stock_quantity: 0, stock_strips: 0 }],
+      batches: batches.length > 0 ? batches : [defaultBatch],
       description_patientType: medicineToEdit.description?.patientType,
       description_illness: medicineToEdit.description?.illness || '',
       description_minAge: medicineToEdit.description?.minAge,
@@ -315,6 +305,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
     }
 
     const newBatches: Batch[] = values.batches.map(b => {
+        const mfgDate = new Date(`${b.mfg}-01T00:00:00Z`);
         const expiryDate = new Date(`${b.expiry}-01T00:00:00Z`);
         
         let stock: Batch['stock'] = {};
@@ -327,6 +318,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
         return {
             id: b.id || new Date().toISOString() + Math.random(),
             batchNumber: b.batchNumber,
+            mfg: mfgDate.toISOString(),
             expiry: expiryDate.toISOString(),
             price: b.price,
             purchasePrice: b.purchasePrice,
@@ -361,10 +353,13 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
     onSave(medicineData as Medicine);
   }
 
-  const handleScanSuccess = (data: { batchNumber?: string, expiry?: string }) => {
+  const handleScanSuccess = (data: { batchNumber?: string, mfg?: string, expiry?: string }) => {
         if (scanningBatchIndex !== null) {
             if(data.batchNumber) {
                 form.setValue(`batches.${scanningBatchIndex}.batchNumber`, data.batchNumber);
+            }
+             if(data.mfg) {
+                form.setValue(`batches.${scanningBatchIndex}.mfg`, data.mfg);
             }
             if(data.expiry) {
                 form.setValue(`batches.${scanningBatchIndex}.expiry`, data.expiry);
@@ -477,7 +472,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
         <div className="space-y-4">
             <Label className="text-lg font-semibold">Batches</Label>
             {fields.map((field, index) => (
-                 <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 p-3 border rounded-lg relative bg-muted/50">
+                 <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2 p-3 border rounded-lg relative bg-muted/50">
                      <FormField
                         control={form.control}
                         name={`batches.${index}.batchNumber`}
@@ -492,6 +487,17 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
                                         <QrCode className="h-5 w-5"/>
                                     </Button>
                                 </div>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name={`batches.${index}.mfg`}
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>MFG</FormLabel>
+                                <FormControl><Input type="month" {...field} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -565,7 +571,7 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => append({ id: new Date().toISOString() + Math.random(), batchNumber: '', expiry: '', price: 0, purchasePrice: 0, stock_quantity: 0, stock_strips: 0 })}
+                onClick={() => append({ id: new Date().toISOString() + Math.random(), batchNumber: '', mfg: '', expiry: '', price: 0, purchasePrice: 0, stock_quantity: 0, stock_strips: 0 })}
             >
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Batch
             </Button>

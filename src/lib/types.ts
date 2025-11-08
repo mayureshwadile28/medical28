@@ -8,6 +8,7 @@ export interface Batch {
     id: string;
     batchNumber: string;
     stock: Stock;
+    mfg?: string; // Manufacturing date
     expiry: string; // ISO date string for the last day of the month
     price: number; // MRP for this batch (per strip or per unit)
     purchasePrice?: number; // Purchase price for this batch (per strip or per unit)
