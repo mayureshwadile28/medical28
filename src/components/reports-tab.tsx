@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatToINR } from '@/lib/currency';
 import { subDays, startOfDay } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { DollarSign, TrendingUp, AlertTriangle } from 'lucide-react';
+import { IndianRupee, TrendingUp, AlertTriangle } from 'lucide-react';
 
 type ReportPeriod = '7' | '30' | '90' | 'all';
 
@@ -112,7 +112,7 @@ export default function ReportsTab({ sales, medicines }: { sales: SaleRecord[], 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <IndianRupee className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{formatToINR(summaryStats.totalRevenue)}</div>
@@ -121,7 +121,7 @@ export default function ReportsTab({ sales, medicines }: { sales: SaleRecord[], 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Cost of Goods</CardTitle>
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <IndianRupee className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{formatToINR(summaryStats.totalCost)}</div>
@@ -130,7 +130,7 @@ export default function ReportsTab({ sales, medicines }: { sales: SaleRecord[], 
                  <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Gross Profit</CardTitle>
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <IndianRupee className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{formatToINR(summaryStats.totalProfit)}</div>
