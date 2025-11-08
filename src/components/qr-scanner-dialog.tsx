@@ -26,20 +26,25 @@ export function QrScannerDialog({ open, onOpenChange, onScanSuccess }: QrScanner
                     await Html5Qrcode.getCameras();
                     setHasCameraPermission(true);
 
+                    // A new instance is created every time the dialog opens
                     const html5QrCode = new Html5Qrcode(scannerContainerId);
                     scannerRef.current = html5QrCode;
 
                     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
                     
-                    const successCallback = (decodedText: string, decodedResult: any) => {
-                        if (scannerRef.current?.isScanning) {
-                            scannerRef.current.stop().catch(err => console.error("Failed to stop scanner", err));
+                    const successCallback = async (decodedText: string, decodedResult: any) => {
+                       if (scannerRef.current?.isScanning) {
+                            try {
+                                await scannerRef.current.stop();
+                            } catch (err) {
+                                console.error("Failed to stop scanner", err);
+                            }
                         }
                         onScanSuccess(decodedText);
                     };
 
                     const errorCallback = (errorMessage: string) => {
-                        // Ignore common errors
+                        // Ignore common errors, but you could log them if needed.
                     };
 
                     await html5QrCode.start(
@@ -59,23 +64,34 @@ export function QrScannerDialog({ open, onOpenChange, onScanSuccess }: QrScanner
                 }
             };
             
-            startScanner();
+            // Delay start to allow dialog animation to complete
+            const timer = setTimeout(startScanner, 300);
+            return () => clearTimeout(timer);
+
         } else {
-            if (scannerRef.current && scannerRef.current.isScanning) {
+             if (scannerRef.current && scannerRef.current.isScanning) {
                 scannerRef.current.stop().catch(err => {
-                    console.error("Error stopping the scanner:", err);
+                    // This error can happen if the component unmounts before scanner is ready.
+                    // It's generally safe to ignore.
+                    console.error("Error stopping the scanner on dialog close:", err);
                 });
             }
         }
 
-        return () => {
-            if (scannerRef.current && scannerRef.current.isScanning) {
-                scannerRef.current.stop().catch(err => {
-                     console.error("Error stopping the scanner on cleanup:", err);
-                });
-            }
-        };
     }, [open, onScanSuccess, toast]);
+
+    // Cleanup function when component unmounts for safety
+    useEffect(() => {
+        return () => {
+             if (scannerRef.current) {
+                if (scannerRef.current.isScanning) {
+                     scannerRef.current.stop().catch(err => {
+                        console.error("Error stopping the scanner on cleanup:", err);
+                    });
+                }
+            }
+        }
+    }, []);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,7 +103,7 @@ export function QrScannerDialog({ open, onOpenChange, onScanSuccess }: QrScanner
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
-                    <div id={scannerContainerId} className="w-full border rounded-lg"></div>
+                    <div id={scannerContainerId} className="w-full border rounded-lg overflow-hidden"></div>
                     {hasCameraPermission === false && (
                          <Alert variant="destructive" className="mt-4">
                             <AlertTitle>Camera Access Denied</AlertTitle>
