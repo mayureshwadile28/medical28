@@ -90,7 +90,7 @@ const parseText = (text: string): ScanResult => {
              if (dateMatch && monthMap[dateMatch[1].toUpperCase()]) {
                  expiry = `${dateMatch[2].length === 2 ? `20${dateMatch[2]}` : dateMatch[2]}-${monthMap[dateMatch[1].toUpperCase()]}`;
              }
-        }
+         }
     }
 
 
@@ -110,6 +110,7 @@ export function OcrScannerDialog({
     const [ocrStatus, setOcrStatus] = useState<{ progress: number, status: string } | null>(null);
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
     const { toast } = useToast();
+    const workerRef = useRef<Tesseract.Worker | null>(null);
 
     useEffect(() => {
         let stream: MediaStream | null = null;
@@ -144,6 +145,8 @@ export function OcrScannerDialog({
             }
             setCapturedImage(null);
             setOcrStatus(null);
+            workerRef.current?.terminate();
+            workerRef.current = null;
         };
     }, [open, toast]);
 
@@ -171,32 +174,31 @@ export function OcrScannerDialog({
 
         setOcrStatus({ status: 'Initializing OCR Engine...', progress: 0 });
         
-        const worker = await createWorker();
+        const worker = await createWorker({
+            logger: m => {
+                if (m.status === 'recognizing text' && m.progress) {
+                     setOcrStatus({ status: 'Recognizing Text...', progress: Math.round(m.progress * 100) });
+                }
+            }
+        });
+        workerRef.current = worker;
         
         try {
             await worker.loadLanguage('eng');
             await worker.initialize('eng');
             
-            const scheduler = createWorker({
-                logger: m => {
-                    if (m.status === 'recognizing text' && m.progress) {
-                         setOcrStatus({ status: 'Recognizing Text...', progress: Math.round(m.progress * 100) });
-                    }
-                }
-            });
-            
-            const { data: { text } } = await scheduler.recognize(capturedImage);
+            const { data: { text } } = await worker.recognize(capturedImage);
             
             const parsedData = parseText(text);
 
             onScanSuccess(parsedData);
-            await scheduler.terminate();
 
         } catch (error) {
             console.error(error);
             toast({ variant: 'destructive', title: 'OCR Failed', description: 'Could not recognize text from the image.' });
         } finally {
             await worker.terminate();
+            workerRef.current = null;
             setOcrStatus(null);
         }
     };
@@ -259,5 +261,3 @@ export function OcrScannerDialog({
         </Dialog>
     );
 }
-
-    
