@@ -7,25 +7,17 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { createWorker } from 'tesseract.js';
 import { Progress } from '@/components/ui/progress';
-import { Camera, RefreshCcw, Check, Zap } from 'lucide-react';
+import { Camera, RefreshCcw, Zap } from 'lucide-react';
 
-type ScanMode = 'full' | 'batchOnly';
-type ScanResult<T extends ScanMode> = T extends 'full'
-    ? {
-          name?: string;
-          category?: string;
-          batchNumber?: string;
-          mfg?: string;
-          expiry?: string;
-      }
-    : { batchNumber?: string, mfg?: string, expiry?: string };
+type ScanMode = 'batchOnly';
+type ScanResult = { batchNumber?: string, mfg?: string, expiry?: string };
 
 
-interface OcrScannerDialogProps<T extends ScanMode> {
+interface OcrScannerDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onScanSuccess: (result: ScanResult<T>) => void;
-    scanMode?: T;
+    onScanSuccess: (result: ScanResult) => void;
+    scanMode?: ScanMode;
 }
 
 const monthMap: { [key: string]: string } = {
@@ -33,62 +25,84 @@ const monthMap: { [key: string]: string } = {
     JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12'
 };
 
-const parseText = (text: string) => {
-    let name: string | undefined = undefined;
-    let category: string | undefined = undefined;
+const parseText = (text: string): ScanResult => {
+    let batchNumber: string | undefined = undefined;
+    let mfg: string | undefined = undefined;
+    let expiry: string | undefined = undefined;
     
-    // Name and Category Extraction (improved logic)
-    const categoryKeywords = ['Tablets', 'Tablet', 'Capsules', 'Capsule', 'Syrup', 'Ointment', 'Injection'];
-    const lines = text.split('\n');
-    for (const line of lines) {
-        const foundKeyword = categoryKeywords.find(keyword => line.toLowerCase().includes(keyword.toLowerCase()));
-        if (foundKeyword) {
-            let potentialName = line.replace(new RegExp(foundKeyword, 'i'), '').trim();
-            // Often the brand name is before the composition, so let's try to find it
-            const compositionMatch = text.match(/Composition:([\s\S]*?)(?=Dosage:|Indications:|$)/i);
-            if (compositionMatch && compositionMatch[1]) {
-                 const nameFromComposition = compositionMatch[1].split('\n')[0].trim();
-                 if (nameFromComposition.length > 2) name = nameFromComposition;
+    // Look for Batch Number
+    const batchRegex = /(?:Batch\s*No\.?|B\.\s*No\.?)\s*([A-Z0-9\-/]+)/i;
+    const batchMatch = text.match(batchRegex);
+    if (batchMatch && batchMatch[1]) {
+        batchNumber = batchMatch[1];
+    } else {
+        // Fallback for cases like the image where the value is separate
+        const lines = text.split('\n');
+        const batchLineIndex = lines.findIndex(line => line.match(/Batch\s*No/i));
+        if (batchLineIndex > 0) {
+            // Check the line above or the same line for a potential value
+            const potentialBatch = lines[batchLineIndex - 1].trim();
+            if (potentialBatch.match(/^[A-Z0-9-/]{5,}$/i)) {
+                 batchNumber = potentialBatch;
             }
-            if (!name && potentialName.length > 2) name = potentialName;
-            
-            category = foundKeyword.endsWith('s') && foundKeyword !== 'Capsules' ? foundKeyword.slice(0, -1) : foundKeyword;
-            if (category === 'Capsules') category = 'Capsule';
-            break; 
+        }
+        // Last resort: find any long alphanumeric string
+        if (!batchNumber) {
+            const genericBatchMatch = text.match(/([A-Z0-9]{5,}[A-Z][0-9]{2,})/i);
+             if(genericBatchMatch) batchNumber = genericBatchMatch[0];
         }
     }
 
 
-    const batchRegex = /(?:B\.\s*No\.|Batch\s*No|B\.N)\s*[:.]?\s*([A-Z0-9\-/]+)/i;
-    const batchMatch = text.match(batchRegex);
-    const batchNumber = batchMatch ? batchMatch[1] : undefined;
+    // Look for MFG and Expiry Dates
+    const dateRegex = /(Mfg\.|Mfd\.|Exp\.)\s*[:.]?\s*([A-Z]{3})\.?\s*(\d{4}|\d{2})/gi;
+    let match;
+    while ((match = dateRegex.exec(text)) !== null) {
+        const type = match[1].toLowerCase();
+        const month = match[2].toUpperCase();
+        const year = match[3].length === 2 ? `20${match[3]}` : match[3];
 
-    const mfgRegex = /(?:Mfg\.|Mfd\.|M\.?D\.)\s*[:.]?\s*([A-Z]{3})\.?\s*(\d{4}|\d{2})/i;
-    const mfgMatch = text.match(mfgRegex);
-    let mfg: string | undefined = undefined;
-    if (mfgMatch && monthMap[mfgMatch[1].toUpperCase()]) {
-        const year = mfgMatch[2].length === 2 ? `20${mfgMatch[2]}` : mfgMatch[2];
-        mfg = `${year}-${monthMap[mfgMatch[1].toUpperCase()]}`;
-    }
-
-    const expiryRegex = /(?:Exp\.|Expiry|E\.?D\.)\s*[:.]?\s*([A-Z]{3})\.?\s*(\d{4}|\d{2})/i;
-    const expiryMatch = text.match(expiryRegex);
-    let expiry: string | undefined = undefined;
-    if (expiryMatch && monthMap[expiryMatch[1].toUpperCase()]) {
-        const year = expiryMatch[2].length === 2 ? `20${expiryMatch[2]}` : expiryMatch[2];
-        expiry = `${year}-${monthMap[expiryMatch[1].toUpperCase()]}`;
+        if (monthMap[month]) {
+            if (type.startsWith('mfg') || type.startsWith('mfd')) {
+                mfg = `${year}-${monthMap[month]}`;
+            } else if (type.startsWith('exp')) {
+                expiry = `${year}-${monthMap[month]}`;
+            }
+        }
     }
     
-    return { name, category, batchNumber, mfg, expiry };
+    // Fallback if regex fails, based on the image provided
+    if (!mfg || !expiry) {
+        const lines = text.split('\n').map(l => l.trim());
+        const mfgLineIndex = lines.findIndex(l => l.match(/Mfg\./i));
+        const expLineIndex = lines.findIndex(l => l.match(/Exp\./i));
+        if (mfgLineIndex !== -1 && mfgLineIndex > 0) {
+             const potentialDateLine = lines[mfgLineIndex-1];
+             const dateMatch = potentialDateLine.match(/([A-Z]{3})\.?\s*(\d{4}|\d{2})/i);
+             if (dateMatch && monthMap[dateMatch[1]]) {
+                 mfg = `${dateMatch[2].length === 2 ? `20${dateMatch[2]}` : dateMatch[2]}-${monthMap[dateMatch[1]]}`;
+             }
+        }
+         if (expLineIndex !== -1 && expLineIndex > 0) {
+             const potentialDateLine = lines[expLineIndex-1];
+             const dateMatch = potentialDateLine.match(/([A-Z]{3})\.?\s*(\d{4}|\d{2})/i);
+             if (dateMatch && monthMap[dateMatch[1]]) {
+                 expiry = `${dateMatch[2].length === 2 ? `20${dateMatch[2]}` : dateMatch[2]}-${monthMap[dateMatch[1]]}`;
+             }
+        }
+    }
+
+
+    return { batchNumber, mfg, expiry };
 };
 
 
-export function OcrScannerDialog<T extends ScanMode = 'full'>({
+export function OcrScannerDialog({
     open,
     onOpenChange,
     onScanSuccess,
-    scanMode = 'full' as T,
-}: OcrScannerDialogProps<T>) {
+    scanMode = 'batchOnly',
+}: OcrScannerDialogProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -154,12 +168,11 @@ export function OcrScannerDialog<T extends ScanMode = 'full'>({
     const handleProcessImage = async () => {
         if (!capturedImage) return;
 
+        setOcrStatus({ status: 'Initializing OCR Engine...', progress: 0 });
         const worker = await createWorker({
             logger: m => {
-                if (m.status === 'recognizing text') {
+                if (m.status === 'recognizing text' && m.progress) {
                     setOcrStatus({ status: 'Recognizing Text...', progress: Math.round(m.progress * 100) });
-                } else {
-                    setOcrStatus({ status: m.status.replace(/_/g, ' '), progress: 0 });
                 }
             }
         });
@@ -171,11 +184,7 @@ export function OcrScannerDialog<T extends ScanMode = 'full'>({
             
             const parsedData = parseText(text);
 
-            if (scanMode === 'batchOnly') {
-                onScanSuccess({ batchNumber: parsedData.batchNumber, mfg: parsedData.mfg, expiry: parsedData.expiry } as ScanResult<T>);
-            } else {
-                onScanSuccess(parsedData as ScanResult<T>);
-            }
+            onScanSuccess(parsedData);
 
         } catch (error) {
             console.error(error);
@@ -190,9 +199,9 @@ export function OcrScannerDialog<T extends ScanMode = 'full'>({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Scan from Image</DialogTitle>
+                    <DialogTitle>Scan Batch Details from Image</DialogTitle>
                     <DialogDescription>
-                        {capturedImage ? 'Review the captured image or retake.' : 'Capture a clear photo of the medicine packaging.'}
+                        {capturedImage ? 'Review the captured image or retake.' : 'Capture a clear photo of the batch details.'}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-4">

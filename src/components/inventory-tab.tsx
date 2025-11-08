@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -36,7 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock, QrCode, Camera } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock, QrCode } from 'lucide-react';
 import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
@@ -48,7 +47,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { AppService } from '@/lib/service';
 import { QrScannerDialog } from './qr-scanner-dialog';
-import { OcrScannerDialog } from './ocr-scanner-dialog';
+
 
 interface InventoryTabProps {
   medicines: Medicine[];
@@ -103,7 +102,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   const [importMode, setImportMode] = useState<ImportMode>('merge');
   const [isRestockMode, setIsRestockMode] = useState(false);
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
-  const [isOcrScannerOpen, setIsOcrScannerOpen] = useState(false);
+
 
 
   // State for sequential import with user prompts
@@ -433,7 +432,6 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     setEditingMedicine(mockMedicine as Medicine);
     setIsFormOpen(true);
     setIsQrScannerOpen(false);
-    setIsOcrScannerOpen(false);
     toast({ title: "Scan Complete", description: "Please review the extracted information and add remaining details." });
   };
 
@@ -450,16 +448,8 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                 onOpenChange={setIsQrScannerOpen}
                 onScanSuccess={handleScan}
             />
-            <OcrScannerDialog
-                open={isOcrScannerOpen}
-                onOpenChange={setIsOcrScannerOpen}
-                onScanSuccess={handleScan}
-            />
-            <Button onClick={() => setIsOcrScannerOpen(true)}>
-                <Camera className="mr-2 h-4 w-4" /> Scan from Image
-            </Button>
             <Button onClick={() => setIsQrScannerOpen(true)}>
-                <QrCode className="mr-2 h-4 w-4" /> Scan from QR
+                <QrCode className="mr-2 h-4 w-4" /> Scan New Product
             </Button>
             <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>

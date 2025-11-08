@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -11,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronsUpDown, PlusCircle, Trash2, QrCode } from 'lucide-react';
+import { ChevronsUpDown, PlusCircle, Trash2, QrCode, Camera } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -505,6 +504,9 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
                                     </FormControl>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => openQrScannerForBatch(index)}>
                                         <QrCode className="h-5 w-5"/>
+                                    </Button>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => openOcrScannerForBatch(index)}>
+                                        <Camera className="h-5 w-5"/>
                                     </Button>
                                 </div>
                                 <FormMessage />
