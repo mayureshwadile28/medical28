@@ -41,9 +41,6 @@ const prompt = ai.definePrompt({
   prompt: `From the attached photo of a medicine box, extract the batch number, manufacturing date, and expiry date. Also extract the MRP price.
     {{media url=photo}}
   `,
-  config: {
-    temperature: 0.1,
-  },
 });
 
 export const extractBatchDetailsFlow = ai.defineFlow(
