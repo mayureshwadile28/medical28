@@ -43,16 +43,9 @@ const prompt = ai.definePrompt({
   `,
 });
 
-export const extractBatchDetailsFlow = ai.defineFlow(
-  {
-    name: 'extractBatchDetailsFlow',
-    inputSchema: z.object({
-      photo: z.string(),
-    }),
-    outputSchema: BatchDetailsSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);
+export async function extractBatchDetailsFlow(input: {
+  photo: string;
+}): Promise<BatchDetails> {
+  const {output} = await prompt(input);
+  return output!;
+}
