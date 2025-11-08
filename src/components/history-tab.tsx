@@ -355,6 +355,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
   const [sortOption, setSortOption] = React.useState<SortOption>('date_desc');
 
   const uniqueSales = React.useMemo(() => {
+    // This list contains ALL sales, including pending, to be used by child components like PendingPaymentsDialog
     return sales.filter((sale, index, self) =>
         index === self.findIndex((s) => s.id === sale.id)
     );
@@ -397,8 +398,8 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
   const dailySummary = React.useMemo(() => {
     if (!selectedDate || filteredSales.length === 0) return null;
     
-    // Use the already filtered sales for the summary
-    const summarySales = filteredSales.filter(sale => new Date(sale.saleDate).toDateString() === selectedDate.toDateString());
+    // Use the already filtered sales for the summary to respect search terms
+    const summarySales = filteredSales;
     
     if(summarySales.length === 0) return null;
 
