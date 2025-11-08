@@ -1,8 +1,7 @@
-
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { extractBatchDetailsAction } from "@/app/actions"
+import Tesseract from "tesseract.js"
 import {
   Dialog,
   DialogContent,
@@ -31,6 +30,51 @@ interface OcrScannerDialogProps {
 
 type ScanPhase = "idle" | "requesting" | "streaming" | "captured" | "processing" | "error";
 
+const parseOcrText = (text: string) => {
+    const lines = text.split('\n');
+    const result: {
+        batchNumber?: string;
+        mfgDate?: string;
+        expiryDate?: string;
+        price?: number;
+    } = {};
+
+    const batchRegex = /(?:B(?:atch)?.?No|B\.NO)\.?\s*:?\s*([A-Z0-9\-\/]+)/i;
+    const dateRegex = /(\d{2})\/(\d{4})/; // MM/YYYY
+    const mrpRegex = /(?:M\.R\.P|MRP)\.?\s*(?:Rs\.?)?\s*[:\s]*([\d\.]+)/i;
+
+    lines.forEach(line => {
+        // Batch Number
+        const batchMatch = line.match(batchRegex);
+        if (batchMatch && batchMatch[1]) {
+            result.batchNumber = batchMatch[1].trim();
+        }
+
+        // Dates (MFG/EXP)
+        if (line.match(/MFG|Mfd/i) && !result.mfgDate) {
+            const dateMatch = line.match(dateRegex);
+            if (dateMatch && dateMatch[2] && dateMatch[1]) {
+                result.mfgDate = `${dateMatch[2]}-${dateMatch[1]}`; // YYYY-MM
+            }
+        }
+        
+        if (line.match(/EXP/i) && !result.expiryDate) {
+            const dateMatch = line.match(dateRegex);
+            if (dateMatch && dateMatch[2] && dateMatch[1]) {
+                result.expiryDate = `${dateMatch[2]}-${dateMatch[1]}`; // YYYY-MM
+            }
+        }
+
+        // Price
+        const mrpMatch = line.match(mrpRegex);
+        if (mrpMatch && mrpMatch[1]) {
+            result.price = parseFloat(mrpMatch[1]);
+        }
+    });
+
+    return result;
+};
+
 
 export function OcrScannerDialog({
   open,
@@ -45,6 +89,7 @@ export function OcrScannerDialog({
   const [phase, setPhase] = useState<ScanPhase>("idle")
   const [hasCameraPermission, setHasCameraPermission] = useState(true)
   const [status, setStatus] = useState("")
+  const [progress, setProgress] = useState(0);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -124,12 +169,23 @@ export function OcrScannerDialog({
       setPhase("processing")
       
       try {
-        setStatus("Extracting batch details...")
-        const parsedData = await extractBatchDetailsAction(dataUrl)
+        setStatus("Initializing OCR engine...");
+        setProgress(0);
 
+        const result = await Tesseract.recognize(dataUrl, 'eng', {
+            logger: m => {
+                if (m.status === 'recognizing text') {
+                    setStatus(m.status);
+                    setProgress(Math.round(m.progress * 100));
+                }
+            }
+        });
+        
+        const parsedData = parseOcrText(result.data.text);
         onResult(parsedData)
+
         toast({
-          title: "AI Scan Complete",
+          title: "OCR Scan Complete",
           description: "Data has been extracted. Please verify the fields.",
         })
         
@@ -137,7 +193,7 @@ export function OcrScannerDialog({
         console.error(err)
         toast({
           variant: "destructive",
-          title: "AI Scan Failed",
+          title: "OCR Scan Failed",
           description: "Could not recognize text from the image.",
         })
         setPhase("error");
@@ -180,6 +236,7 @@ export function OcrScannerDialog({
             <div className="flex flex-col items-center gap-4 text-muted-foreground p-8 w-full">
                 <Scan className="h-12 w-12 animate-pulse" />
                 <p className="font-semibold capitalize">{status}...</p>
+                <Progress value={progress} className="w-full" />
             </div>
           )}
            {(phase === "error") && (

@@ -25,16 +25,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-    serverActions: {
-      allowedOrigins: [
-        "localhost:3000",
-        "*.google.com",
-        "*.firebase.app",
-        "*.web.app"
-      ]
-    }
-  }
 };
 
 export default nextConfig;
