@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -79,15 +80,15 @@ const parseText = (text: string): ScanResult => {
         if (mfgLineIndex !== -1 && mfgLineIndex > 0) {
              const potentialDateLine = lines[mfgLineIndex-1];
              const dateMatch = potentialDateLine.match(/([A-Z]{3})\.?\s*(\d{4}|\d{2})/i);
-             if (dateMatch && monthMap[dateMatch[1]]) {
-                 mfg = `${dateMatch[2].length === 2 ? `20${dateMatch[2]}` : dateMatch[2]}-${monthMap[dateMatch[1]]}`;
+             if (dateMatch && monthMap[dateMatch[1].toUpperCase()]) {
+                 mfg = `${dateMatch[2].length === 2 ? `20${dateMatch[2]}` : dateMatch[2]}-${monthMap[dateMatch[1].toUpperCase()]}`;
              }
         }
          if (expLineIndex !== -1 && expLineIndex > 0) {
              const potentialDateLine = lines[expLineIndex-1];
              const dateMatch = potentialDateLine.match(/([A-Z]{3})\.?\s*(\d{4}|\d{2})/i);
-             if (dateMatch && monthMap[dateMatch[1]]) {
-                 expiry = `${dateMatch[2].length === 2 ? `20${dateMatch[2]}` : dateMatch[2]}-${monthMap[dateMatch[1]]}`;
+             if (dateMatch && monthMap[dateMatch[1].toUpperCase()]) {
+                 expiry = `${dateMatch[2].length === 2 ? `20${dateMatch[2]}` : dateMatch[2]}-${monthMap[dateMatch[1].toUpperCase()]}`;
              }
         }
     }
@@ -169,22 +170,27 @@ export function OcrScannerDialog({
         if (!capturedImage) return;
 
         setOcrStatus({ status: 'Initializing OCR Engine...', progress: 0 });
-        const worker = await createWorker({
-            logger: m => {
-                if (m.status === 'recognizing text' && m.progress) {
-                    setOcrStatus({ status: 'Recognizing Text...', progress: Math.round(m.progress * 100) });
-                }
-            }
-        });
+        
+        const worker = await createWorker();
         
         try {
             await worker.loadLanguage('eng');
             await worker.initialize('eng');
-            const { data: { text } } = await worker.recognize(capturedImage);
+            
+            const scheduler = createWorker({
+                logger: m => {
+                    if (m.status === 'recognizing text' && m.progress) {
+                         setOcrStatus({ status: 'Recognizing Text...', progress: Math.round(m.progress * 100) });
+                    }
+                }
+            });
+            
+            const { data: { text } } = await scheduler.recognize(capturedImage);
             
             const parsedData = parseText(text);
 
             onScanSuccess(parsedData);
+            await scheduler.terminate();
 
         } catch (error) {
             console.error(error);
@@ -253,3 +259,5 @@ export function OcrScannerDialog({
         </Dialog>
     );
 }
+
+    
