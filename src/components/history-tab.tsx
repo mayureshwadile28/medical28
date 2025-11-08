@@ -557,7 +557,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                 </PopoverContent>
             </Popover>
             {selectedDate && (
-                <Button variant="ghost" onClick={() => setSelectedDate(undefined)}>
+                <Button variant="ghost" onClick={() => setSelectedDate(startOfDay(new Date()))}>
                     <X className="mr-2 h-4 w-4" /> Clear
                 </Button>
             )}
@@ -565,7 +565,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
         {filteredSales.length > 0 ? (
           <Accordion type="single" collapsible className="w-full">
             {filteredSales.map(sale => {
-              const subtotal = sale.items.reduce((sum, item) => sum + item.total, 0);
+              const subtotal = sale.items.reduce((sum, item) => sum + item.pricePerUnit * item.quantity, 0);
               return (
               <AccordionItem value={sale.id} key={sale.id}>
                 <AccordionTrigger>
@@ -660,3 +660,5 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
     </Card>
   );
 }
+
+    
