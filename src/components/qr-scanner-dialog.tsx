@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -16,7 +15,7 @@ type ScanResult<T extends ScanMode> = T extends 'full'
           batchNumber?: string;
           expiry?: string;
       }
-    : { batchNumber?: string };
+    : { batchNumber?: string, expiry?: string };
 
 
 interface QrScannerDialogProps<T extends ScanMode> {
@@ -28,39 +27,58 @@ interface QrScannerDialogProps<T extends ScanMode> {
 
 const parseQrCode = (decodedText: string) => {
     const parts = decodedText.split(',');
-    const data: { [key: string]: string } = {};
-    parts.forEach(part => {
-        const [key, ...valueParts] = part.split(':');
-        const value = valueParts.join(':').trim();
-        if (key && value) {
-            data[key.trim()] = value;
-        }
-    });
-
+    
+    // --- Name and Category Extraction ---
     let name = 'Unknown';
-    let category = 'Tablet'; // Default
-
+    let category = 'Other'; // Default category
     const categoryKeywords = ['Tablets', 'Tablet', 'Capsules', 'Capsule', 'Syrup', 'Ointment', 'Injection'];
-    const compositionIndex = parts.findIndex(part => 
+    
+    // Find the keyword that indicates a category
+    const categoryPartIndex = parts.findIndex(part => 
         categoryKeywords.some(keyword => part.toLowerCase().endsWith(keyword.toLowerCase()))
     );
 
-    if (compositionIndex !== -1 && parts.length > compositionIndex + 1) {
-        name = parts[compositionIndex + 1].trim();
-        const compositionPart = parts[compositionIndex];
-        const foundCategory = categoryKeywords.find(keyword => compositionPart.toLowerCase().includes(keyword.toLowerCase()));
-        if(foundCategory) {
-            category = foundCategory.endsWith('s') ? foundCategory.slice(0, -1) : foundCategory;
+    if (categoryPartIndex !== -1 && parts.length > categoryPartIndex + 1) {
+        // The name is the part immediately following the category part
+        name = parts[categoryPartIndex + 1].trim();
+        
+        // Find which keyword was in the category part
+        const compositionPart = parts[categoryPartIndex];
+        const foundCategoryKeyword = categoryKeywords.find(keyword => compositionPart.toLowerCase().includes(keyword.toLowerCase()));
+        
+        if (foundCategoryKeyword) {
+            // Standardize the category name (e.g., "Tablets" -> "Tablet")
+            category = foundCategoryKeyword.endsWith('s') ? foundCategoryKeyword.slice(0, -1) : foundCategoryKeyword;
         }
-    } else if (parts.length > 3) {
-         name = parts[3]?.trim() || 'Unknown';
     }
 
-    const batchNumber = data['B. No.'] || data['B.No.'];
-    const expiry = data['EXP.'];
+    // --- Batch Number Extraction ---
+    let batchNumber: string | undefined = undefined;
+    const batchRegex = /(?:B\.\s*No\.|B\.No\.)\s*([A-Z0-9]+)/i;
+    const batchMatch = decodedText.match(batchRegex);
+    if (batchMatch && batchMatch[1]) {
+        batchNumber = batchMatch[1];
+    }
+
+    // --- Expiry Date Extraction ---
+    let expiry: string | undefined = undefined;
+    const expiryRegex = /EXP\.\s*([A-Z]{3})\.(\d{4})/i;
+    const expiryMatch = decodedText.match(expiryRegex);
+    if (expiryMatch && expiryMatch[1] && expiryMatch[2]) {
+        const monthMap: { [key: string]: string } = {
+            JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06',
+            JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12'
+        };
+        const month = expiryMatch[1].toUpperCase();
+        const year = expiryMatch[2];
+        if (monthMap[month]) {
+            expiry = `${year}-${monthMap[month]}`;
+        }
+    }
 
     return { name, category, batchNumber, expiry };
 };
+
 
 export function QrScannerDialog<T extends ScanMode = 'full'>({
     open,
@@ -95,15 +113,19 @@ export function QrScannerDialog<T extends ScanMode = 'full'>({
                         }
 
                         const parsedData = parseQrCode(decodedText);
-
+                        
                         if (scanMode === 'batchOnly') {
-                            onScanSuccess({ batchNumber: parsedData.batchNumber } as ScanResult<T>);
+                            onScanSuccess({ batchNumber: parsedData.batchNumber, expiry: parsedData.expiry } as ScanResult<T>);
                         } else {
                             onScanSuccess(parsedData as ScanResult<T>);
                         }
                     };
 
                     const errorCallback = (errorMessage: string) => {};
+
+                    if (html5QrCode.isScanning) {
+                        await html5QrCode.stop();
+                    }
 
                     await html5QrCode.start(
                         { facingMode: "environment" },

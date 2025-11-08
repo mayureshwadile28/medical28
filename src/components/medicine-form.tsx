@@ -26,8 +26,14 @@ const batchSchema = z.object({
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const firstDayOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const selectedDate = new Date(`${val}-01T00:00:00Z`);
-        return selectedDate.getTime() >= firstDayOfCurrentMonth.getTime();
+        try {
+            // Ensure val is in YYYY-MM format before creating a date
+            if (!/^\d{4}-\d{2}$/.test(val)) return false;
+            const selectedDate = new Date(`${val}-01T00:00:00Z`);
+            return selectedDate.getTime() >= firstDayOfCurrentMonth.getTime();
+        } catch {
+            return false;
+        }
     }, { message: 'Expiry month cannot be in the past.' }),
     price: z.coerce.number().positive('MRP must be a positive number.'),
     purchasePrice: z.coerce.number().min(0, 'Purchase price cannot be negative.').optional(),
@@ -179,7 +185,9 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
   const getFormattedExpiry = (expiry?: string) => {
     if (!expiry) return '';
     try {
+        // Handles full ISO date strings and YYYY-MM strings
         const date = new Date(expiry);
+        if (isNaN(date.getTime())) return '';
         return date.toISOString().substring(0, 7);
     } catch(e) {
         return '';
@@ -353,9 +361,14 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
     onSave(medicineData as Medicine);
   }
 
-  const handleScanSuccess = (data: { batchNumber?: string }) => {
-        if (scanningBatchIndex !== null && data.batchNumber) {
-            form.setValue(`batches.${scanningBatchIndex}.batchNumber`, data.batchNumber);
+  const handleScanSuccess = (data: { batchNumber?: string, expiry?: string }) => {
+        if (scanningBatchIndex !== null) {
+            if(data.batchNumber) {
+                form.setValue(`batches.${scanningBatchIndex}.batchNumber`, data.batchNumber);
+            }
+            if(data.expiry) {
+                form.setValue(`batches.${scanningBatchIndex}.expiry`, data.expiry);
+            }
         }
         setIsScannerOpen(false);
         setScanningBatchIndex(null);

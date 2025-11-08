@@ -412,26 +412,26 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     fileInputRef.current?.click();
   };
   
-    const handleQrScan = (data: { name: string; category: string; batchNumber?: string; expiry?: string; }) => {
-        const mockMedicine: Partial<Medicine> = {
-            name: data.name,
-            category: data.category,
-            location: '',
-            batches: [{
-                id: new Date().toISOString() + Math.random(),
-                batchNumber: data.batchNumber || '',
-                expiry: data.expiry ? new Date(data.expiry).toISOString() : '',
-                price: 0,
-                purchasePrice: 0,
-                stock: { tablets: 10 },
-            }],
-        };
-
-        setEditingMedicine(mockMedicine as Medicine);
-        setIsFormOpen(true);
-        setIsScannerOpen(false);
-        toast({ title: "QR Code Scanned", description: "Please review the extracted information." });
+  const handleQrScan = (data: { name: string; category: string; batchNumber?: string; expiry?: string; }) => {
+    const mockMedicine: Partial<Medicine> = {
+        name: data.name,
+        category: data.category,
+        location: '',
+        batches: [{
+            id: new Date().toISOString() + Math.random(),
+            batchNumber: data.batchNumber || '',
+            expiry: data.expiry || '',
+            price: 0,
+            purchasePrice: 0,
+            stock: { tablets: 0, quantity: 0 },
+        }],
     };
+
+    setEditingMedicine(mockMedicine as Medicine);
+    setIsFormOpen(true);
+    setIsScannerOpen(false);
+    toast({ title: "QR Code Scanned", description: "Please review the extracted information and add stock." });
+  };
 
   
   return (
