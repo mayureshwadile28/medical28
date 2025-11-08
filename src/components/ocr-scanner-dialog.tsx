@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Camera, Zap, Scan, X, RotateCw } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface OcrScannerDialogProps {
   open: boolean
