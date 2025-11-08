@@ -32,7 +32,7 @@ const ExtractBatchDetailsOutputSchema = z.object({
     .optional()
     .describe('The expiry date in YYYY-MM format.'),
 });
-export type ExtractBatchDetailsOutput = z.infer<
+type ExtractBatchDetailsOutput = z.infer<
   typeof ExtractBatchDetailsOutputSchema
 >;
 
