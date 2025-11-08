@@ -32,16 +32,14 @@ export default function ReportsTab({ sales, medicines }: { sales: SaleRecord[], 
             
             let saleCost = 0;
             sale.items.forEach(item => {
-                // If purchase price isn't available, use sale price for cost to calculate zero profit
-                saleCost += (item.purchasePricePerUnit || item.pricePerUnit) * item.quantity;
+                // The cost of an item is its purchase price, regardless of discount.
+                // If purchase price isn't available, we assume zero profit for that item by using its sale price as cost.
+                const costPerUnit = item.purchasePricePerUnit || item.pricePerUnit;
+                saleCost += costPerUnit * item.quantity;
             });
             
-            // Adjust sale cost for discount
-            const subtotal = sale.items.reduce((sum, item) => sum + (item.pricePerUnit * item.quantity), 0);
-            const discountMultiplier = subtotal > 0 ? sale.totalAmount / subtotal : 1;
-            
             dailyProfit[date].revenue += sale.totalAmount;
-            dailyProfit[date].cost += saleCost * discountMultiplier;
+            dailyProfit[date].cost += saleCost;
         });
 
         Object.keys(dailyProfit).forEach(date => {
