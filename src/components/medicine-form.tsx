@@ -11,11 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronsUpDown, PlusCircle, Trash2 } from 'lucide-react';
+import { ChevronsUpDown, PlusCircle, Trash2, QrCode } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import { QrScannerDialog } from './qr-scanner-dialog';
 
 const batchSchema = z.object({
     id: z.string(),
@@ -169,6 +170,9 @@ type FormData = z.infer<ReturnType<typeof createFormSchema>>;
 
 export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, categories, isFromOrder = false, startWithNewBatch = false, orderItem = null }: MedicineFormProps) {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(!!medicineToEdit?.description);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scanningBatchIndex, setScanningBatchIndex] = useState<number | null>(null);
+
 
   const isCustomCategory = medicineToEdit && medicineToEdit.category && !['Tablet', 'Capsule', 'Syrup', 'Ointment', 'Injection', 'Other'].includes(medicineToEdit.category);
   
@@ -349,7 +353,32 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
     onSave(medicineData as Medicine);
   }
 
+  const handleScanSuccess = (data: { batchNumber?: string }) => {
+        if (scanningBatchIndex !== null && data.batchNumber) {
+            form.setValue(`batches.${scanningBatchIndex}.batchNumber`, data.batchNumber);
+        }
+        setIsScannerOpen(false);
+        setScanningBatchIndex(null);
+    };
+
+    const openScannerForBatch = (index: number) => {
+        setScanningBatchIndex(index);
+        setIsScannerOpen(true);
+    };
+
   return (
+    <>
+    <QrScannerDialog
+        open={isScannerOpen}
+        onOpenChange={(open) => {
+            if (!open) {
+                setIsScannerOpen(false);
+                setScanningBatchIndex(null);
+            }
+        }}
+        onScanSuccess={handleScanSuccess}
+        scanMode="batchOnly"
+    />
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         <FormField
@@ -439,10 +468,17 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
                      <FormField
                         control={form.control}
                         name={`batches.${index}.batchNumber`}
-                        render={({ field }) => (
+                        render={({ field: batchField }) => (
                             <FormItem className="lg:col-span-2">
                                 <FormLabel>Batch #</FormLabel>
-                                <FormControl><Input placeholder="Batch Number" {...field} /></FormControl>
+                                 <div className="flex items-center gap-1">
+                                    <FormControl>
+                                      <Input placeholder="Batch Number" {...batchField} />
+                                    </FormControl>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => openScannerForBatch(index)}>
+                                        <QrCode className="h-5 w-5"/>
+                                    </Button>
+                                </div>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -674,5 +710,6 @@ export function MedicineForm({ medicines, medicineToEdit, onSave, onCancel, cate
         </div>
       </form>
     </Form>
+    </>
   );
 }

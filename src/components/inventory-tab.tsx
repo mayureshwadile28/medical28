@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -411,68 +412,25 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     fileInputRef.current?.click();
   };
   
-    const handleQrScan = (decodedText: string) => {
-        try {
-            const parts = decodedText.split(',');
-            const data: { [key: string]: string } = {};
-            parts.forEach(part => {
-                const [key, ...valueParts] = part.split(':');
-                const value = valueParts.join(':').trim();
-                if (key && value) {
-                    data[key.trim()] = value;
-                }
-            });
+    const handleQrScan = (data: { name: string; category: string; batchNumber?: string; expiry?: string; }) => {
+        const mockMedicine: Partial<Medicine> = {
+            name: data.name,
+            category: data.category,
+            location: '',
+            batches: [{
+                id: new Date().toISOString() + Math.random(),
+                batchNumber: data.batchNumber || '',
+                expiry: data.expiry ? new Date(data.expiry).toISOString() : '',
+                price: 0,
+                purchasePrice: 0,
+                stock: { tablets: 10 },
+            }],
+        };
 
-            let name = 'Unknown';
-            let category = 'Tablet'; // Default
-            
-            // Find the composition part which usually ends with a category name
-            const categoryKeywords = ['Tablets', 'Tablet', 'Capsules', 'Capsule', 'Syrup', 'Ointment', 'Injection'];
-            const compositionIndex = parts.findIndex(part => 
-                categoryKeywords.some(keyword => part.toLowerCase().endsWith(keyword.toLowerCase()))
-            );
-
-            if (compositionIndex !== -1 && parts.length > compositionIndex + 1) {
-                // The name is the part immediately following the composition
-                name = parts[compositionIndex + 1].trim();
-
-                // Extract category from the composition string
-                const compositionPart = parts[compositionIndex];
-                const foundCategory = categoryKeywords.find(keyword => compositionPart.toLowerCase().includes(keyword.toLowerCase()));
-                if(foundCategory) {
-                    // Normalize category (e.g., Tablets -> Tablet)
-                    category = foundCategory.endsWith('s') ? foundCategory.slice(0, -1) : foundCategory;
-                }
-            } else if (parts.length > 3) {
-                 // Fallback to the old logic if the new one fails
-                 name = parts[3]?.trim() || 'Unknown';
-            }
-            
-
-            const batchNumber = data['B. No.'] || data['B.No.'];
-            const expiry = data['EXP.'];
-
-            const mockMedicine: Partial<Medicine> = {
-                name: name,
-                category: category,
-                location: '',
-                batches: [{
-                    id: new Date().toISOString() + Math.random(),
-                    batchNumber: batchNumber || '',
-                    expiry: expiry ? new Date(expiry).toISOString() : '',
-                    price: 0,
-                    purchasePrice: 0,
-                    stock: { tablets: 10 },
-                }],
-            };
-
-            setEditingMedicine(mockMedicine as Medicine);
-            setIsFormOpen(true);
-            setIsScannerOpen(false);
-            toast({ title: "QR Code Scanned", description: "Please review the extracted information." });
-        } catch (error) {
-            toast({ variant: 'destructive', title: "Scan Error", description: "Could not parse data from the QR code." });
-        }
+        setEditingMedicine(mockMedicine as Medicine);
+        setIsFormOpen(true);
+        setIsScannerOpen(false);
+        toast({ title: "QR Code Scanned", description: "Please review the extracted information." });
     };
 
   
