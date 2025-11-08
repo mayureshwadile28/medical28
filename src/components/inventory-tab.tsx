@@ -423,14 +423,38 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                 }
             });
 
-            // Extract medicine name from the fourth part (Brand Name)
-            const name = parts[3]?.trim();
+            let name = 'Unknown';
+            let category = 'Tablet'; // Default
+            
+            // Find the composition part which usually ends with a category name
+            const categoryKeywords = ['Tablets', 'Tablet', 'Capsules', 'Capsule', 'Syrup', 'Ointment', 'Injection'];
+            const compositionIndex = parts.findIndex(part => 
+                categoryKeywords.some(keyword => part.toLowerCase().endsWith(keyword.toLowerCase()))
+            );
+
+            if (compositionIndex !== -1 && parts.length > compositionIndex + 1) {
+                // The name is the part immediately following the composition
+                name = parts[compositionIndex + 1].trim();
+
+                // Extract category from the composition string
+                const compositionPart = parts[compositionIndex];
+                const foundCategory = categoryKeywords.find(keyword => compositionPart.toLowerCase().includes(keyword.toLowerCase()));
+                if(foundCategory) {
+                    // Normalize category (e.g., Tablets -> Tablet)
+                    category = foundCategory.endsWith('s') ? foundCategory.slice(0, -1) : foundCategory;
+                }
+            } else if (parts.length > 3) {
+                 // Fallback to the old logic if the new one fails
+                 name = parts[3]?.trim() || 'Unknown';
+            }
+            
+
             const batchNumber = data['B. No.'] || data['B.No.'];
             const expiry = data['EXP.'];
 
             const mockMedicine: Partial<Medicine> = {
-                name: name || 'Unknown',
-                category: 'Tablet', // Default or parse from text
+                name: name,
+                category: category,
                 location: '',
                 batches: [{
                     id: new Date().toISOString() + Math.random(),
