@@ -28,7 +28,7 @@ export const ai = genkit({
     googleAI({
       apiVersion: 'v1beta',
     }),
-    genkitCorsPlugin(),
+    genkitCorsPlugin,
   ],
   // Log developer-friendly errors to the console.
   devLogger: 'genkit',

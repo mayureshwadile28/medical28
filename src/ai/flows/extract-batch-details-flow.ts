@@ -4,6 +4,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import {googleAI} from '@genkit-ai/google-genai';
 import {z} from 'genkit';
 
 const BatchDetailsSchema = z.object({
@@ -36,7 +37,7 @@ const prompt = ai.definePrompt({
   output: {
     schema: BatchDetailsSchema,
   },
-  model: ai.model('googleai/gemini-1.5-flash-latest'),
+  model: googleAI.model('gemini-1.5-flash-latest'),
   prompt: `From the attached photo of a medicine box, extract the batch number, manufacturing date, and expiry date. Also extract the MRP price.
     {{media url=photo}}
   `,
