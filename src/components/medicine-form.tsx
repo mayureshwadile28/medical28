@@ -33,12 +33,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { ChevronsUpDown, PlusCircle, Trash2, Camera } from "lucide-react"
+import { ChevronsUpDown, PlusCircle, Trash2 } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
-import { AiScannerDialog } from "@/components/ai-scanner-dialog"
 
 const batchSchema = z.object({
   id: z.string(),
@@ -46,7 +45,7 @@ const batchSchema = z.object({
   mfg: z.string().refine(val => /^\d{4}-\d{2}$/.test(val), {
     message: "MFG date is required.",
   }),
-  expiry: z.string().refine(val => /^\d{4}-\d{2}$/.test(val), {
+  expiry: z.string().refine(val => /^\d{4-}-\d{2}$/.test(val), {
     message: "Expiry date is required.",
   }),
   price: z.coerce.number().positive("MRP must be a positive number."),
@@ -289,10 +288,6 @@ export function MedicineForm({
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(
     !!medicineToEdit?.description
   )
-  const [isAiScannerOpen, setIsAiScannerOpen] = useState(false)
-  const [scanningBatchIndex, setScanningBatchIndex] = useState<number | null>(
-    null
-  )
 
   const isCustomCategory =
     medicineToEdit &&
@@ -530,46 +525,8 @@ export function MedicineForm({
     onSave(medicineData as Medicine)
   }
 
-  const handleScanSuccess = (data: {
-    batchNumber?: string
-    mfg?: string
-    expiry?: string
-  }) => {
-    if (scanningBatchIndex !== null) {
-      if (data.batchNumber) {
-        form.setValue(
-          `batches.${scanningBatchIndex}.batchNumber`,
-          data.batchNumber
-        )
-      }
-      if (data.mfg) {
-        form.setValue(`batches.${scanningBatchIndex}.mfg`, data.mfg)
-      }
-      if (data.expiry) {
-        form.setValue(`batches.${scanningBatchIndex}.expiry`, data.expiry)
-      }
-    }
-    setIsAiScannerOpen(false)
-    setScanningBatchIndex(null)
-  }
-
-  const openAiScannerForBatch = (index: number) => {
-    setScanningBatchIndex(index)
-    setIsAiScannerOpen(true)
-  }
-
   return (
     <>
-      <AiScannerDialog
-        open={isAiScannerOpen}
-        onOpenChange={open => {
-          if (!open) {
-            setIsAiScannerOpen(false)
-            setScanningBatchIndex(null)
-          }
-        }}
-        onScanSuccess={handleScanSuccess}
-      />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <FormField
@@ -688,14 +645,6 @@ export function MedicineForm({
                         <FormControl>
                           <Input placeholder="Batch Number" {...batchField} />
                         </FormControl>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openAiScannerForBatch(index)}
-                        >
-                          <Camera className="h-5 w-5" />
-                        </Button>
                       </div>
                       <FormMessage />
                     </FormItem>
