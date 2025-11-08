@@ -122,8 +122,13 @@ export function OcrScannerDialog({
       console.error("Error accessing camera:", error)
       setHasCameraPermission(false)
       setPhase("error")
+       toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings to use this app.',
+        });
     }
-  }, [stopCamera])
+  }, [stopCamera, toast])
 
 
   useEffect(() => {
