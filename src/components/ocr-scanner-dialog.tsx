@@ -3,11 +3,13 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Camera, Check, RotateCcw } from 'lucide-react';
+import { Loader2, Camera, Check, RotateCcw, Sparkles } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { extractBatchDetailsAction } from '@/app/actions';
+
 
 export type BatchDetailsOutput = {
   batchNumber?: string;
@@ -27,6 +29,7 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
+  const [isExtracting, setIsExtracting] = useState(false);
 
   const [batchDetails, setBatchDetails] = useState<BatchDetailsOutput>({
     batchNumber: '',
@@ -73,6 +76,7 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
         setCapturedImage(null);
         setHasCameraPermission(null);
         setBatchDetails({ batchNumber: '', mfgDate: '', expDate: '', mrp: undefined });
+        setIsExtracting(false);
         // Stop video stream
         if (videoRef.current && videoRef.current.srcObject) {
             const stream = videoRef.current.srcObject as MediaStream;
@@ -83,7 +87,7 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
   }, [open, hasCameraPermission, getCameraPermission]);
 
 
-  const handleCapture = () => {
+  const handleCapture = async () => {
     if (!videoRef.current) return;
     const canvas = document.createElement('canvas');
     canvas.width = videoRef.current.videoWidth;
@@ -93,6 +97,18 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
       context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
       const dataUri = canvas.toDataURL('image/jpeg');
       setCapturedImage(dataUri);
+
+      setIsExtracting(true);
+      try {
+        const result = await extractBatchDetailsAction({ photoDataUri: dataUri });
+        setBatchDetails(result);
+        toast({ title: 'Details Extracted!', description: 'Please review the extracted details.' });
+      } catch (e) {
+        console.error(e);
+        toast({ variant: 'destructive', title: 'Extraction Failed', description: 'Could not extract details from the image. Please enter them manually.' });
+      } finally {
+        setIsExtracting(false);
+      }
     }
   };
 
@@ -102,11 +118,10 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
   };
 
   const handleConfirm = async () => {
-    if (!capturedImage) return;
     onScanSuccess(batchDetails);
   };
   
-  const handleInputChange = (field: keyof BatchDetailsOutput, value: string) => {
+  const handleInputChange = (field: keyof BatchDetailsOutput, value: string | number) => {
     setBatchDetails(prev => ({...prev, [field]: value}));
   }
 
@@ -140,7 +155,16 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
 
   const renderCapturedView = () => (
     <div className="my-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-        <img src={capturedImage!} alt="Captured medicine" className="w-full aspect-video rounded-md" />
+        <div className="relative">
+             <img src={capturedImage!} alt="Captured medicine" className="w-full aspect-video rounded-md" />
+             {isExtracting && (
+                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center rounded-md">
+                    <Loader2 className="h-8 w-8 animate-spin text-white mb-2" />
+                    <p className="text-white font-semibold">Extracting details...</p>
+                </div>
+            )}
+        </div>
+
         <div className="space-y-3">
             <div>
                 <Label htmlFor="ocr-batch">Batch Number</Label>
@@ -148,7 +172,7 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
             </div>
             <div>
                 <Label htmlFor="ocr-mrp">MRP</Label>
-                <Input id="ocr-mrp" type="number" value={batchDetails.mrp ?? ''} onChange={(e) => handleInputChange('mrp', e.target.value)} />
+                <Input id="ocr-mrp" type="number" value={batchDetails.mrp ?? ''} onChange={(e) => handleInputChange('mrp', parseFloat(e.target.value))} />
             </div>
             <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -168,10 +192,10 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Scan Batch Details</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><Sparkles className="text-primary" /> Scan Batch Details with AI</DialogTitle>
           <DialogDescription>
             {capturedImage 
-                ? 'Review the captured image and manually enter the batch details.' 
+                ? 'AI has extracted the details. Please review and correct if necessary before confirming.' 
                 : 'Position the medicine\'s batch information within the frame and capture.'
             }
           </DialogDescription>
@@ -186,10 +210,10 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
             </Button>
           ) : (
             <div className="flex w-full gap-2">
-              <Button onClick={handleRetake} variant="outline" className="flex-1">
+              <Button onClick={handleRetake} variant="outline" className="flex-1" disabled={isExtracting}>
                 <RotateCcw className="mr-2" /> Retake
               </Button>
-              <Button onClick={handleConfirm} className="flex-1">
+              <Button onClick={handleConfirm} className="flex-1" disabled={isExtracting}>
                 <Check className="mr-2" />
                 Confirm Details
               </Button>
