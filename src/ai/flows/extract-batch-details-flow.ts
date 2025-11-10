@@ -39,7 +39,7 @@ const extractBatchDetailsFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await ai.generate({
-        model: 'googleai/gemini-1.5-flash',
+        model: 'googleai/gemini-pro-vision',
         prompt: `
         You are an expert at reading text from images of medicine packaging from India.
         Your task is to extract the following details from the provided image:
