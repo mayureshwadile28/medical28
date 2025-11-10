@@ -2,10 +2,13 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '4.5mb',
-    },
+  serverActions: {
+    bodySizeLimit: '4.5mb',
+  },
+  devIndicators: {
+    allowedDevOrigins: [
+      'https://*.cloudworkstations.dev',
+    ]
   },
   /* config options here */
   images: {
