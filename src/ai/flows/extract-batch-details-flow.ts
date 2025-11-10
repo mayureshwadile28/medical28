@@ -31,26 +31,6 @@ export async function extractBatchDetails(input: BatchDetailsInput): Promise<Bat
   return extractBatchDetailsFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'extractBatchDetailsPrompt',
-  input: { schema: BatchDetailsInputSchema },
-  output: { schema: BatchDetailsOutputSchema },
-  prompt: `
-        You are an expert at reading text from images of medicine packaging from India.
-        Your task is to extract the following details from the provided image:
-        - Batch Number (B. No., Batch No.)
-        - Manufacturing Date (Mfg. Dt., Mfg. Date)
-        - Expiry Date (Exp. Dt., Exp. Date)
-        - Maximum Retail Price (M.R.P., MRP)
-
-        Only return the values for the fields you are confident about. Dates should be in YYYY-MM format.
-        For the price, only return the numeric value. For example, if the text is "MRP ₹120.50", the value should be 120.50.
-        If a value is not clearly visible, do not guess. Omit the field.
-
-        Image: {{media url=photoDataUri}}
-    `,
-});
-
 const extractBatchDetailsFlow = ai.defineFlow(
   {
     name: 'extractBatchDetailsFlow',
@@ -59,16 +39,17 @@ const extractBatchDetailsFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await ai.generate({
-        model: 'googleai/gemini-1.5-flash-latest',
+        model: 'googleai/gemini-1.5-flash',
         prompt: `
         You are an expert at reading text from images of medicine packaging from India.
         Your task is to extract the following details from the provided image:
         - Batch Number (B. No., Batch No.)
-        - Manufacturing Date (Mfg. Dt., Mfg. Date)
-        - Expiry Date (Exp. Dt., Exp. Date)
+        - Manufacturing Date (Mfg. Dt., Mfg. Date) in MM/YYYY format.
+        - Expiry Date (Exp. Dt., Exp. Date) in MM/YYYY format.
         - Maximum Retail Price (M.R.P., MRP)
 
-        Only return the values for the fields you are confident about. Dates should be in YYYY-MM format.
+        Only return the values for the fields you are confident about. 
+        The final dates MUST be in YYYY-MM format. For example, if you read "11/2024", the output should be "2024-11".
         For the price, only return the numeric value. For example, if the text is "MRP ₹120.50", the value should be 120.50.
         If a value is not clearly visible, do not guess. Omit the field.
 

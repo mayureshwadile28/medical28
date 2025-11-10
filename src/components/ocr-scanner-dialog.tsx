@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Camera, Check, RotateCcw, Sparkles } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { extractBatchDetailsAction } from '@/app/actions';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 
@@ -24,6 +25,7 @@ interface OcrScannerDialogProps {
 
 export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScannerDialogProps) {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
@@ -71,6 +73,7 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
     } else {
         // Reset state when closing
         setCapturedImage(null);
+        setIsProcessing(false);
         setHasCameraPermission(null);
         setBatchDetails({ batchNumber: '', mfgDate: '', expDate: '', mrp: undefined });
         // Stop video stream
@@ -82,6 +85,31 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
     }
   }, [open, hasCameraPermission, getCameraPermission]);
 
+  const processImage = async (dataUri: string) => {
+    setIsProcessing(true);
+    try {
+      const result = await extractBatchDetailsAction({ photoDataUri: dataUri });
+      setBatchDetails({
+        batchNumber: result.batchNumber || '',
+        mfgDate: result.mfgDate || '',
+        expDate: result.expDate || '',
+        mrp: result.mrp,
+      });
+      toast({
+        title: 'Scan Successful',
+        description: 'Details have been extracted. Please verify them.',
+      });
+    } catch (error) {
+      console.error('AI processing error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Scan Failed',
+        description: 'Could not extract details from the image. Please enter them manually.',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleCapture = () => {
     if (!videoRef.current) return;
@@ -93,6 +121,7 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
       context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
       const dataUri = canvas.toDataURL('image/jpeg');
       setCapturedImage(dataUri);
+      processImage(dataUri);
     }
   };
 
@@ -110,7 +139,8 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
   }
 
   const renderInitialView = () => (
-     <div className="my-4 relative">
+    <>
+      <div className="my-4 relative">
           {hasCameraPermission === null && (
             <div className="flex items-center justify-center h-48 bg-muted rounded-md">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -133,9 +163,46 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
             playsInline
           />
         </div>
+    </>
   );
 
-  const renderCapturedView = () => (
+  const renderProcessingView = () => (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
+        <div className="space-y-2">
+            <h3 className="font-semibold">Captured Image</h3>
+            <div className="relative">
+                <img src={capturedImage!} alt="Captured medicine strip" className="rounded-md w-full opacity-50" />
+                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-md">
+                    <Sparkles className="h-10 w-10 text-white animate-pulse" />
+                    <p className="text-white mt-2 font-semibold">Extracting details...</p>
+                </div>
+            </div>
+        </div>
+        <div className="space-y-4 animate-pulse">
+            <h3 className="font-semibold">Extracted Details</h3>
+             <div>
+                <Label htmlFor="batch-number">Batch Number</Label>
+                <div className="h-10 w-full rounded-md bg-muted" />
+            </div>
+            <div>
+                <Label htmlFor="mfg-date">MFG Date</Label>
+                <div className="h-10 w-full rounded-md bg-muted" />
+            </div>
+            <div>
+                <Label htmlFor="exp-date">Expiry Date</Label>
+                <div className="h-10 w-full rounded-md bg-muted" />
+            </div>
+            <div>
+                <Label htmlFor="mrp">MRP</Label>
+                <div className="h-10 w-full rounded-md bg-muted" />
+            </div>
+        </div>
+      </div>
+    </>
+  );
+
+  const renderResultView = () => (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
         <div className="space-y-2">
@@ -143,7 +210,7 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
             <img src={capturedImage!} alt="Captured medicine strip" className="rounded-md w-full" />
         </div>
         <div className="space-y-4">
-            <h3 className="font-semibold">Enter Details</h3>
+            <h3 className="font-semibold">Verify Extracted Details</h3>
              <div>
                 <Label htmlFor="batch-number">Batch Number</Label>
                 <Input id="batch-number" value={batchDetails.batchNumber} onChange={(e) => handleInputChange('batchNumber', e.target.value)} />
@@ -172,18 +239,20 @@ export function OcrScannerDialog({ open, onOpenChange, onScanSuccess }: OcrScann
           <DialogTitle>Scan Batch Details</DialogTitle>
           <DialogDescription>
             {capturedImage
-              ? 'Review the captured image and manually enter the details.'
+              ? 'AI has extracted the details. Please verify and correct them if needed.'
               : 'Position the medicine\'s batch details inside the frame and click "Capture".'}
           </DialogDescription>
         </DialogHeader>
 
-        {capturedImage ? renderCapturedView() : renderInitialView()}
+        {!capturedImage && renderInitialView()}
+        {capturedImage && isProcessing && renderProcessingView()}
+        {capturedImage && !isProcessing && renderResultView()}
 
         <DialogFooter>
           {capturedImage ? (
             <>
-              <Button variant="outline" onClick={handleRetake}><RotateCcw className="mr-2 h-4 w-4" /> Retake</Button>
-              <Button onClick={handleConfirm}><Check className="mr-2 h-4 w-4" /> Confirm Details</Button>
+              <Button variant="outline" onClick={handleRetake} disabled={isProcessing}><RotateCcw className="mr-2 h-4 w-4" /> Retake</Button>
+              <Button onClick={handleConfirm} disabled={isProcessing}><Check className="mr-2 h-4 w-4" /> Confirm Details</Button>
             </>
           ) : (
             <Button onClick={handleCapture} disabled={!hasCameraPermission}>
