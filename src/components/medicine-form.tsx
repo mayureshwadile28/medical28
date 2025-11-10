@@ -33,13 +33,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { ChevronsUpDown, PlusCircle, Trash2, Camera } from "lucide-react"
+import { ChevronsUpDown, PlusCircle, Trash2 } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
-import { OcrScannerDialog } from "@/components/ocr-scanner-dialog"
-import { type BatchDetailsOutput } from "@/ai/flows/extract-batch-details-flow"
 
 const batchSchema = z.object({
   id: z.string(),
@@ -281,8 +279,6 @@ export function MedicineForm({
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(
     !!medicineToEdit?.description
   )
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [activeBatchIndex, setActiveBatchIndex] = useState<number | null>(null);
 
   const isCustomCategory =
     medicineToEdit &&
@@ -410,7 +406,7 @@ export function MedicineForm({
     defaultValues: getInitialFormValues(),
   })
   
-  const { control, setValue } = form;
+  const { control } = form;
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "batches",
@@ -426,23 +422,6 @@ export function MedicineForm({
   const selectedCategory = form.watch("category")
   const patientType = form.watch("description_patientType")
   
-  const handleScanSuccess = (data: BatchDetailsOutput, batchIndex: number) => {
-    if (data.batchNumber) {
-        setValue(`batches.${batchIndex}.batchNumber`, data.batchNumber, { shouldValidate: true });
-    }
-    if (data.mrp) {
-        setValue(`batches.${batchIndex}.price`, data.mrp, { shouldValidate: true });
-    }
-    if (data.mfgDate) {
-        setValue(`batches.${batchIndex}.mfg`, data.mfgDate, { shouldValidate: true });
-    }
-    if (data.expDate) {
-        setValue(`batches.${batchIndex}.expiry`, data.expDate, { shouldValidate: true });
-    }
-    setIsScannerOpen(false);
-    setActiveBatchIndex(null);
-  };
-
   const handleSubmit = (values: FormData) => {
     const finalCategory =
       values.category === "Other" ? values.customCategory! : values.category
@@ -538,18 +517,6 @@ export function MedicineForm({
 
   return (
     <>
-      {isScannerOpen && activeBatchIndex !== null && (
-        <OcrScannerDialog
-          open={isScannerOpen}
-          onOpenChange={(open) => {
-            if (!open) {
-              setIsScannerOpen(false);
-              setActiveBatchIndex(null);
-            }
-          }}
-          onScanSuccess={(data) => handleScanSuccess(data, activeBatchIndex)}
-        />
-      )}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <FormField
@@ -779,18 +746,6 @@ export function MedicineForm({
                   )}
                 />
                 <div className="flex items-end self-center justify-self-center lg:absolute lg:right-1 lg:top-1/2 lg:-translate-y-1/2">
-                   <Button 
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        setActiveBatchIndex(index);
-                        setIsScannerOpen(true);
-                      }}
-                      className="text-primary hover:text-primary mr-1"
-                    >
-                        <Camera className="h-4 w-4" />
-                    </Button>
                   <Button
                     type="button"
                     variant="ghost"

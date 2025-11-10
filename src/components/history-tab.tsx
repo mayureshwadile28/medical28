@@ -3,7 +3,6 @@
 
 import React from 'react';
 import { type SaleRecord, type PaymentMode } from '@/lib/types';
-import * as htmlToImage from 'html-to-image';
 import {
   Accordion,
   AccordionContent,
@@ -298,52 +297,54 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
 }
 
 function DownloadBillButton({ sale }: { sale: SaleRecord }) {
-  const { toast } = useToast();
-  const billRef = React.useRef<HTMLDivElement>(null);
+    const { toast } = useToast();
 
-  const handleDownload = async () => {
-    if (!billRef.current) return;
+    const handleDownload = async () => {
+        const billElement = document.createElement('div');
+        billElement.style.position = 'fixed';
+        billElement.style.left = '-9999px';
+        billElement.style.top = '0';
+        billElement.style.backgroundColor = 'white';
+        billElement.style.padding = '1rem';
+        billElement.innerHTML = ReactDOMServer.renderToStaticMarkup(<PrintableBill sale={sale} />);
+        document.body.appendChild(billElement);
 
-    try {
-      const dataUrl = await htmlToImage.toPng(billRef.current, {
-        quality: 1,
-        backgroundColor: '#ffffff',
-        pixelRatio: 2,
-        skipFonts: true, 
-      });
+        try {
+            // Dynamically import html-to-image
+            const { toPng } = await import('html-to-image');
+            const dataUrl = await toPng(billElement, {
+                quality: 1,
+                backgroundColor: '#ffffff',
+                pixelRatio: 2,
+            });
 
-      const link = document.createElement('a');
-      const saleDate = new Date(sale.saleDate).toISOString().split('T')[0];
-      link.download = `${sale.customerName.replace(/ /g, '_')}-${saleDate}.png`;
-      link.href = dataUrl;
-      link.click();
-      toast({
-        title: 'Download Started',
-        description: 'Your bill is being downloaded as a PNG image.',
-      });
-    } catch (error) {
-      console.error('oops, something went wrong!', error);
-      toast({
-        variant: 'destructive',
-        title: 'Download Failed',
-        description: 'Could not generate the bill image. Please try again.',
-      });
-    }
-  };
+            const link = document.createElement('a');
+            const saleDate = new Date(sale.saleDate).toISOString().split('T')[0];
+            link.download = `${sale.customerName.replace(/ /g, '_')}-${saleDate}.png`;
+            link.href = dataUrl;
+            link.click();
+            toast({
+                title: 'Download Started',
+                description: 'Your bill is being downloaded as a PNG image.',
+            });
+        } catch (error) {
+            console.error('oops, something went wrong!', error);
+            toast({
+                variant: 'destructive',
+                title: 'Download Failed',
+                description: 'Could not generate the bill image. Please try again.',
+            });
+        } finally {
+            document.body.removeChild(billElement);
+        }
+    };
 
-  return (
-    <>
-      <div className="fixed -left-[9999px] top-0">
-        <div ref={billRef} className="bg-white p-4">
-          <PrintableBill sale={sale} />
-        </div>
-      </div>
-      <Button variant="outline" size="sm" onClick={handleDownload}>
-        <Download className="mr-2 h-4 w-4" />
-        Download
-      </Button>
-    </>
-  );
+    return (
+        <Button variant="outline" size="sm" onClick={handleDownload}>
+            <Download className="mr-2 h-4 w-4" />
+            Download
+        </Button>
+    );
 }
 
 
