@@ -47,6 +47,13 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { AppService } from '@/lib/service';
 
+interface ImportedMedicine {
+    medicineName: string;
+    batchNumber: string;
+    mfgDate: string; // "MM/YYYY"
+    expDate: string; // "MM/YYYY"
+    mrp: string;
+}
 
 interface InventoryTabProps {
   medicines: Medicine[];
@@ -103,10 +110,9 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
 
 
   // State for sequential import with user prompts
-  const [importQueue, setImportQueue] = useState<Medicine[]>([]);
-  const [currentDuplicate, setCurrentDuplicate] = useState<{ imported: Medicine, existing: Medicine } | null>(null);
+  const [importQueue, setImportQueue] = useState<ImportedMedicine[]>([]);
   const [newInventoryState, setNewInventoryState] = useState<Medicine[] | null>(null);
-  const importStats = useRef({ added: 0, updated: 0, skipped: 0 });
+  const importStats = useRef({ added: 0, updated: 0, skipped: 0, new: 0 });
   
   const validMedicines = useMemo(() => {
     return medicines.filter(med => med && med.name && med.id);
@@ -239,6 +245,11 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     setIsFormOpen(false);
     if(onRestockComplete) onRestockComplete();
     setPendingMedicine(null);
+
+    // After saving, continue import process if queue is not empty
+     if (importQueue.length > 0) {
+      setTimeout(() => processImportQueue(), 100);
+    }
   };
 
   const handleSaveMedicine = (medicine: Medicine) => {
@@ -264,6 +275,11 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     if (onItemProcessed && (orderItemToProcess || existingMedicineToProcess)) {
         onItemProcessed(null);
     }
+     // If form was opened for import, continue queue
+    if (importQueue.length > 0) {
+        importStats.current.skipped++;
+        setTimeout(() => processImportQueue(), 100);
+    }
     setEditingMedicine(null);
     setIsFormOpen(false);
     setIsRestockMode(false);
@@ -278,11 +294,22 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   }
 
   const handleExportInventory = () => {
-    const dataStr = JSON.stringify(validMedicines, null, 2);
+    const dataToExport = validMedicines.flatMap(med => {
+        return med.batches.map(batch => ({
+            medicineName: med.name,
+            batchNumber: batch.batchNumber,
+            mfgDate: batch.mfg ? new Date(batch.mfg).toLocaleDateString('en-GB', { month: '2-digit', year: 'numeric' }) : '',
+            expDate: new Date(batch.expiry).toLocaleDateString('en-GB', { month: '2-digit', year: 'numeric' }),
+            mrp: (batch.price || 0).toFixed(2),
+            id: med.id, // Or batch.id if it's more unique
+        }));
+    });
+    
+    const dataStr = JSON.stringify(dataToExport, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.download = 'medicines-backup.json';
+    link.download = `vicky-medical-inventory_${new Date().toISOString().split('T')[0]}.json`;
     link.href = url;
     document.body.appendChild(link);
     link.click();
@@ -292,84 +319,86 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   };
   
   // ----- NEW IMPORT LOGIC -----
-  useEffect(() => {
-    if (newInventoryState && !currentDuplicate) {
-        processImportQueue();
-    }
-  }, [newInventoryState, currentDuplicate, importQueue]);
+  const parseImportedDate = (dateStr: string): string => {
+    if (!dateStr || !/^\d{2}\/\d{4}$/.test(dateStr)) return '';
+    const [month, year] = dateStr.split('/');
+    return `${year}-${month}`;
+  };
 
   const processImportQueue = () => {
-    if (!newInventoryState || importQueue.length === 0) {
+    if (importQueue.length === 0) {
+        // Finished processing
         if (newInventoryState) {
-            // Finished processing
-            onSaveAllMedicines(newInventoryState).then(() => {
-                const { added, updated, skipped } = importStats.current;
-                if (added > 0 || updated > 0 || skipped > 0) {
-                    toast({
-                        title: 'Import Complete',
-                        description: `${added} new item(s) added, ${updated} item(s) updated, ${skipped} item(s) skipped.`
-                    });
-                }
-                // Reset state
-                setNewInventoryState(null);
-                setImportQueue([]);
-                setCurrentDuplicate(null);
-                importStats.current = { added: 0, updated: 0, skipped: 0 };
-            });
+            onSaveAllMedicines(newInventoryState);
         }
+        const { added, updated, skipped, new: newCount } = importStats.current;
+        toast({
+            title: 'Import Complete',
+            description: `${updated} batch(es) merged, ${newCount} new medicine(s) added, ${skipped} item(s) skipped.`
+        });
+        // Reset state
+        setNewInventoryState(null);
+        setImportQueue([]);
         return;
     }
 
     const queue = [...importQueue];
-    const importedMed = queue.shift()!;
-    
-    const existingMedIndex = newInventoryState.findIndex(
-        m => m.name.toLowerCase() === importedMed.name.toLowerCase() && m.category.toLowerCase() === importedMed.category.toLowerCase()
+    const importedMedData = queue.shift()!;
+    setImportQueue(queue); // Update queue immediately
+
+    const existingMedIndex = (newInventoryState || validMedicines).findIndex(
+        m => m.name.toLowerCase() === importedMedData.medicineName.toLowerCase()
     );
 
     if (existingMedIndex > -1) {
-        // Found a duplicate, pause and ask user
-        setImportQueue(queue);
-        setCurrentDuplicate({ imported: importedMed, existing: newInventoryState[existingMedIndex] });
+        // Medicine exists, merge batch
+        const currentInventory = newInventoryState || [...validMedicines];
+        const updatedMed = { ...currentInventory[existingMedIndex] };
+        
+        // Check if batch number already exists for this medicine
+        const batchExists = updatedMed.batches.some(b => b.batchNumber === importedMedData.batchNumber);
+
+        if (!batchExists) {
+            const newBatch: Batch = {
+                id: new Date().toISOString() + Math.random(),
+                batchNumber: importedMedData.batchNumber,
+                mfg: parseImportedDate(importedMedData.mfgDate),
+                expiry: parseImportedDate(importedMedData.expDate),
+                price: parseFloat(importedMedData.mrp) || 0,
+                stock: { tablets: 0, quantity: 0 },
+            };
+            updatedMed.batches.push(newBatch);
+            currentInventory[existingMedIndex] = updatedMed;
+            setNewInventoryState(currentInventory);
+            importStats.current.updated++;
+        } else {
+            importStats.current.skipped++;
+        }
+        // Continue processing next item
+        setTimeout(() => processImportQueue(), 100);
+
     } else {
-        // Not a duplicate, add it directly
-        const updatedInventory = [...newInventoryState, { ...importedMed, id: importedMed.id || 'temp-' + new Date().toISOString() + Math.random() }];
-        importStats.current.added++;
-        setImportQueue(queue);
-        setNewInventoryState(updatedInventory);
+        // New medicine, open form
+        importStats.current.new++;
+        const newBatch: Partial<Batch> = {
+            id: new Date().toISOString() + Math.random(),
+            batchNumber: importedMedData.batchNumber,
+            mfg: parseImportedDate(importedMedData.mfgDate),
+            expiry: parseImportedDate(importedMedData.expDate),
+            price: parseFloat(importedMedData.mrp) || 0,
+            stock: { tablets: 0, quantity: 0 },
+        };
+        const newMedicine: Partial<Medicine> = {
+            name: importedMedData.medicineName,
+            batches: [newBatch as Batch],
+        };
+        setEditingMedicine(newMedicine as Medicine);
+        setIsRestockMode(false);
+        setIsFormOpen(true);
+        // The process will be continued by proceedWithSave or handleCancelForm
     }
   };
   
-  const handleDuplicateDecision = (decision: 'update' | 'add' | 'skip') => {
-    if (!currentDuplicate || !newInventoryState) return;
-
-    let inventory = [...newInventoryState];
-    const { imported, existing } = currentDuplicate;
-
-    if (decision === 'update') {
-        const existingMedIndex = inventory.findIndex(m => m.id === existing.id);
-        if (existingMedIndex > -1) {
-            const updatedMed: Medicine = {
-                ...inventory[existingMedIndex],
-                ...imported,
-                id: existing.id,
-                batches: [...existing.batches, ...imported.batches] // Simple merge, can be improved
-            };
-            
-            inventory[existingMedIndex] = updatedMed;
-            importStats.current.updated++;
-        }
-    } else if (decision === 'add') {
-        inventory.push({ ...imported, id: 'temp-' + new Date().toISOString() + Math.random() });
-        importStats.current.added++;
-    } else { // skip
-        importStats.current.skipped++;
-    }
-
-    setCurrentDuplicate(null);
-    setNewInventoryState(inventory);
-  };
-
   const handleImportInventory = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -380,20 +409,50 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
             const text = e.target?.result;
             if (typeof text !== 'string') throw new Error("Failed to read file.");
             
-            const importedMedicines: Medicine[] = JSON.parse(text);
-            if (!Array.isArray(importedMedicines)) throw new Error("Invalid file format.");
+            const importedData: ImportedMedicine[] = JSON.parse(text);
+            if (!Array.isArray(importedData)) throw new Error("Invalid file format: must be a JSON array.");
+            
+             // Basic validation of the first item
+            const firstItem = importedData[0];
+            if (!firstItem || !firstItem.medicineName || !firstItem.batchNumber || !firstItem.expDate) {
+                throw new Error("Invalid data structure in JSON file.");
+            }
 
             if (importMode === 'replace') {
-                onSaveAllMedicines(importedMedicines).then(() => {
+                const newMedicines: Medicine[] = [];
+                 importedData.forEach(item => {
+                    const newBatch: Batch = {
+                        id: new Date().toISOString() + Math.random(),
+                        batchNumber: item.batchNumber,
+                        mfg: parseImportedDate(item.mfgDate),
+                        expiry: parseImportedDate(item.expDate),
+                        price: parseFloat(item.mrp) || 0,
+                        stock: { tablets: 0, quantity: 0 },
+                    };
+                     const existing = newMedicines.find(m => m.name.toLowerCase() === item.medicineName.toLowerCase());
+                     if (existing) {
+                         existing.batches.push(newBatch);
+                     } else {
+                         newMedicines.push({
+                             id: item.id || new Date().toISOString() + Math.random(),
+                             name: item.medicineName,
+                             category: 'Other', // Default category
+                             location: 'Unassigned',
+                             batches: [newBatch],
+                         });
+                     }
+                 });
+                onSaveAllMedicines(newMedicines).then(() => {
                     toast({ 
                         title: 'Import Successful', 
-                        description: `Inventory replaced with ${importedMedicines.length} medicine(s).`
+                        description: `Inventory replaced with ${newMedicines.length} medicine(s).`
                     });
                 });
             } else { // 'merge'
-                importStats.current = { added: 0, updated: 0, skipped: 0 };
+                importStats.current = { added: 0, updated: 0, skipped: 0, new: 0 };
                 setNewInventoryState([...validMedicines]);
-                setImportQueue(importedMedicines);
+                setImportQueue(importedData);
+                processImportQueue();
             }
 
         } catch (error: any) {
@@ -427,6 +486,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                     <DialogHeader>
                         <DialogTitle>{editingMedicine?.id ? (isRestockMode ? `Add New Stock: ${editingMedicine.name}` : 'Edit Medicine') : 'Add New Medicine'}</DialogTitle>
                         {orderItemToProcess && <DialogDescription>Please provide the batch details for the newly received item to add it to your inventory.</DialogDescription>}
+                        {importQueue.length > 0 && <DialogDescription>This is a new medicine from your imported file. Please set a category and location.</DialogDescription>}
                     </DialogHeader>
                     <MedicineForm
                         medicines={validMedicines}
@@ -639,7 +699,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                     <AlertDialogHeader>
                         <AlertDialogTitle>Import Inventory</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Choose how you want to import the inventory file.
+                            Choose how you want to import the inventory file. The JSON file should contain `medicineName`, `batchNumber`, `mfgDate`, `expDate`, and `mrp`.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <RadioGroup defaultValue="merge" value={importMode} onValueChange={(value: ImportMode) => setImportMode(value)} className="my-4 space-y-3">
@@ -647,7 +707,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                         <RadioGroupItem value="merge" id="merge" className="peer sr-only" />
                         <Label htmlFor="merge" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
                           <span className="font-semibold">Merge with Existing</span>
-                          <span className="text-sm text-muted-foreground">Adds new items and prompts for duplicates.</span>
+                          <span className="text-sm text-muted-foreground">Adds new items and merges batches. Skips duplicates.</span>
                         </Label>
                       </div>
                       <div>
@@ -686,25 +746,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-    
-    <AlertDialog open={!!currentDuplicate} onOpenChange={open => !open && setCurrentDuplicate(null)}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Duplicate Item Found</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Your inventory already has '{currentDuplicate?.existing.name}' (Category: {currentDuplicate?.existing.category}). What would you like to do?
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Button variant="destructive" onClick={() => handleDuplicateDecision('skip')}>Skip</Button>
-                <Button variant="secondary" onClick={() => handleDuplicateDecision('add')}>Add as New</Button>
-                <Button onClick={() => handleDuplicateDecision('update')}>Update Existing</Button>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-    
+        
     </>
   );
 }
-
-    

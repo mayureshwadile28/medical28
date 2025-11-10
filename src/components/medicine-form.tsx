@@ -45,7 +45,7 @@ const batchSchema = z.object({
   mfg: z.string().refine(val => /^\d{4}-\d{2}$/.test(val), {
     message: "MFG date is required.",
   }),
-  expiry: z.string().refine(val => /^\d{4-}-\d{2}$/.test(val), {
+  expiry: z.string().refine(val => /^\d{4}-\d{2}$/.test(val), {
     message: "Expiry date is required.",
   }),
   price: z.coerce.number().positive("MRP must be a positive number."),
