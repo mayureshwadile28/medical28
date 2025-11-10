@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { type Medicine, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, OrderItem, getTotalStock, getSoonestExpiry, getTotalStockInBatch } from '@/lib/types';
+import { type Medicine, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, OrderItem, getTotalStock, getSoonestExpiry, getTotalStockInBatch, type Batch } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -247,8 +247,8 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     setPendingMedicine(null);
 
     // After saving, continue import process if queue is not empty
-     if (importQueue.length > 0) {
-      setTimeout(() => processImportQueue(), 100);
+    if (importQueue.length > 0) {
+        setTimeout(() => processImportQueue(), 100);
     }
   };
 
@@ -322,7 +322,12 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   const parseImportedDate = (dateStr: string): string => {
     if (!dateStr || !/^\d{2}\/\d{4}$/.test(dateStr)) return '';
     const [month, year] = dateStr.split('/');
-    return `${year}-${month}`;
+    // Handles cases like "1/2024" by padding to "01"
+    const paddedMonth = month.padStart(2, '0');
+    // Ensure year is valid, e.g., between 1970 and 2100
+    const numericYear = parseInt(year, 10);
+    if (isNaN(numericYear) || numericYear < 1970 || numericYear > 2100) return '';
+    return `${year}-${paddedMonth}`;
   };
 
   const processImportQueue = () => {
@@ -331,7 +336,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
         if (newInventoryState) {
             onSaveAllMedicines(newInventoryState);
         }
-        const { added, updated, skipped, new: newCount } = importStats.current;
+        const { updated, new: newCount, skipped } = importStats.current;
         toast({
             title: 'Import Complete',
             description: `${updated} batch(es) merged, ${newCount} new medicine(s) added, ${skipped} item(s) skipped.`
@@ -346,13 +351,13 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     const importedMedData = queue.shift()!;
     setImportQueue(queue); // Update queue immediately
 
-    const existingMedIndex = (newInventoryState || validMedicines).findIndex(
+    const currentInventory = newInventoryState || [...validMedicines];
+    const existingMedIndex = currentInventory.findIndex(
         m => m.name.toLowerCase() === importedMedData.medicineName.toLowerCase()
     );
 
     if (existingMedIndex > -1) {
         // Medicine exists, merge batch
-        const currentInventory = newInventoryState || [...validMedicines];
         const updatedMed = { ...currentInventory[existingMedIndex] };
         
         // Check if batch number already exists for this medicine
@@ -374,11 +379,12 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
         } else {
             importStats.current.skipped++;
         }
-        // Continue processing next item
-        setTimeout(() => processImportQueue(), 100);
+        // Continue processing next item in the queue
+        setTimeout(() => processImportQueue(), 50);
 
     } else {
-        // New medicine, open form
+        // This is a new medicine, open the form to get category/location.
+        // The process will be continued by proceedWithSave or handleCancelForm
         importStats.current.new++;
         const newBatch: Partial<Batch> = {
             id: new Date().toISOString() + Math.random(),
@@ -395,7 +401,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
         setEditingMedicine(newMedicine as Medicine);
         setIsRestockMode(false);
         setIsFormOpen(true);
-        // The process will be continued by proceedWithSave or handleCancelForm
+        // We pause here. The form's save/cancel handlers will re-trigger processImportQueue.
     }
   };
   
@@ -471,282 +477,281 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   
   return (
     <>
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-           <CardTitle>Inventory ({validMedicines.length} items)</CardTitle>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
-                <DialogTrigger asChild>
-                    <Button onClick={() => { setEditingMedicine(null); setIsRestockMode(false); setIsFormOpen(true); }}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Medicine
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[550px] md:max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>{editingMedicine?.id ? (isRestockMode ? `Add New Stock: ${editingMedicine.name}` : 'Edit Medicine') : 'Add New Medicine'}</DialogTitle>
-                        {orderItemToProcess && <DialogDescription>Please provide the batch details for the newly received item to add it to your inventory.</DialogDescription>}
-                        {importQueue.length > 0 && <DialogDescription>This is a new medicine from your imported file. Please set a category and location.</DialogDescription>}
-                    </DialogHeader>
-                    <MedicineForm
-                        medicines={validMedicines}
-                        medicineToEdit={editingMedicine}
-                        onSave={handleSaveMedicine}
-                        onCancel={handleCancelForm}
-                        categories={categories}
-                        isFromOrder={!!orderItemToProcess && !existingMedicineToProcess}
-                        startWithNewBatch={isRestockMode}
-                        orderItem={orderItemToProcess}
-                    />
-                </DialogContent>
-            </Dialog>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle>Inventory ({validMedicines.length} items)</CardTitle>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
+                  <DialogTrigger asChild>
+                      <Button onClick={() => { setEditingMedicine(null); setIsRestockMode(false); setIsFormOpen(true); }}>
+                          <PlusCircle className="mr-2 h-4 w-4" /> Add Medicine
+                      </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[550px] md:max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                          <DialogTitle>{editingMedicine?.id ? (isRestockMode ? `Add New Stock: ${editingMedicine.name}` : 'Edit Medicine') : 'Add New Medicine'}</DialogTitle>
+                          {orderItemToProcess && <DialogDescription>Please provide the batch details for the newly received item to add it to your inventory.</DialogDescription>}
+                          {importQueue.length > 0 && <DialogDescription>This is a new medicine from your imported file. Please set a category and location.</DialogDescription>}
+                      </DialogHeader>
+                      <MedicineForm
+                          medicines={validMedicines}
+                          medicineToEdit={editingMedicine}
+                          onSave={handleSaveMedicine}
+                          onCancel={handleCancelForm}
+                          categories={categories}
+                          isFromOrder={!!orderItemToProcess && !existingMedicineToProcess}
+                          startWithNewBatch={isRestockMode}
+                          orderItem={orderItemToProcess}
+                      />
+                  </DialogContent>
+              </Dialog>
+            </div>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={`Search in ${validMedicines.length} items...`}
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={`Search in ${validMedicines.length} items...`}
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                  <Link href="/expiry-report">
+                      <CalendarClock className="mr-2 h-4 w-4" /> 
+                      <span className="hidden sm:inline">Expiry Report</span>
+                  </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                  <Link href="/out-of-stock">
+                      <Bell className="mr-2 h-4 w-4" /> 
+                      <span className="hidden sm:inline">Out of Stock</span>
+                      {outOfStockMedicines.length > 0 && <Badge variant="destructive" className="ml-2">{outOfStockMedicines.length}</Badge>}
+                  </Link>
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start md:w-auto">
+                    <ArrowDownUp className="mr-2 h-4 w-4" />
+                    Sort
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
+                      <DropdownMenuRadioItem value="expiry_asc">Expiry (Soonest First)</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="expiry_desc">Expiry (Latest First)</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="name_asc">Name (A-Z)</DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start md:w-auto">
+                    <ListFilter className="mr-2 h-4 w-4" />
+                    Filter
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align='end'>
+                  <DropdownMenuLabel>Category</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {categories.map(cat => (
+                    <DropdownMenuCheckboxItem
+                      key={cat}
+                      checked={categoryFilters.includes(cat)}
+                      onCheckedChange={checked => {
+                        setCategoryFilters(
+                          checked
+                            ? [...categoryFilters, cat]
+                            : categoryFilters.filter(c => c !== cat)
+                        );
+                      }}
+                    >
+                      {cat}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" asChild>
-                <Link href="/expiry-report">
-                    <CalendarClock className="mr-2 h-4 w-4" /> 
-                    <span className="hidden sm:inline">Expiry Report</span>
-                </Link>
-            </Button>
-            <Button variant="outline" asChild>
-                <Link href="/out-of-stock">
-                    <Bell className="mr-2 h-4 w-4" /> 
-                    <span className="hidden sm:inline">Out of Stock</span>
-                    {outOfStockMedicines.length > 0 && <Badge variant="destructive" className="ml-2">{outOfStockMedicines.length}</Badge>}
-                </Link>
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full justify-start md:w-auto">
-                  <ArrowDownUp className="mr-2 h-4 w-4" />
-                  Sort
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuRadioGroup value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
-                    <DropdownMenuRadioItem value="expiry_asc">Expiry (Soonest First)</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="expiry_desc">Expiry (Latest First)</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="name_asc">Name (A-Z)</DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full justify-start md:w-auto">
-                  <ListFilter className="mr-2 h-4 w-4" />
-                  Filter
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align='end'>
-                 <DropdownMenuLabel>Category</DropdownMenuLabel>
-                 <DropdownMenuSeparator />
-                {categories.map(cat => (
-                  <DropdownMenuCheckboxItem
-                    key={cat}
-                    checked={categoryFilters.includes(cat)}
-                    onCheckedChange={checked => {
-                      setCategoryFilters(
-                        checked
-                          ? [...categoryFilters, cat]
-                          : categoryFilters.filter(c => c !== cat)
-                      );
-                    }}
-                  >
-                    {cat}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden md:table-cell">Category</TableHead>
+                  <TableHead className="hidden lg:table-cell">Location</TableHead>
+                  <TableHead>Soonest Expiry</TableHead>
+                  <TableHead className="text-right">Stock</TableHead>
+                  <TableHead className="text-right w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredMedicines.length > 0 ? (
+                    filteredMedicines.map(med => {
+                    const soonestExpiry = getSoonestExpiry(med);
+                    const expiry = getExpiryInfo(soonestExpiry);
+                    return (
+                        <TableRow key={med.id} className={cn(expiry.isExpired && "bg-destructive/10 text-destructive-foreground", isOutOfStock(med) && "bg-muted/50")}>
+                            <TableCell className="font-medium">{med.name}</TableCell>
+                            <TableCell className="hidden md:table-cell">{med.category}</TableCell>
+                            <TableCell className="hidden lg:table-cell">{med.location}</TableCell>
+                            <TableCell>
+                              <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
+                                <div className='flex flex-col'>
+                                    <span className={cn("font-semibold", (expiry.isExpired || expiry.isNearExpiry) && !expiry.isExpired && "font-semibold text-amber-500", expiry.isExpired && "font-semibold")}>{expiry.text}</span>
+                                    <span className={cn("text-xs", expiry.isExpired ? 'text-destructive-foreground/80' : 'text-muted-foreground')}>
+                                      {expiry.remainder}
+                                    </span>
+                                </div>
+                              </ClientOnly>
+                            </TableCell>
+                            <TableCell className={cn("text-right font-mono", isLowStock(med) && 'text-amber-500 font-semibold', isOutOfStock(med) && "text-destructive font-semibold")}>{getStockString(med)}</TableCell>
+                            <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                        setEditingMedicine(med);
+                                        setIsRestockMode(false); // Set to false for standard edit
+                                        setIsFormOpen(true);
+                                    }}
+                                >
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                <AlertDialog open={deletingMedicineId === med.id} onOpenChange={(open) => { if (!open) { setDeletingMedicineId(null); setDeleteConfirmation(''); }}}>
+                                  <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeletingMedicineId(med.id)}>
+                                          <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete {med.name}?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                          This action cannot be undone. This will permanently delete the medicine and all its batches from your inventory.
+                                          <br />
+                                          To confirm, please type <strong>delete</strong> in the box below.
+                                      </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <div className="py-2">
+                                          <Label htmlFor="delete-confirm-medicine" className="sr-only">Type "delete" to confirm</Label>
+                                          <Input 
+                                              id="delete-confirm-medicine"
+                                              value={deleteConfirmation}
+                                              onChange={(e) => setDeleteConfirmation(e.target.value)}
+                                              placeholder={'Type "delete" to confirm'}
+                                          />
+                                      </div>
+                                      <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => handleDeleteMedicine(med.id)}
+                                        disabled={deleteConfirmation.toLowerCase() !== 'delete'}
+                                      >
+                                          Delete
+                                      </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    )
+                })
+                ) : (
+                    <TableRow>
+                        <TableCell colSpan={7} className="h-24 text-center">
+                            <div className="flex flex-col items-center justify-center gap-2">
+                                <Info className="h-8 w-8 text-muted-foreground" />
+                                <p>No medicines found.</p>
+                                <p className="text-sm text-muted-foreground">{searchTerm || categoryFilters.length > 0 ? 'Try adjusting your search or filters.' : 'Add your first medicine to get started.'}</p>
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
-        </div>
+          <div className="flex flex-col sm:flex-row gap-2 justify-end pt-4">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="application/json"
+                onChange={handleImportInventory}
+                className="hidden"
+              />
+              <Button variant="outline" onClick={handleExportInventory}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Inventory
+              </Button>
+              <AlertDialog open={isImportAlertOpen} onOpenChange={setIsImportAlertOpen}>
+                  <AlertDialogTrigger asChild>
+                      <Button variant="outline">
+                          <Upload className="mr-2 h-4 w-4" />
+                          Import Inventory
+                      </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                      <AlertDialogHeader>
+                          <AlertDialogTitle>Import Inventory</AlertDialogTitle>
+                          <AlertDialogDescription>
+                              Choose how you want to import the inventory file. The JSON file should contain `medicineName`, `batchNumber`, `mfgDate`, `expDate`, and `mrp`.
+                          </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <RadioGroup defaultValue="merge" value={importMode} onValueChange={(value: ImportMode) => setImportMode(value)} className="my-4 space-y-3">
+                        <div>
+                          <RadioGroupItem value="merge" id="merge" className="peer sr-only" />
+                          <Label htmlFor="merge" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                            <span className="font-semibold">Merge with Existing</span>
+                            <span className="text-sm text-muted-foreground">Adds new items and merges batches. Skips duplicates.</span>
+                          </Label>
+                        </div>
+                        <div>
+                          <RadioGroupItem value="replace" id="replace" className="peer sr-only" />
+                          <Label htmlFor="replace" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                            <span className="font-semibold">Replace Everything</span>
+                            <span className="text-sm text-muted-foreground">Deletes current inventory and replaces it with the file.</span>
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                      <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={triggerFileSelect}>
+                              Choose File and Import
+                          </AlertDialogAction>
+                      </AlertDialogFooter>
+                  </AlertDialogContent>
+              </AlertDialog>
+          </div>
+        </CardContent>
+      </Card>
 
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead className="hidden md:table-cell">Category</TableHead>
-                <TableHead className="hidden lg:table-cell">Location</TableHead>
-                <TableHead>Soonest Expiry</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-                <TableHead className="text-right w-[100px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredMedicines.length > 0 ? (
-                  filteredMedicines.map(med => {
-                  const soonestExpiry = getSoonestExpiry(med);
-                  const expiry = getExpiryInfo(soonestExpiry);
-                  return (
-                      <TableRow key={med.id} className={cn(expiry.isExpired && "bg-destructive/10 text-destructive-foreground", isOutOfStock(med) && "bg-muted/50")}>
-                          <TableCell className="font-medium">{med.name}</TableCell>
-                          <TableCell className="hidden md:table-cell">{med.category}</TableCell>
-                          <TableCell className="hidden lg:table-cell">{med.location}</TableCell>
-                          <TableCell>
-                            <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
-                              <div className='flex flex-col'>
-                                  <span className={cn("font-semibold", (expiry.isExpired || expiry.isNearExpiry) && !expiry.isExpired && "font-semibold text-amber-500", expiry.isExpired && "font-semibold")}>{expiry.text}</span>
-                                  <span className={cn("text-xs", expiry.isExpired ? 'text-destructive-foreground/80' : 'text-muted-foreground')}>
-                                    {expiry.remainder}
-                                  </span>
-                              </div>
-                            </ClientOnly>
-                          </TableCell>
-                          <TableCell className={cn("text-right font-mono", isLowStock(med) && 'text-amber-500 font-semibold', isOutOfStock(med) && "text-destructive font-semibold")}>{getStockString(med)}</TableCell>
-                          <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                              <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => {
-                                      setEditingMedicine(med);
-                                      setIsRestockMode(false); // Set to false for standard edit
-                                      setIsFormOpen(true);
-                                  }}
-                              >
-                                  <Edit className="h-4 w-4" />
-                              </Button>
-                              <AlertDialog open={deletingMedicineId === med.id} onOpenChange={(open) => { if (!open) { setDeletingMedicineId(null); setDeleteConfirmation(''); }}}>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeletingMedicineId(med.id)}>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete {med.name}?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete the medicine and all its batches from your inventory.
-                                        <br />
-                                        To confirm, please type <strong>delete</strong> in the box below.
-                                    </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <div className="py-2">
-                                        <Label htmlFor="delete-confirm-medicine" className="sr-only">Type "delete" to confirm</Label>
-                                        <Input 
-                                            id="delete-confirm-medicine"
-                                            value={deleteConfirmation}
-                                            onChange={(e) => setDeleteConfirmation(e.target.value)}
-                                            placeholder={'Type "delete" to confirm'}
-                                        />
-                                    </div>
-                                    <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      onClick={() => handleDeleteMedicine(med.id)}
-                                      disabled={deleteConfirmation.toLowerCase() !== 'delete'}
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                              </div>
-                          </TableCell>
-                      </TableRow>
-                  )
-              })
-              ) : (
-                  <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
-                          <div className="flex flex-col items-center justify-center gap-2">
-                              <Info className="h-8 w-8 text-muted-foreground" />
-                              <p>No medicines found.</p>
-                              <p className="text-sm text-muted-foreground">{searchTerm || categoryFilters.length > 0 ? 'Try adjusting your search or filters.' : 'Add your first medicine to get started.'}</p>
-                          </div>
-                      </TableCell>
-                  </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-         <div className="flex flex-col sm:flex-row gap-2 justify-end pt-4">
-             <input
-              type="file"
-              ref={fileInputRef}
-              accept="application/json"
-              onChange={handleImportInventory}
-              className="hidden"
-            />
-            <Button variant="outline" onClick={handleExportInventory}>
-                <Download className="mr-2 h-4 w-4" />
-                Export Inventory
-            </Button>
-            <AlertDialog open={isImportAlertOpen} onOpenChange={setIsImportAlertOpen}>
-                <AlertDialogTrigger asChild>
-                    <Button variant="outline">
-                        <Upload className="mr-2 h-4 w-4" />
-                        Import Inventory
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Import Inventory</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Choose how you want to import the inventory file. The JSON file should contain `medicineName`, `batchNumber`, `mfgDate`, `expDate`, and `mrp`.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <RadioGroup defaultValue="merge" value={importMode} onValueChange={(value: ImportMode) => setImportMode(value)} className="my-4 space-y-3">
-                      <div>
-                        <RadioGroupItem value="merge" id="merge" className="peer sr-only" />
-                        <Label htmlFor="merge" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                          <span className="font-semibold">Merge with Existing</span>
-                          <span className="text-sm text-muted-foreground">Adds new items and merges batches. Skips duplicates.</span>
-                        </Label>
-                      </div>
-                      <div>
-                        <RadioGroupItem value="replace" id="replace" className="peer sr-only" />
-                         <Label htmlFor="replace" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                          <span className="font-semibold">Replace Everything</span>
-                          <span className="text-sm text-muted-foreground">Deletes current inventory and replaces it with the file.</span>
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={triggerFileSelect}>
-                            Choose File and Import
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </div>
-      </CardContent>
-    </Card>
-
-    <AlertDialog open={!!pendingMedicine} onOpenChange={(open) => !open && setPendingMedicine(null)}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Duplicate Medicine Found</AlertDialogTitle>
-          <AlertDialogDescription>
-            A medicine named "{pendingMedicine?.name}" already exists in your inventory. Do you want to add it anyway?
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setPendingMedicine(null)}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={() => pendingMedicine && proceedWithSave(pendingMedicine)}>
-            Add Anyway
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-        
+      <AlertDialog open={!!pendingMedicine} onOpenChange={(open) => !open && setPendingMedicine(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate Medicine Found</AlertDialogTitle>
+            <AlertDialogDescription>
+              A medicine named "{pendingMedicine?.name}" already exists in your inventory. Do you want to add it anyway?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingMedicine(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => pendingMedicine && proceedWithSave(pendingMedicine)}>
+              Add Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
