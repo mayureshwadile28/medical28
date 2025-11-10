@@ -7,7 +7,9 @@ const nextConfig: NextConfig = {
       'https://*.cloudworkstations.dev',
     ]
   },
-  /* config options here */
+  serverActions: {
+    bodySizeLimit: '4.5mb',
+  },
   images: {
     remotePatterns: [
       {

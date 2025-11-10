@@ -1,6 +1,6 @@
 "use client"
 
-import { useForm, useFieldArray } from "react-hook-form"
+import { useForm, useFieldArray, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import {
@@ -33,11 +33,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { ChevronsUpDown, PlusCircle, Trash2 } from "lucide-react"
+import { ChevronsUpDown, PlusCircle, Trash2, Camera } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
+import { OcrScannerDialog } from "@/components/ocr-scanner-dialog"
+import { type BatchDetailsOutput } from "@/ai/flows/extract-batch-details-flow"
 
 const batchSchema = z.object({
   id: z.string(),
@@ -71,7 +73,6 @@ const DEFAULT_MEDICINE_VALUES: Omit<FormData, "id"> = {
   description_gender: undefined,
 }
 
-// This is the factory function for the schema
 const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) =>
   z
     .object({
@@ -82,7 +83,6 @@ const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) =>
       location: z.string().min(1, "Location is required."),
       tablets_per_strip: z.coerce.number().int().min(1).optional(),
       batches: z.array(batchSchema).min(1, "At least one batch is required."),
-      // Description fields
       description_patientType: z.enum(["Human", "Animal"]).optional(),
       description_illness: z.string().optional(),
       description_minAge: z.coerce
@@ -114,7 +114,6 @@ const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) =>
           }
         })
       } else if (data.category) {
-        // Only check if category is selected
         data.batches.forEach((batch, index) => {
           if (
             batch.stock_quantity === undefined ||
@@ -139,7 +138,6 @@ const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) =>
         })
       }
 
-      // Description fields validation
       const descriptionFields = [
         data.description_patientType,
         data.description_illness,
@@ -209,13 +207,11 @@ const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) =>
         }
       }
 
-      // Duplicate batch number validation
       const batchNumbersInForm = new Set<string>()
       data.batches.forEach((batch, index) => {
         const batchNum = batch.batchNumber.toLowerCase()
         if (!batchNum) return
 
-        // 1. Check for duplicates within the form itself
         if (batchNumbersInForm.has(batchNum)) {
           ctx.addIssue({
             code: "custom",
@@ -225,13 +221,10 @@ const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) =>
         }
         batchNumbersInForm.add(batchNum)
 
-        // 2. Check for duplicates in the entire inventory
         for (const med of medicines) {
           if (!med || !med.batches) continue
           for (const existingBatch of med.batches) {
             if (!existingBatch) continue
-            // If we are editing, we should not compare a batch against itself.
-            // We identify a batch as "itself" if both the medicine ID and batch ID match.
             const isSelf =
               med.id === currentMedicineId && existingBatch.id === batch.id
             if (isSelf) {
@@ -244,7 +237,7 @@ const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) =>
                 message: `Batch already exists in: ${med.name}`,
                 path: [`batches.${index}.batchNumber`],
               })
-              return // Stop after finding the first duplicate for this batch
+              return
             }
           }
         }
@@ -252,7 +245,7 @@ const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) =>
     })
 
 interface MedicineFormProps {
-  medicines: Medicine[] // All medicines for validation
+  medicines: Medicine[]
   medicineToEdit: Partial<Medicine> | null
   onSave: (medicine: Medicine) => void
   onCancel: () => void
@@ -288,6 +281,8 @@ export function MedicineForm({
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(
     !!medicineToEdit?.description
   )
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [activeBatchIndex, setActiveBatchIndex] = useState<number | null>(null);
 
   const isCustomCategory =
     medicineToEdit &&
@@ -339,10 +334,8 @@ export function MedicineForm({
         }
       }) || []
 
-    // This logic handles adding a new empty batch when restocking/merging
     if (startWithNewBatch) {
       let newBatch = { ...defaultBatch }
-
       if (orderItem && medicineToEdit.category) {
         const isTabletCategory =
           medicineToEdit.category === "Tablet" ||
@@ -365,10 +358,8 @@ export function MedicineForm({
           newBatch.stock_quantity = units
         }
       }
-
       batches = [...batches, newBatch]
     } else if (isFromOrder && orderItem) {
-      // This is for a completely new medicine from an order, pre-fill first batch
       const isTabletCategory =
         medicineToEdit.category === "Tablet" ||
         medicineToEdit.category === "Capsule"
@@ -418,19 +409,39 @@ export function MedicineForm({
     resolver: zodResolver(formSchema),
     defaultValues: getInitialFormValues(),
   })
-
+  
+  const { control, setValue } = form;
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "batches",
   })
+  
+  const batchesWatch = useWatch({ control, name: 'batches' });
+
 
   useEffect(() => {
     form.reset(getInitialFormValues())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [medicineToEdit, startWithNewBatch, orderItem, medicines])
+  }, [medicineToEdit, startWithNewBatch, orderItem, medicines, form])
 
   const selectedCategory = form.watch("category")
   const patientType = form.watch("description_patientType")
+  
+  const handleScanSuccess = (data: BatchDetailsOutput, batchIndex: number) => {
+    if (data.batchNumber) {
+        setValue(`batches.${batchIndex}.batchNumber`, data.batchNumber, { shouldValidate: true });
+    }
+    if (data.mrp) {
+        setValue(`batches.${batchIndex}.price`, data.mrp, { shouldValidate: true });
+    }
+    if (data.mfgDate) {
+        setValue(`batches.${batchIndex}.mfg`, data.mfgDate, { shouldValidate: true });
+    }
+    if (data.expDate) {
+        setValue(`batches.${batchIndex}.expiry`, data.expDate, { shouldValidate: true });
+    }
+    setIsScannerOpen(false);
+    setActiveBatchIndex(null);
+  };
 
   const handleSubmit = (values: FormData) => {
     const finalCategory =
@@ -527,6 +538,18 @@ export function MedicineForm({
 
   return (
     <>
+      {isScannerOpen && activeBatchIndex !== null && (
+        <OcrScannerDialog
+          open={isScannerOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setIsScannerOpen(false);
+              setActiveBatchIndex(null);
+            }
+          }}
+          onScanSuccess={(data) => handleScanSuccess(data, activeBatchIndex)}
+        />
+      )}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <FormField
@@ -756,6 +779,18 @@ export function MedicineForm({
                   )}
                 />
                 <div className="flex items-end self-center justify-self-center lg:absolute lg:right-1 lg:top-1/2 lg:-translate-y-1/2">
+                   <Button 
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setActiveBatchIndex(index);
+                        setIsScannerOpen(true);
+                      }}
+                      className="text-primary hover:text-primary mr-1"
+                    >
+                        <Camera className="h-4 w-4" />
+                    </Button>
                   <Button
                     type="button"
                     variant="ghost"

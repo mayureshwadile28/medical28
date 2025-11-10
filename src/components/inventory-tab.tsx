@@ -53,6 +53,7 @@ interface ImportedMedicine {
     mfgDate: string; // "MM/YYYY"
     expDate: string; // "MM/YYYY"
     mrp: string;
+    id?: string;
 }
 
 interface InventoryTabProps {
@@ -235,10 +236,12 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   }, [validMedicines, searchTerm, categoryFilters, sortOption]);
 
   const proceedWithSave = async (medicine: Medicine) => {
-    await onSaveMedicine(medicine);
+    const savedMedicine = await service.saveMedicine(medicine);
+    const newMedicines = await service.getMedicines();
+    onSaveAllMedicines(newMedicines);
     
     if (onItemProcessed) {
-        onItemProcessed(medicine);
+        onItemProcessed(savedMedicine);
     }
   
     setEditingMedicine(null);
@@ -271,17 +274,18 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   };
   
   const handleCancelForm = () => {
-    // If the form was opened for an order, signal cancellation
     if (onItemProcessed && (orderItemToProcess || existingMedicineToProcess)) {
         onItemProcessed(null);
     }
-     // If form was opened for import, continue queue
     if (importQueue.length > 0) {
         importStats.current.skipped++;
+        setEditingMedicine(null);
+        setIsFormOpen(false);
         setTimeout(() => processImportQueue(), 100);
+    } else {
+        setEditingMedicine(null);
+        setIsFormOpen(false);
     }
-    setEditingMedicine(null);
-    setIsFormOpen(false);
     setIsRestockMode(false);
     if(onRestockComplete) onRestockComplete();
   }
@@ -301,7 +305,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
             mfgDate: batch.mfg ? new Date(batch.mfg).toLocaleDateString('en-GB', { month: '2-digit', year: 'numeric' }) : '',
             expDate: new Date(batch.expiry).toLocaleDateString('en-GB', { month: '2-digit', year: 'numeric' }),
             mrp: (batch.price || 0).toFixed(2),
-            id: med.id, // Or batch.id if it's more unique
+            id: med.id,
         }));
     });
     
@@ -318,13 +322,10 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     toast({ title: 'Export Successful', description: 'Your inventory data has been successfully exported.' });
   };
   
-  // ----- NEW IMPORT LOGIC -----
   const parseImportedDate = (dateStr: string): string => {
     if (!dateStr || !/^\d{2}\/\d{4}$/.test(dateStr)) return '';
     const [month, year] = dateStr.split('/');
-    // Handles cases like "1/2024" by padding to "01"
     const paddedMonth = month.padStart(2, '0');
-    // Ensure year is valid, e.g., between 1970 and 2100
     const numericYear = parseInt(year, 10);
     if (isNaN(numericYear) || numericYear < 1970 || numericYear > 2100) return '';
     return `${year}-${paddedMonth}`;
@@ -332,7 +333,6 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
 
   const processImportQueue = () => {
     if (importQueue.length === 0) {
-        // Finished processing
         if (newInventoryState) {
             onSaveAllMedicines(newInventoryState);
         }
@@ -341,15 +341,13 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
             title: 'Import Complete',
             description: `${updated} batch(es) merged, ${newCount} new medicine(s) added, ${skipped} item(s) skipped.`
         });
-        // Reset state
         setNewInventoryState(null);
-        setImportQueue([]);
         return;
     }
 
     const queue = [...importQueue];
     const importedMedData = queue.shift()!;
-    setImportQueue(queue); // Update queue immediately
+    setImportQueue(queue);
 
     const currentInventory = newInventoryState || [...validMedicines];
     const existingMedIndex = currentInventory.findIndex(
@@ -357,10 +355,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     );
 
     if (existingMedIndex > -1) {
-        // Medicine exists, merge batch
         const updatedMed = { ...currentInventory[existingMedIndex] };
-        
-        // Check if batch number already exists for this medicine
         const batchExists = updatedMed.batches.some(b => b.batchNumber === importedMedData.batchNumber);
 
         if (!batchExists) {
@@ -379,12 +374,9 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
         } else {
             importStats.current.skipped++;
         }
-        // Continue processing next item in the queue
         setTimeout(() => processImportQueue(), 50);
 
     } else {
-        // This is a new medicine, open the form to get category/location.
-        // The process will be continued by proceedWithSave or handleCancelForm
         importStats.current.new++;
         const newBatch: Partial<Batch> = {
             id: new Date().toISOString() + Math.random(),
@@ -401,7 +393,6 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
         setEditingMedicine(newMedicine as Medicine);
         setIsRestockMode(false);
         setIsFormOpen(true);
-        // We pause here. The form's save/cancel handlers will re-trigger processImportQueue.
     }
   };
   
@@ -418,7 +409,6 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
             const importedData: ImportedMedicine[] = JSON.parse(text);
             if (!Array.isArray(importedData)) throw new Error("Invalid file format: must be a JSON array.");
             
-             // Basic validation of the first item
             const firstItem = importedData[0];
             if (!firstItem || !firstItem.medicineName || !firstItem.batchNumber || !firstItem.expDate) {
                 throw new Error("Invalid data structure in JSON file.");
@@ -442,7 +432,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                          newMedicines.push({
                              id: item.id || new Date().toISOString() + Math.random(),
                              name: item.medicineName,
-                             category: 'Other', // Default category
+                             category: 'Other',
                              location: 'Unassigned',
                              batches: [newBatch],
                          });
