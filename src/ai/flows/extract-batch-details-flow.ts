@@ -27,8 +27,8 @@ export type BatchDetailsOutput = z.infer<typeof BatchDetailsOutputSchema>;
 const prompt = ai.definePrompt(
   {
     name: 'extractBatchDetailsPrompt',
-    input: { schema: BatchDetailsInputSchema },
-    output: { schema: BatchDetailsOutputSchema },
+    inputSchema: BatchDetailsInputSchema,
+    outputSchema: BatchDetailsOutputSchema,
     prompt: `You are an expert OCR tool for pharmaceutical products. Analyze the provided image of a medicine package. Extract the following details accurately:
 - Batch Number (often labeled as B.No. or Batch No.)
 - Manufacturing Date (MFG Date)
@@ -48,8 +48,8 @@ const extractBatchDetailsFlow = ai.defineFlow(
     outputSchema: BatchDetailsOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
-    return output!;
+    const response = await prompt(input);
+    return response.output()!;
   }
 );
 
