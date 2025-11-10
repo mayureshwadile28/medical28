@@ -12,13 +12,13 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
 // Define the input schema with a single image data URI
-export const BatchDetailsInputSchema = z.object({
+const BatchDetailsInputSchema = z.object({
   imageDataUri: z.string().describe("A photo of the medicine packaging, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
 });
 export type BatchDetailsInput = z.infer<typeof BatchDetailsInputSchema>;
 
 // Define the output schema for the extracted details
-export const BatchDetailsOutputSchema = z.object({
+const BatchDetailsOutputSchema = z.object({
   batchNumber: z.string().optional().describe("The batch number of the medicine."),
   mfgDate: z.string().optional().describe("The manufacturing date in YYYY-MM format."),
   expDate: z.string().optional().describe("The expiry date in YYYY-MM format."),
