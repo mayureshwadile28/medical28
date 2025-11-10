@@ -33,12 +33,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { ChevronsUpDown, PlusCircle, Trash2, ScanLine } from "lucide-react"
+import { ChevronsUpDown, PlusCircle, Trash2 } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
-import { OcrScannerDialog } from "./ocr-scanner-dialog"
 
 const batchSchema = z.object({
   id: z.string(),
@@ -289,8 +288,6 @@ export function MedicineForm({
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(
     !!medicineToEdit?.description
   )
-  const [isOcrOpen, setIsOcrOpen] = useState(false)
-  const [activeBatchIndexForOcr, setActiveBatchIndexForOcr] = useState(0)
 
   const isCustomCategory =
     medicineToEdit &&
@@ -435,39 +432,6 @@ export function MedicineForm({
   const selectedCategory = form.watch("category")
   const patientType = form.watch("description_patientType")
 
-  const handleOcrResult = (result: {
-    batchNumber?: string
-    mfgDate?: string
-    expiryDate?: string
-    price?: number
-  }) => {
-    if (result.batchNumber) {
-      form.setValue(
-        `batches.${activeBatchIndexForOcr}.batchNumber`,
-        result.batchNumber
-      )
-    }
-    if (result.mfgDate) {
-      form.setValue(
-        `batches.${activeBatchIndexForOcr}.mfg`,
-        result.mfgDate
-      )
-    }
-    if (result.expiryDate) {
-      form.setValue(
-        `batches.${activeBatchIndexForOcr}.expiry`,
-        result.expiryDate
-      )
-    }
-    if (result.price) {
-      form.setValue(
-        `batches.${activeBatchIndexForOcr}.price`,
-        result.price
-      )
-    }
-    setIsOcrOpen(false)
-  }
-
   const handleSubmit = (values: FormData) => {
     const finalCategory =
       values.category === "Other" ? values.customCategory! : values.category
@@ -563,11 +527,6 @@ export function MedicineForm({
 
   return (
     <>
-      <OcrScannerDialog
-        open={isOcrOpen}
-        onOpenChange={setIsOcrOpen}
-        onResult={handleOcrResult}
-      />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <FormField
@@ -686,18 +645,6 @@ export function MedicineForm({
                         <FormControl>
                           <Input placeholder="Batch Number" {...batchField} />
                         </FormControl>
-                         <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0"
-                          onClick={() => {
-                            setActiveBatchIndexForOcr(index)
-                            setIsOcrOpen(true)
-                          }}
-                        >
-                          <ScanLine className="h-5 w-5" />
-                        </Button>
                       </div>
                       <FormMessage />
                     </FormItem>
