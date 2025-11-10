@@ -1,7 +1,7 @@
 "use server"
 
 import { genkit, type Plugin } from "genkit"
-import { googleAI } from "@genkit-ai/google-genai"
+import { googleAI } from "@genkit-ai/googleai"
 
 // This is a workaround to get the API key from the environment variable
 // in a way that works in the Firebase Studio environment.
