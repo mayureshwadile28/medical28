@@ -7,6 +7,7 @@ import { extractBatchDetailsAction } from '@/app/actions';
 import { type BatchDetailsOutput } from '@/ai/flows/extract-batch-details-flow';
 import { Loader2, Camera, Check, RotateCcw } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 interface OcrScannerDialogProps {
   open: boolean;
