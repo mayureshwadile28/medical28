@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -92,8 +93,17 @@ function PrintBillDialog({ sale, licenseInfo }: { sale: SaleRecord, licenseInfo:
             printWindow.document.write('<html><head><title>Print Bill</title>');
             printWindow.document.write('<style>');
             printWindow.document.write(tailwindStyles);
-            printWindow.document.write('body { -webkit-print-color-adjust: exact; }');
-            printWindow.document.write('@page { margin: 0; }');
+            printWindow.document.write(`
+                body { -webkit-print-color-adjust: exact; }
+                @page { margin: 0; size: A4; }
+                .printable-bill-wrapper { 
+                    margin: 0;
+                    padding: 1cm;
+                    width: 100%;
+                    box-shadow: none;
+                    border: none;
+                }
+            `);
             printWindow.document.write('</style></head><body>');
             printWindow.document.write(billElement.innerHTML);
             printWindow.document.write('</body></html>');
@@ -295,7 +305,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
   const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(startOfDay(new Date()));
+  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [sortOption, setSortOption] = React.useState<SortOption>('date_desc');
   const [licenseInfo, setLicenseInfo] = React.useState<LicenseInfo | null>(null);
   const { toast } = useToast();
@@ -517,7 +527,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                 </PopoverContent>
             </Popover>
             {selectedDate && (
-                <Button variant="ghost" onClick={() => setSelectedDate(startOfDay(new Date()))}>
+                <Button variant="ghost" onClick={() => setSelectedDate(undefined)}>
                     <X className="mr-2 h-4 w-4" /> Clear
                 </Button>
             )}

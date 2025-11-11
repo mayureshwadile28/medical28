@@ -31,14 +31,16 @@ export default function ReportsTab({ sales, medicines }: { sales: SaleRecord[], 
             }
             
             let saleCost = 0;
+            let saleSubtotal = 0;
+
             sale.items.forEach(item => {
                 // The cost of an item is its purchase price, regardless of discount.
-                // If purchase price isn't available, we assume zero profit for that item by using its sale price as cost.
                 const costPerUnit = item.purchasePricePerUnit || item.pricePerUnit;
                 saleCost += costPerUnit * item.quantity;
+                saleSubtotal += item.pricePerUnit * item.quantity;
             });
             
-            dailyProfit[date].revenue += sale.totalAmount;
+            dailyProfit[date].revenue += sale.totalAmount; // This is discounted revenue
             dailyProfit[date].cost += saleCost;
         });
 

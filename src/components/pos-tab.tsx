@@ -890,7 +890,7 @@ export default function PosTab({ medicines, sales, setSales, service }: PosTabPr
                         <Input 
                             id="discount"
                             type="number"
-                            value={discount === 0 ? '' : discount}
+                            value={discount === 0 ? '' : String(discount)}
                             onChange={handleDiscountChange}
                             className="h-8 w-20 text-right"
                             placeholder="0"

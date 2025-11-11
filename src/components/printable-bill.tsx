@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { type SaleRecord, type LicenseInfo } from '@/lib/types';
 import { formatToINR } from '@/lib/currency';
@@ -15,12 +16,13 @@ const PrintableBill = React.forwardRef<HTMLDivElement, PrintableBillProps>(({ sa
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'N/A';
         try {
+            // Assuming the date string is like '2024-07' or a full ISO string
             const date = new Date(dateString);
             if (isNaN(date.getTime())) return 'Invalid';
-            // Assuming the date string is like '2024-07' or a full ISO string
+            // Use UTC methods to avoid timezone shifts
             const year = date.getUTCFullYear();
             const month = date.getUTCMonth() + 1;
-            return `${month.toString().padStart(2, '0')}/${year}`;
+            return `${String(month).padStart(2, '0')}/${year}`;
         } catch (e) {
             return 'Invalid';
         }
@@ -34,7 +36,7 @@ const PrintableBill = React.forwardRef<HTMLDivElement, PrintableBillProps>(({ sa
             <p className="my-1">Sangavi Road, Boradi, Ta. Shirpur, Dist. Dhule</p>
             <div className="text-xs">
               <p className="m-0">{licenseInfo.line1}</p>
-              <p className="m-0">{licenseInfo.line2}</p>
+              {licenseInfo.line2 && <p className="m-0">{licenseInfo.line2}</p>}
             </div>
         </header>
         
