@@ -210,6 +210,37 @@ const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) =>
 
       const batchNumbersInForm = new Set<string>()
       data.batches.forEach((batch, index) => {
+        // Date validations
+        if (batch.mfg) {
+            const mfgDate = new Date(`${batch.mfg}-01T00:00:00Z`);
+            const today = new Date();
+            today.setUTCHours(0, 0, 0, 0);
+
+            // Create a date object for comparison that is at the end of today
+            const endOfToday = new Date();
+            endOfToday.setUTCHours(23, 59, 59, 999);
+            
+            if (mfgDate > endOfToday) {
+                ctx.addIssue({
+                    code: "custom",
+                    message: "MFG date cannot be in the future.",
+                    path: [`batches.${index}.mfg`],
+                });
+            }
+
+            if (batch.expiry) {
+                const expiryDate = new Date(`${batch.expiry}-01T00:00:00Z`);
+                if (expiryDate <= mfgDate) {
+                    ctx.addIssue({
+                        code: "custom",
+                        message: "Expiry must be after MFG date.",
+                        path: [`batches.${index}.expiry`],
+                    });
+                }
+            }
+        }
+        
+        // Batch number uniqueness validation
         const batchNum = batch.batchNumber.toLowerCase()
         if (!batchNum) return
 
