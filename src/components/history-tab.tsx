@@ -208,8 +208,6 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
   const [isOpen, setIsOpen] = React.useState(false);
 
   const handlePrint = () => {
-    // This is a much simpler and more reliable way to print.
-    // It relies on CSS media queries to format the print output.
     window.print();
   };
   
@@ -254,11 +252,9 @@ function DownloadBillButton({ sale }: { sale: SaleRecord }) {
         billElement.style.top = '0';
         billElement.style.backgroundColor = 'white';
         billElement.style.padding = '1rem';
-        // Force a width to ensure layout consistency
         billElement.style.width = '1000px'; 
         
         document.body.appendChild(billElement);
-        // We need to use ReactDOM.render to handle hooks if any, but since it's just for display, this is fine
         billElement.innerHTML = ReactDOMServer.renderToStaticMarkup(<PrintableBill sale={sale} />);
 
         try {
@@ -311,7 +307,6 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
   const [sortOption, setSortOption] = React.useState<SortOption>('date_desc');
 
   const uniqueSales = React.useMemo(() => {
-    // This list contains ALL sales, including pending, to be used by child components like PendingPaymentsDialog
     return sales.filter((sale, index, self) =>
         index === self.findIndex((s) => s.id === sale.id)
     );
@@ -354,7 +349,6 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
   const dailySummary = React.useMemo(() => {
     if (!selectedDate || filteredSales.length === 0) return null;
     
-    // Use the already filtered sales for the summary to respect search terms
     const summarySales = filteredSales;
     
     if(summarySales.length === 0) return null;
