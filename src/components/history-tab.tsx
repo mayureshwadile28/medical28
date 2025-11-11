@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -17,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Trash2, Info, Search, Calendar as CalendarIcon, X, ArrowDownUp, Receipt } from 'lucide-react';
+import { Trash2, Info, Search, Calendar as CalendarIcon, X, ArrowDownUp, Receipt, Printer, Download } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,7 +61,9 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { AppService } from '@/lib/service';
-
+import { PrintableBill } from './printable-bill';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface HistoryTabProps {
   sales: SaleRecord[];
@@ -69,6 +72,94 @@ interface HistoryTabProps {
 }
 
 type SortOption = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'amount_desc' | 'amount_asc';
+
+function PrintBillDialog({ sale }: { sale: SaleRecord }) {
+    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const billRef = React.useRef<HTMLDivElement>(null);
+
+    const handlePrint = () => {
+        window.print();
+    };
+    
+    const handleDownload = async () => {
+        const billElement = billRef.current;
+        if (!billElement) return;
+
+        try {
+            const canvas = await html2canvas(billElement, {
+                scale: 2, // Higher scale for better quality
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            });
+            const imgData = canvas.toDataURL('image/png');
+            
+            // A4 dimensions in mm: 210 x 297
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const canvasAspectRatio = canvasWidth / canvasHeight;
+            
+            let finalWidth = pdfWidth - 20; // with margin
+            let finalHeight = finalWidth / canvasAspectRatio;
+
+            if (finalHeight > pdfHeight - 20) {
+                finalHeight = pdfHeight - 20;
+                finalWidth = finalHeight * canvasAspectRatio;
+            }
+            
+            const x = (pdfWidth - finalWidth) / 2;
+            const y = 10; // top margin
+
+            pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
+            pdf.save(`Vicky-Medical-Bill-${sale.id}.pdf`);
+
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Sorry, there was an error generating the PDF.');
+        }
+    };
+
+    return (
+         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                    <Printer className="mr-2 h-4 w-4"/>
+                    Print Bill
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-4xl print-dialog-content">
+                <DialogHeader>
+                    <DialogTitle>Bill Preview - {sale.id}</DialogTitle>
+                    <DialogDescription>
+                        Review the bill before printing or downloading.
+                    </DialogDescription>
+                </DialogHeader>
+                
+                <div className="max-h-[70vh] overflow-y-auto p-4 bg-gray-100 dark:bg-gray-900 rounded-md not-printable">
+                     <PrintableBill sale={sale} ref={billRef} />
+                </div>
+                
+                <DialogFooter>
+                     <Button variant="outline" onClick={handleDownload}>
+                        <Download className="mr-2 h-4 w-4"/>
+                        Download PDF
+                    </Button>
+                    <Button onClick={handlePrint}>
+                        <Printer className="mr-2 h-4 w-4"/>
+                        Print
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: SaleRecord[], setSales: (sales: SaleRecord[]) => void, service: AppService }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -473,6 +564,9 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                           ))}
                         </TableBody>
                       </Table>
+                    </div>
+                    <div className="flex justify-end">
+                        <PrintBillDialog sale={sale} />
                     </div>
                   </div>
                 </AccordionContent>

@@ -1,30 +1,33 @@
+
 import React from 'react';
 import { type SaleRecord } from '@/lib/types';
 import { formatToINR } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
-interface PrintableBillProps {
+interface PrintableBillProps extends React.HTMLAttributes<HTMLDivElement> {
   sale: SaleRecord;
-  className?: string;
 }
 
-export function PrintableBill({ sale, className }: PrintableBillProps) {
-  const subtotal = sale.items.reduce((acc, item) => acc + item.total, 0);
-  const discountAmount = (subtotal * (sale.discountPercentage || 0)) / 100;
+const PrintableBill = React.forwardRef<HTMLDivElement, PrintableBillProps>(({ sale, className, ...props }, ref) => {
+    const subtotal = sale.items.reduce((acc, item) => acc + item.total, 0);
+    const discountAmount = (subtotal * (sale.discountPercentage || 0)) / 100;
   
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-    const year = date.getUTCFullYear();
-    return `${month}/${year}`;
-  }
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return 'N/A';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return 'Invalid';
+            // Assuming the date string is like '2024-07' or a full ISO string
+            const year = date.getUTCFullYear();
+            const month = date.getUTCMonth() + 1;
+            return `${month.toString().padStart(2, '0')}/${year}`;
+        } catch (e) {
+            return 'Invalid';
+        }
+    }
   
   return (
-    <div 
-        className={cn("printable-bill-wrapper font-sans text-sm w-full mx-auto text-black bg-white p-4 border border-black", className)}
-        style={{ width: '100%', maxWidth: '20cm' }}
-    >
+    <div ref={ref} className={cn("printable-bill-wrapper font-sans text-sm w-full mx-auto text-black bg-white p-4 border border-black", className)} style={{ maxWidth: '20cm' }} {...props}>
       <header className="text-center mb-4 border-b-2 border-black pb-2">
         <h1 className="text-3xl m-0 font-bold">Vicky Medical & General Stores</h1>
         <p className="my-1">Sangavi Road, Boradi, Ta. Shirpur, Dist. Dhule</p>
@@ -93,8 +96,8 @@ export function PrintableBill({ sale, className }: PrintableBillProps) {
             </div>
           </div>
       </div>
-
-      <footer className="mt-8 pt-4 border-t border-dashed border-black">
+      
+       <footer className="mt-8 pt-4 border-t border-dashed border-black">
         <div className="flex justify-between items-end">
             <div className="text-[10px] text-gray-600">
                 <p className='m-0'>Tip - Please consult a doctor before using the medicine.</p>
@@ -109,4 +112,8 @@ export function PrintableBill({ sale, className }: PrintableBillProps) {
       </footer>
     </div>
   );
-}
+});
+
+PrintableBill.displayName = "PrintableBill";
+
+export { PrintableBill };
