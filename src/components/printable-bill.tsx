@@ -1,14 +1,14 @@
-
 import React from 'react';
-import { type SaleRecord } from '@/lib/types';
+import { type SaleRecord, type LicenseInfo } from '@/lib/types';
 import { formatToINR } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
 interface PrintableBillProps extends React.HTMLAttributes<HTMLDivElement> {
   sale: SaleRecord;
+  licenseInfo: LicenseInfo;
 }
 
-const PrintableBill = React.forwardRef<HTMLDivElement, PrintableBillProps>(({ sale, className, ...props }, ref) => {
+const PrintableBill = React.forwardRef<HTMLDivElement, PrintableBillProps>(({ sale, licenseInfo, className, ...props }, ref) => {
     const subtotal = sale.items.reduce((acc, item) => acc + item.total, 0);
     const discountAmount = (subtotal * (sale.discountPercentage || 0)) / 100;
   
@@ -33,7 +33,8 @@ const PrintableBill = React.forwardRef<HTMLDivElement, PrintableBillProps>(({ sa
             <h1 className="text-3xl m-0 font-bold">Vicky Medical & General Stores</h1>
             <p className="my-1">Sangavi Road, Boradi, Ta. Shirpur, Dist. Dhule</p>
             <div className="text-xs">
-            <p className="m-0">Lic. No.: 20-DHL-212349, 21-DHL-212351, 20-DHL-212350</p>
+              <p className="m-0">{licenseInfo.line1}</p>
+              <p className="m-0">{licenseInfo.line2}</p>
             </div>
         </header>
         

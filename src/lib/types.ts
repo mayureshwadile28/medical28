@@ -1,4 +1,3 @@
-
 export type Stock = {
   tablets?: number; // Total number of tablets/capsules
   quantity?: number; // for generic items
@@ -159,4 +158,9 @@ export type UserRole = 'Admin' | 'Staff';
 export interface PinSettings {
   adminPin: string;
   staffPin: string;
+}
+
+export interface LicenseInfo {
+    line1: string;
+    line2?: string;
 }

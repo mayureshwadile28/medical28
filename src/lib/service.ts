@@ -1,15 +1,16 @@
-import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type Wholesaler } from './types';
+import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type Wholesaler, type LicenseInfo } from './types';
 
 // Helper to get all data from localStorage
 const getLocalStorageData = () => {
     if (typeof window === 'undefined') {
-        return { medicines: [], sales: [], wholesalerOrders: [], wholesalers: [] };
+        return { medicines: [], sales: [], wholesalerOrders: [], wholesalers: [], licenseInfo: { line1: '', line2: '' } };
     }
     const medicines = JSON.parse(localStorage.getItem('medicines') || '[]');
     const sales = JSON.parse(localStorage.getItem('sales') || '[]');
     const wholesalerOrders = JSON.parse(localStorage.getItem('wholesalerOrders') || '[]');
     const wholesalers = JSON.parse(localStorage.getItem('wholesalers') || '[]');
-    return { medicines, sales, wholesalerOrders, wholesalers };
+    const licenseInfo = JSON.parse(localStorage.getItem('vicky-medical-license-info') || '{"line1": "Lic. No.: 20-DHL-212349, 21-DHL-212351", "line2": "Lic. No.: 20-DHL-212350"}');
+    return { medicines, sales, wholesalerOrders, wholesalers, licenseInfo };
 };
 
 interface AppData {
@@ -17,12 +18,14 @@ interface AppData {
     sales: SaleRecord[];
     wholesalerOrders: WholesalerOrder[];
     wholesalers: Wholesaler[];
+    licenseInfo: LicenseInfo;
 }
 export class AppService {
     private medicines: Medicine[] = [];
     private sales: SaleRecord[] = [];
     private wholesalerOrders: WholesalerOrder[] = [];
     private wholesalers: Wholesaler[] = [];
+    private licenseInfo: LicenseInfo = { line1: '', line2: ''};
 
     constructor() {
         // Data is now initialized via the initialize method to ensure it's in sync with React state
@@ -34,6 +37,7 @@ export class AppService {
         this.sales = data.sales;
         this.wholesalerOrders = data.wholesalerOrders;
         this.wholesalers = data.wholesalers;
+        this.licenseInfo = data.licenseInfo;
     }
 
     private async simulateLatency<T>(data: T): Promise<T> {
@@ -171,5 +175,10 @@ export class AppService {
         this.wholesalers = wholesalers;
         localStorage.setItem('wholesalers', JSON.stringify(this.wholesalers));
         await this.simulateLatencyVoid();
+    }
+    
+    // --- License Info Management ---
+    async getLicenseInfo(): Promise<LicenseInfo> {
+        return this.simulateLatency(this.licenseInfo);
     }
 }

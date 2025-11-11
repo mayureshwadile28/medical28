@@ -1,8 +1,7 @@
-
 'use client';
 
 import React from 'react';
-import { type SaleRecord, type PaymentMode } from '@/lib/types';
+import { type SaleRecord, type PaymentMode, type LicenseInfo } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -72,7 +71,7 @@ interface HistoryTabProps {
 
 type SortOption = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'amount_desc' | 'amount_asc';
 
-function PrintBillDialog({ sale }: { sale: SaleRecord }) {
+function PrintBillDialog({ sale, licenseInfo }: { sale: SaleRecord, licenseInfo: LicenseInfo }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const billRef = React.useRef<HTMLDivElement>(null);
     const { toast } = useToast();
@@ -81,21 +80,20 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
         const billElement = billRef.current;
         if (!billElement) return;
 
-        const printWindow = window.open('', '_blank', 'height=800,width=800');
+        const printWindow = window.open('', '_blank');
         if (printWindow) {
             const tailwindStyles = Array.from(document.styleSheets)
                 .map(s => {
                     try {
                         return Array.from(s.cssRules || []).map(r => r.cssText).join('\n');
-                    } catch (e) {
-                        return '';
-                    }
+                    } catch (e) { return ''; }
                 }).join('\n');
-
+            
             printWindow.document.write('<html><head><title>Print Bill</title>');
             printWindow.document.write('<style>');
             printWindow.document.write(tailwindStyles);
             printWindow.document.write('body { -webkit-print-color-adjust: exact; }');
+            printWindow.document.write('@page { margin: 0; }');
             printWindow.document.write('</style></head><body>');
             printWindow.document.write(billElement.innerHTML);
             printWindow.document.write('</body></html>');
@@ -104,7 +102,7 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
             setTimeout(() => {
                 printWindow.print();
                 printWindow.close();
-            }, 500); // Timeout to allow content to render
+            }, 250);
         }
     };
     
@@ -139,18 +137,18 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-4xl print-dialog-content">
-                <DialogHeader className="not-printable">
+                <DialogHeader>
                     <DialogTitle>Bill Preview - {sale.id}</DialogTitle>
                     <DialogDescription>
                         Review the bill before printing or downloading.
                     </DialogDescription>
                 </DialogHeader>
                 
-                <div className="max-h-[70vh] overflow-y-auto p-4 bg-gray-100 dark:bg-gray-900 rounded-md not-printable">
-                     <PrintableBill sale={sale} ref={billRef} />
+                <div className="max-h-[70vh] overflow-y-auto p-4 bg-gray-100 dark:bg-gray-900 rounded-md">
+                     <PrintableBill sale={sale} licenseInfo={licenseInfo} ref={billRef} />
                 </div>
                 
-                <DialogFooter className="not-printable">
+                <DialogFooter>
                      <Button variant="outline" onClick={handleDownload}>
                         <Download className="mr-2 h-4 w-4"/>
                         Download PNG
@@ -299,7 +297,18 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(startOfDay(new Date()));
   const [sortOption, setSortOption] = React.useState<SortOption>('date_desc');
+  const [licenseInfo, setLicenseInfo] = React.useState<LicenseInfo | null>(null);
   const { toast } = useToast();
+
+  React.useEffect(() => {
+    // Fetch licenseInfo from AppService or localStorage
+    const fetchLicenseInfo = async () => {
+      const info = await service.getLicenseInfo();
+      setLicenseInfo(info);
+    };
+    fetchLicenseInfo();
+  }, [service]);
+
 
   const uniqueSales = React.useMemo(() => {
     return sales.filter((sale, index, self) =>
@@ -403,6 +412,10 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
     setDeleteConfirmation('');
     toast({ title: "History Cleared", description: "All sales records have been deleted." });
   };
+
+  if (!licenseInfo) {
+    return null; // or a loading state
+  }
 
   return (
     <Card>
@@ -572,7 +585,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                       </Table>
                     </div>
                     <div className="flex justify-end">
-                        <PrintBillDialog sale={sale} />
+                        <PrintBillDialog sale={sale} licenseInfo={licenseInfo} />
                     </div>
                   </div>
                 </AccordionContent>
@@ -606,5 +619,3 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
     </Card>
   );
 }
-
-    

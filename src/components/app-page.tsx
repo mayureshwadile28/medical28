@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/lib/hooks';
-import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type UserRole, type PinSettings, type Wholesaler } from '@/lib/types';
+import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type UserRole, type PinSettings, type Wholesaler, type LicenseInfo } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, ShoppingCart, History, ClipboardList, LayoutDashboard, Settings, KeyRound, Users, LineChart } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -80,6 +80,10 @@ export default function AppPage() {
 
   const [pinSettings, setPinSettings, pinsLoading] = useLocalStorage<PinSettings | null>('vicky-medical-pins', null);
   const [licenseKey, setLicenseKey, licenseLoading] = useLocalStorage<string | null>('vicky-medical-license', null);
+  const [licenseInfo, setLicenseInfo, licenseInfoLoading] = useLocalStorage<LicenseInfo>('vicky-medical-license-info', {
+    line1: 'Lic. No.: 20-DHL-212349, 21-DHL-212351',
+    line2: 'Lic. No.: 20-DHL-212350'
+  });
   
   const [activeRole, setActiveRole] = useState<UserRole | null>(null);
   
@@ -98,8 +102,9 @@ export default function AppPage() {
       sales,
       wholesalerOrders,
       wholesalers,
+      licenseInfo,
     });
-  }, [service, medicines, sales, wholesalerOrders, wholesalers]);
+  }, [service, medicines, sales, wholesalerOrders, wholesalers, licenseInfo]);
 
   useEffect(() => {
     if (openRestockId) {
@@ -122,7 +127,7 @@ export default function AppPage() {
     }
   }, [orderItemToProcess]);
 
-  const isLoading = medicinesLoading || salesLoading || ordersLoading || licenseLoading || pinsLoading || wholesalersLoading;
+  const isLoading = medicinesLoading || salesLoading || ordersLoading || licenseLoading || pinsLoading || wholesalersLoading || licenseInfoLoading;
   
   if (isLoading) {
     return null; // Return nothing while loading to prevent flash of content
@@ -278,6 +283,8 @@ export default function AppPage() {
                     licenseKey={licenseKey}
                     pinSettings={pinSettings}
                     setPinSettings={setPinSettings}
+                    licenseInfo={licenseInfo}
+                    setLicenseInfo={setLicenseInfo}
                     disabled={activeRole !== 'Admin'}
                 />
             </div>
