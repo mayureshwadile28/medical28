@@ -78,7 +78,34 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
     const { toast } = useToast();
 
     const handlePrint = () => {
-        window.print();
+        const billElement = billRef.current;
+        if (!billElement) return;
+
+        const printWindow = window.open('', '_blank', 'height=800,width=800');
+        if (printWindow) {
+            const tailwindStyles = Array.from(document.styleSheets)
+                .map(s => {
+                    try {
+                        return Array.from(s.cssRules || []).map(r => r.cssText).join('\n');
+                    } catch (e) {
+                        return '';
+                    }
+                }).join('\n');
+
+            printWindow.document.write('<html><head><title>Print Bill</title>');
+            printWindow.document.write('<style>');
+            printWindow.document.write(tailwindStyles);
+            printWindow.document.write('body { -webkit-print-color-adjust: exact; }');
+            printWindow.document.write('</style></head><body>');
+            printWindow.document.write(billElement.innerHTML);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500); // Timeout to allow content to render
+        }
     };
     
     const handleDownload = async () => {
