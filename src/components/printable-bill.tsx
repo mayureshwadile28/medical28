@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { type SaleRecord } from '@/lib/types';
 import { formatToINR } from '@/lib/currency';
