@@ -122,7 +122,7 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
 
         } catch (error) {
             console.error('Error generating PDF:', error);
-            alert('Sorry, there was an error generating the PDF.');
+            toast({ variant: 'destructive', title: 'Download Error', description: 'There was an error generating the PDF.' });
         }
     };
 
@@ -135,7 +135,7 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-4xl print-dialog-content">
-                <DialogHeader>
+                <DialogHeader className="not-printable">
                     <DialogTitle>Bill Preview - {sale.id}</DialogTitle>
                     <DialogDescription>
                         Review the bill before printing or downloading.
@@ -146,7 +146,7 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
                      <PrintableBill sale={sale} ref={billRef} />
                 </div>
                 
-                <DialogFooter>
+                <DialogFooter className="not-printable">
                      <Button variant="outline" onClick={handleDownload}>
                         <Download className="mr-2 h-4 w-4"/>
                         Download PDF
@@ -295,6 +295,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(startOfDay(new Date()));
   const [sortOption, setSortOption] = React.useState<SortOption>('date_desc');
+  const { toast } = useToast();
 
   const uniqueSales = React.useMemo(() => {
     return sales.filter((sale, index, self) =>
@@ -396,6 +397,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
     setSales([]);
     setIsClearHistoryOpen(false);
     setDeleteConfirmation('');
+    toast({ title: "History Cleared", description: "All sales records have been deleted." });
   };
 
   return (
