@@ -586,13 +586,11 @@ export function MedicineForm({
                   <FormItem>
                     <FormLabel>Company Name</FormLabel>
                     <FormControl>
-                        <>
                         <Input list="company-names" placeholder="e.g., Cipla, Sun Pharma" {...field} />
-                        <datalist id="company-names">
-                            {companyNames.map(name => <option key={name} value={name} />)}
-                        </datalist>
-                        </>
                     </FormControl>
+                    <datalist id="company-names">
+                        {companyNames.map(name => <option key={name} value={name} />)}
+                    </datalist>
                     <FormMessage />
                   </FormItem>
                 )}
