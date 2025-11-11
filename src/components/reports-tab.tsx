@@ -22,33 +22,32 @@ export default function ReportsTab({ sales, medicines }: { sales: SaleRecord[], 
     }, [sales, period]);
 
     const profitData = useMemo(() => {
-        const dailyProfit: { [key: string]: { revenue: number, cost: number, profit: number } } = {};
+        const dailyData: { [key: string]: { revenue: number, cost: number, profit: number } } = {};
 
         filteredSales.forEach(sale => {
             const date = new Date(sale.saleDate).toISOString().split('T')[0];
-            if (!dailyProfit[date]) {
-                dailyProfit[date] = { revenue: 0, cost: 0, profit: 0 };
+            if (!dailyData[date]) {
+                dailyData[date] = { revenue: 0, cost: 0, profit: 0 };
             }
             
             let saleCost = 0;
             let saleSubtotal = 0;
 
             sale.items.forEach(item => {
-                // The cost of an item is its purchase price, regardless of discount.
-                const costPerUnit = item.purchasePricePerUnit || item.pricePerUnit;
+                const costPerUnit = item.purchasePricePerUnit || 0; // Use 0 if purchase price is missing
                 saleCost += costPerUnit * item.quantity;
                 saleSubtotal += item.pricePerUnit * item.quantity;
             });
             
-            dailyProfit[date].revenue += sale.totalAmount; // This is discounted revenue
-            dailyProfit[date].cost += saleCost;
+            dailyData[date].revenue += saleSubtotal; // Revenue is based on pre-discount subtotal
+            dailyData[date].cost += saleCost;
         });
 
-        Object.keys(dailyProfit).forEach(date => {
-            dailyProfit[date].profit = dailyProfit[date].revenue - dailyProfit[date].cost;
+        Object.keys(dailyData).forEach(date => {
+            dailyData[date].profit = dailyData[date].revenue - dailyData[date].cost;
         });
         
-        return Object.entries(dailyProfit)
+        return Object.entries(dailyData)
             .map(([date, data]) => ({ 
                 date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }), 
                 ...data 

@@ -16,10 +16,8 @@ const PrintableBill = React.forwardRef<HTMLDivElement, PrintableBillProps>(({ sa
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'N/A';
         try {
-            // Assuming the date string is like '2024-07' or a full ISO string
             const date = new Date(dateString);
             if (isNaN(date.getTime())) return 'Invalid';
-            // Use UTC methods to avoid timezone shifts
             const year = date.getUTCFullYear();
             const month = date.getUTCMonth() + 1;
             return `${String(month).padStart(2, '0')}/${year}`;
