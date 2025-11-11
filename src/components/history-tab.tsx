@@ -208,65 +208,9 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
   const [isOpen, setIsOpen] = React.useState(false);
 
   const handlePrint = () => {
-    const iframe = document.createElement('iframe');
-    document.body.appendChild(iframe);
-    iframe.style.position = 'absolute';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    
-    const doc = iframe.contentWindow?.document;
-    if (doc) {
-        // Render React component to HTML string
-        const billHtml = ReactDOMServer.renderToStaticMarkup(<PrintableBill sale={sale} />);
-        
-        // Get tailwind styles
-        const styles = Array.from(document.styleSheets)
-            .map(s => {
-                try {
-                    return Array.from(s.cssRules).map(r => r.cssText).join('\n');
-                } catch (e) {
-                    // Ignore cross-origin stylesheets
-                    return '';
-                }
-            })
-            .filter(Boolean)
-            .join('\n');
-
-        doc.open();
-        doc.write(`
-            <html>
-                <head>
-                    <title>Print Bill</title>
-                    <style>${styles}</style>
-                    <style>
-                        @media print {
-                           body {
-                                margin: 0;
-                                padding: 0;
-                           }
-                           @page {
-                                size: auto;
-                                margin: 1cm;
-                           }
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="print-preview-bill">${billHtml}</div>
-                </body>
-            </html>
-        `);
-        doc.close();
-        
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        
-        // Clean up the iframe after a short delay
-        setTimeout(() => {
-            document.body.removeChild(iframe);
-        }, 1000);
-    }
+    // This is a much simpler and more reliable way to print.
+    // It relies on CSS media queries to format the print output.
+    window.print();
   };
   
   return (
@@ -277,17 +221,15 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
           Print Bill
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl print-dialog-content">
         <DialogHeader>
           <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
           <DialogDescription>
             This is a preview of the bill for {sale.customerName}.
           </DialogDescription>
         </DialogHeader>
-        <div className="my-4 max-h-[70vh] overflow-y-auto rounded-lg border p-4 flex justify-center">
-           <div className="print-preview-bill">
-             <PrintableBill sale={sale} />
-           </div>
+        <div id="printable-area" className="my-4 max-h-[70vh] overflow-y-auto rounded-lg border p-4 flex justify-center bg-gray-100 dark:bg-gray-800">
+           <PrintableBill sale={sale} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setIsOpen(false)}>

@@ -85,11 +85,36 @@
   body {
     @apply bg-background text-foreground;
   }
-  .print-preview-bill {
-    @apply bg-white text-black;
-  }
 }
 
 html {
   @apply antialiased;
+}
+
+@media print {
+    body > * {
+        display: none;
+    }
+
+    .print-dialog-content,
+    .print-dialog-content > #printable-area,
+    .print-dialog-content > #printable-area > .printable-bill-wrapper {
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        height: auto !important;
+        overflow: visible !important;
+        background-color: white !important;
+    }
+
+    .printable-bill-wrapper {
+        color: black !important;
+        background: white !important;
+    }
+
+    @page {
+        size: auto;
+        margin: 1cm;
+    }
 }
