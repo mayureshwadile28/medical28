@@ -62,7 +62,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { AppService } from '@/lib/service';
 import { PrintableBill } from './printable-bill';
-import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 interface HistoryTabProps {
@@ -76,6 +75,7 @@ type SortOption = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'amount_
 function PrintBillDialog({ sale }: { sale: SaleRecord }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const billRef = React.useRef<HTMLDivElement>(null);
+    const { toast } = useToast();
 
     const handlePrint = () => {
         window.print();
@@ -87,42 +87,19 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
 
         try {
             const canvas = await html2canvas(billElement, {
-                scale: 2, // Higher scale for better quality
+                scale: 2,
                 useCORS: true,
                 backgroundColor: '#ffffff'
             });
-            const imgData = canvas.toDataURL('image/png');
-            
-            // A4 dimensions in mm: 210 x 297
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
-            });
-
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const canvasWidth = canvas.width;
-            const canvasHeight = canvas.height;
-            const canvasAspectRatio = canvasWidth / canvasHeight;
-            
-            let finalWidth = pdfWidth - 20; // with margin
-            let finalHeight = finalWidth / canvasAspectRatio;
-
-            if (finalHeight > pdfHeight - 20) {
-                finalHeight = pdfHeight - 20;
-                finalWidth = finalHeight * canvasAspectRatio;
-            }
-            
-            const x = (pdfWidth - finalWidth) / 2;
-            const y = 10; // top margin
-
-            pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
-            pdf.save(`Vicky-Medical-Bill-${sale.id}.pdf`);
+            const dataUrl = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `Vicky-Medical-Bill-${sale.id}.png`;
+            link.href = dataUrl;
+            link.click();
 
         } catch (error) {
-            console.error('Error generating PDF:', error);
-            toast({ variant: 'destructive', title: 'Download Error', description: 'There was an error generating the PDF.' });
+            console.error('Error generating image:', error);
+            toast({ variant: 'destructive', title: 'Download Error', description: 'There was an error generating the image file.' });
         }
     };
 
@@ -149,7 +126,7 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
                 <DialogFooter className="not-printable">
                      <Button variant="outline" onClick={handleDownload}>
                         <Download className="mr-2 h-4 w-4"/>
-                        Download PDF
+                        Download PNG
                     </Button>
                     <Button onClick={handlePrint}>
                         <Printer className="mr-2 h-4 w-4"/>
@@ -602,3 +579,5 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
     </Card>
   );
 }
+
+    

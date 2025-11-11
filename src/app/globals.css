@@ -93,13 +93,11 @@ html {
 }
 
 @media print {
-  body {
-    visibility: hidden;
-  }
-  .print-dialog-content, .print-dialog-content * {
-    visibility: visible;
+  body > #__next {
+    display: none;
   }
   .print-dialog-content {
+    visibility: visible;
     position: absolute;
     left: 0;
     top: 0;
@@ -115,4 +113,13 @@ html {
   .not-printable {
     display: none;
   }
+  /* Ensure the bill itself inside the content is what's captured */
+  .print-dialog-content > div[role="dialog"] {
+    display: none;
+  }
+  .print-dialog-content > .printable-bill-wrapper {
+    display: block !important;
+  }
 }
+
+    
