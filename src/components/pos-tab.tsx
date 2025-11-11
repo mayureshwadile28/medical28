@@ -455,6 +455,7 @@ export default function PosTab({ medicines, sales, setSales, service }: PosTabPr
     const newItem: SaleItem = {
       medicineId: medicineToAdd.id,
       name: medicineToAdd.name,
+      company: medicineToAdd.company,
       category: medicineToAdd.category,
       batchNumber: batch.batchNumber,
       quantity: 1,
@@ -577,6 +578,7 @@ export default function PosTab({ medicines, sales, setSales, service }: PosTabPr
       items: billItems.map(item => ({
           ...item, 
           quantity: Number(item.quantity), 
+          company: item.company,
           category: item.category || '',
           batchNumber: item.batchNumber,
       })),

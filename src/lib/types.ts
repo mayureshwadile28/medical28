@@ -26,6 +26,7 @@ export interface MedicineDescription {
 interface BaseMedicine {
   id: string;
   name: string;
+  company?: string;
   category: string;
   location: string;
   description?: MedicineDescription;
@@ -83,6 +84,7 @@ export const getTotalStockInBatch = (batch: Batch): number => {
 export interface SaleItem {
   medicineId: string;
   name: string;
+  company?: string;
   category: string;
   batchNumber: string;
   quantity: number | ''; // Allow empty string for controlled input, represents tablets for Tablet category
@@ -101,6 +103,7 @@ export interface SaleRecord {
   items: {
     medicineId: string;
     name: string;
+    company?: string;
     category: string;
     batchNumber: string;
     quantity: number;

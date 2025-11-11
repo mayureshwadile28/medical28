@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useForm, useFieldArray, useWatch } from "react-hook-form"
@@ -59,6 +60,7 @@ const batchSchema = z.object({
 
 const DEFAULT_MEDICINE_VALUES: Omit<FormData, "id"> = {
   name: "",
+  company: "",
   category: "",
   customCategory: "",
   location: "",
@@ -76,6 +78,7 @@ const createFormSchema = (medicines: Medicine[], currentMedicineId?: string) =>
     .object({
       id: z.string().optional(),
       name: z.string().min(2, "Name must be at least 2 characters."),
+      company: z.string().optional(),
       category: z.string().min(1, "Category is required."),
       customCategory: z.string().optional(),
       location: z.string().min(1, "Location is required."),
@@ -386,6 +389,7 @@ export function MedicineForm({
       ...baseValues,
       id: medicineToEdit.id,
       name: medicineToEdit.name || "",
+      company: medicineToEdit.company || "",
       category: isCustomCategory ? "Other" : medicineToEdit.category || "",
       customCategory: isCustomCategory ? medicineToEdit.category : "",
       location: medicineToEdit.location || "",
@@ -481,6 +485,7 @@ export function MedicineForm({
     let medicineData: Partial<Medicine> = {
       id: medicineToEdit?.id || new Date().toISOString() + Math.random(),
       name: formattedName,
+      company: values.company,
       category: finalCategory,
       location: values.location,
       batches: newBatches,
@@ -519,23 +524,38 @@ export function MedicineForm({
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Medicine Name</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder={"e.g., Paracetamol 500mg"}
-                    {...field}
-                    disabled={isFromOrder}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Medicine Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder={"e.g., Paracetamol 500mg"}
+                      {...field}
+                      disabled={isFromOrder}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Cipla, Sun Pharma" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
