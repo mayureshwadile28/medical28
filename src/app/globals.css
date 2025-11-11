@@ -93,20 +93,23 @@ html {
 }
 
 @media print {
-  body * {
-    visibility: hidden;
+  #__next {
+    display: none;
   }
-  .print-dialog-content, .print-dialog-content * {
-    visibility: visible;
+  body > div[data-radix-portal] {
+    display: block !important;
   }
   .print-dialog-content {
     position: absolute;
-    left: 0;
     top: 0;
+    left: 0;
     width: 100%;
     max-width: 100%;
     border: none;
     box-shadow: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
   }
   .not-printable {
     display: none;
