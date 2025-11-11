@@ -95,7 +95,6 @@ export function PrintableBill({ sale, className }: PrintableBillProps) {
           </div>
       </div>
 
-
       <footer className="mt-8 pt-4 border-t border-dashed border-black">
         <div className="flex justify-between items-end">
             <div className="text-[10px] text-gray-600">
