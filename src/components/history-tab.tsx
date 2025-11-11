@@ -246,7 +246,7 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
                                 padding: 0;
                            }
                            @page {
-                                size: landscape;
+                                size: portrait;
                                 margin: 1cm;
                            }
                         }
@@ -284,7 +284,7 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
             This is a preview of the bill for {sale.customerName}.
           </DialogDescription>
         </DialogHeader>
-        <div className="my-4 max-h-[70vh] overflow-y-auto rounded-lg border p-4">
+        <div className="my-4 max-h-[70vh] overflow-y-auto rounded-lg border p-4 flex justify-center">
            <div className="print-preview-bill">
              <PrintableBill sale={sale} />
            </div>
@@ -328,7 +328,7 @@ function DownloadBillButton({ sale }: { sale: SaleRecord }) {
             
             // Now use jsPDF to create a landscape PDF
             const pdf = new jsPDF({
-                orientation: 'landscape',
+                orientation: 'portrait',
                 unit: 'px',
                 format: [canvas.width, canvas.height]
             });

@@ -23,8 +23,8 @@ export function PrintableBill({ sale, className }: PrintableBillProps) {
   
   return (
     <div 
-        className={cn("font-sans text-sm w-full mx-auto text-black bg-white p-6 border border-black", className)}
-        style={{ width: '25cm', minHeight: '12cm' }}
+        className={cn("font-sans text-sm w-full mx-auto text-black bg-white p-4 border border-black", className)}
+        style={{ maxWidth: '20cm' }}
     >
       <header className="text-center mb-4 border-b-2 border-black pb-2">
         <h1 className="text-3xl m-0 font-bold">Vicky Medical & General Stores</h1>
@@ -75,7 +75,7 @@ export function PrintableBill({ sale, className }: PrintableBillProps) {
       </table>
       
       <div className="flex justify-end">
-          <div className="w-1/3 text-xs">
+          <div className="w-2/5 text-xs">
              {sale.discountPercentage && sale.discountPercentage > 0 && (
               <>
                 <div className="flex justify-between my-0.5">
