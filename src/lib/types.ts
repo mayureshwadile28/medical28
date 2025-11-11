@@ -87,6 +87,8 @@ export interface SaleItem {
   company?: string;
   category: string;
   batchNumber: string;
+  mfgDate?: string;
+  expiryDate: string;
   quantity: number | ''; // Allow empty string for controlled input, represents tablets for Tablet category
   pricePerUnit: number; // Price for the unit sold (e.g., price per tablet, price per bottle)
   purchasePricePerUnit?: number; // Purchase price for the unit sold
@@ -106,6 +108,8 @@ export interface SaleRecord {
     company?: string;
     category: string;
     batchNumber: string;
+    mfgDate?: string;
+    expiryDate: string;
     quantity: number;
     pricePerUnit: number;
     purchasePricePerUnit?: number;

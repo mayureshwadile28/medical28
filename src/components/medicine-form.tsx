@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/collapsible"
 import { ChevronsUpDown, PlusCircle, Trash2 } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 
@@ -289,6 +289,12 @@ export function MedicineForm({
     !["Tablet", "Capsule", "Syrup", "Ointment", "Injection", "Other"].includes(
       medicineToEdit.category
     )
+    
+  const companyNames = useMemo(() => {
+    const names = new Set(medicines.map(m => m.company).filter(Boolean));
+    return Array.from(names) as string[];
+  }, [medicines]);
+
 
   const getInitialFormValues = (): FormData => {
     const baseValues = { ...DEFAULT_MEDICINE_VALUES, id: undefined }
@@ -549,7 +555,12 @@ export function MedicineForm({
                   <FormItem>
                     <FormLabel>Company Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Cipla, Sun Pharma" {...field} />
+                        <>
+                        <Input list="company-names" placeholder="e.g., Cipla, Sun Pharma" {...field} />
+                        <datalist id="company-names">
+                            {companyNames.map(name => <option key={name} value={name} />)}
+                        </datalist>
+                        </>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

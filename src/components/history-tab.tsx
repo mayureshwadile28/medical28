@@ -64,6 +64,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import ReactDOMServer from 'react-dom/server';
 import { AppService } from '@/lib/service';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 
 interface HistoryTabProps {
@@ -243,6 +245,10 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
                                 margin: 0;
                                 padding: 0;
                            }
+                           @page {
+                                size: landscape;
+                                margin: 1cm;
+                           }
                         }
                     </style>
                 </head>
@@ -271,14 +277,14 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
           Print Bill
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
           <DialogDescription>
             This is a preview of the bill for {sale.customerName}.
           </DialogDescription>
         </DialogHeader>
-        <div className="my-4 max-h-[60vh] overflow-y-auto rounded-lg border p-4">
+        <div className="my-4 max-h-[70vh] overflow-y-auto rounded-lg border p-4">
            <div className="print-preview-bill">
              <PrintableBill sale={sale} />
            </div>
@@ -306,33 +312,41 @@ function DownloadBillButton({ sale }: { sale: SaleRecord }) {
         billElement.style.top = '0';
         billElement.style.backgroundColor = 'white';
         billElement.style.padding = '1rem';
-        billElement.innerHTML = ReactDOMServer.renderToStaticMarkup(<PrintableBill sale={sale} />);
+        // Force a width to ensure layout consistency
+        billElement.style.width = '1000px'; 
+        
         document.body.appendChild(billElement);
+        // We need to use ReactDOM.render to handle hooks if any, but since it's just for display, this is fine
+        billElement.innerHTML = ReactDOMServer.renderToStaticMarkup(<PrintableBill sale={sale} />);
 
         try {
-            // Dynamically import html-to-image
-            const { toPng } = await import('html-to-image');
-            const dataUrl = await toPng(billElement, {
-                quality: 1,
-                backgroundColor: '#ffffff',
-                pixelRatio: 2,
+            const canvas = await html2canvas(billElement, {
+                scale: 2,
+                useCORS: true
+            });
+            const imgData = canvas.toDataURL('image/png');
+            
+            // Now use jsPDF to create a landscape PDF
+            const pdf = new jsPDF({
+                orientation: 'landscape',
+                unit: 'px',
+                format: [canvas.width, canvas.height]
             });
 
-            const link = document.createElement('a');
+            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
             const saleDate = new Date(sale.saleDate).toISOString().split('T')[0];
-            link.download = `${sale.customerName.replace(/ /g, '_')}-${saleDate}.png`;
-            link.href = dataUrl;
-            link.click();
+            pdf.save(`${sale.customerName.replace(/ /g, '_')}-${saleDate}.pdf`);
+
             toast({
                 title: 'Download Started',
-                description: 'Your bill is being downloaded as a PNG image.',
+                description: 'Your bill is being downloaded as a PDF file.',
             });
         } catch (error) {
             console.error('oops, something went wrong!', error);
             toast({
                 variant: 'destructive',
                 title: 'Download Failed',
-                description: 'Could not generate the bill image. Please try again.',
+                description: 'Could not generate the bill PDF. Please try again.',
             });
         } finally {
             document.body.removeChild(billElement);
@@ -342,7 +356,7 @@ function DownloadBillButton({ sale }: { sale: SaleRecord }) {
     return (
         <Button variant="outline" size="sm" onClick={handleDownload}>
             <Download className="mr-2 h-4 w-4" />
-            Download
+            Download PDF
         </Button>
     );
 }
