@@ -24,7 +24,7 @@ export function PrintableBill({ sale, className }: PrintableBillProps) {
   return (
     <div 
         className={cn("printable-bill-wrapper font-sans text-sm w-full mx-auto text-black bg-white p-4 border border-black", className)}
-        style={{ maxWidth: '20cm' }}
+        style={{ width: '100%', maxWidth: '20cm' }}
     >
       <header className="text-center mb-4 border-b-2 border-black pb-2">
         <h1 className="text-3xl m-0 font-bold">Vicky Medical & General Stores</h1>

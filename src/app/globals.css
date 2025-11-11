@@ -92,18 +92,29 @@ html {
 }
 
 @media print {
-    body > * {
+    body > *:not(.print-dialog-content) {
         display: none;
     }
-
-    .print-dialog-content,
-    .print-dialog-content > #printable-area,
-    .print-dialog-content > #printable-area > .printable-bill-wrapper {
+    
+    .print-dialog-content {
         display: block !important;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: auto;
         padding: 0 !important;
         margin: 0 !important;
         border: none !important;
-        height: auto !important;
+        background-color: white !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+    }
+
+    #printable-area {
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
         overflow: visible !important;
         background-color: white !important;
     }
@@ -111,6 +122,8 @@ html {
     .printable-bill-wrapper {
         color: black !important;
         background: white !important;
+        border: none !important;
+        box-shadow: none !important;
     }
 
     @page {
