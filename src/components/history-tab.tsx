@@ -246,7 +246,7 @@ function PrintBillDialog({ sale }: { sale: SaleRecord }) {
                                 padding: 0;
                            }
                            @page {
-                                size: portrait;
+                                size: auto;
                                 margin: 1cm;
                            }
                         }
@@ -326,7 +326,6 @@ function DownloadBillButton({ sale }: { sale: SaleRecord }) {
             });
             const imgData = canvas.toDataURL('image/png');
             
-            // Now use jsPDF to create a landscape PDF
             const pdf = new jsPDF({
                 orientation: 'portrait',
                 unit: 'px',
