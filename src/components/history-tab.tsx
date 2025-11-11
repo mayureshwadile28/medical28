@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Download, Trash2, Info, Printer, Search, Calendar as CalendarIcon, X, ArrowDownUp, Receipt } from 'lucide-react';
+import { Trash2, Info, Search, Calendar as CalendarIcon, X, ArrowDownUp, Receipt } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,12 +37,10 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-  DialogClose
 } from '@/components/ui/dialog';
 import { ClientOnly } from './client-only';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { formatToINR } from '@/lib/currency';
-import { PrintableBill } from './printable-bill';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -61,10 +59,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import ReactDOMServer from 'react-dom/server';
 import { AppService } from '@/lib/service';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 
 
 interface HistoryTabProps {
@@ -203,101 +198,6 @@ function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: Sale
     );
 }
 
-function PrintBillDialog({ sale }: { sale: SaleRecord }) {
-  const [isOpen, setIsOpen] = React.useState(false);
-
-  const handlePrint = () => {
-    window.print();
-  };
-  
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Printer className="mr-2 h-4 w-4" />
-          Print Bill
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl print-dialog-content">
-        <DialogHeader>
-          <DialogTitle>Print Preview: Bill {sale.id}</DialogTitle>
-          <DialogDescription>
-            This is a preview of the bill for {sale.customerName}.
-          </DialogDescription>
-        </DialogHeader>
-        <div id="printable-area" className="my-4 max-h-[70vh] overflow-y-auto rounded-lg border p-4 flex justify-center bg-gray-100 dark:bg-gray-800">
-           <PrintableBill sale={sale} />
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handlePrint}>
-            <Printer className="mr-2 h-4 w-4" /> Print
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function DownloadBillButton({ sale }: { sale: SaleRecord }) {
-    const { toast } = useToast();
-
-    const handleDownload = async () => {
-        const billElement = document.createElement('div');
-        billElement.style.position = 'fixed';
-        billElement.style.left = '-9999px';
-        billElement.style.top = '0';
-        billElement.style.backgroundColor = 'white';
-        billElement.style.padding = '1rem';
-        billElement.style.width = '1000px'; 
-        
-        document.body.appendChild(billElement);
-        billElement.innerHTML = ReactDOMServer.renderToStaticMarkup(<PrintableBill sale={sale} />);
-
-        try {
-            const canvas = await html2canvas(billElement, {
-                scale: 2,
-                useCORS: true
-            });
-            const imgData = canvas.toDataURL('image/png');
-            
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'px',
-                format: [canvas.width, canvas.height]
-            });
-
-            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-            const saleDate = new Date(sale.saleDate).toISOString().split('T')[0];
-            pdf.save(`${sale.customerName.replace(/ /g, '_')}-${saleDate}.pdf`);
-
-            toast({
-                title: 'Download Started',
-                description: 'Your bill is being downloaded as a PDF file.',
-            });
-        } catch (error) {
-            console.error('oops, something went wrong!', error);
-            toast({
-                variant: 'destructive',
-                title: 'Download Failed',
-                description: 'Could not generate the bill PDF. Please try again.',
-            });
-        } finally {
-            document.body.removeChild(billElement);
-        }
-    };
-
-    return (
-        <Button variant="outline" size="sm" onClick={handleDownload}>
-            <Download className="mr-2 h-4 w-4" />
-            Download PDF
-        </Button>
-    );
-}
-
-
 export default function HistoryTab({ sales, setSales, service }: HistoryTabProps) {
   const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
@@ -415,7 +315,6 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
           <div className="flex flex-wrap gap-2">
             <PendingPaymentsDialog allSales={uniqueSales} setSales={setSales} service={service} />
             <Button onClick={handleExportCSV} disabled={uniqueSales.length === 0}>
-              <Download className="mr-2 h-4 w-4" />
               Export CSV
             </Button>
             <AlertDialog open={isClearHistoryOpen} onOpenChange={(open) => { setIsClearHistoryOpen(open); if (!open) setDeleteConfirmation(''); }}>
@@ -574,10 +473,6 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                           ))}
                         </TableBody>
                       </Table>
-                    </div>
-                     <div className="flex justify-end gap-2">
-                        <DownloadBillButton sale={sale} />
-                        <PrintBillDialog sale={sale} />
                     </div>
                   </div>
                 </AccordionContent>

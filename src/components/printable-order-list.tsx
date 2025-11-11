@@ -1,78 +1,60 @@
-
-'use client';
-
-import React from 'react';
-import { cn } from '@/lib/utils';
-import { type WholesalerOrder } from '@/lib/types';
-
-interface PrintableOrderListProps {
-  order: WholesalerOrder;
-  className?: string;
-}
-
-const getDisplayQuantity = (item: WholesalerOrder['items'][0]) => {
-    if (item.unitsPerPack && item.unitName) {
-        return `${item.quantity} (${item.unitsPerPack} ${item.unitName}/pack)`;
-    }
-    return item.quantity;
-};
-
-export function PrintableOrderList({ order, className }: PrintableOrderListProps) {
-  return (
-    <div 
-        className={cn("font-sans w-full max-w-[210mm] min-h-[297mm] mx-auto text-black bg-white p-8", className)}
-    >
-      <header className="mb-8 border-b-2 border-black pb-4">
-        <div className="flex justify-between items-start">
-            <div>
-                <h1 className="text-4xl m-0 font-bold tracking-wider">Vicky Medical</h1>
-                <p className="my-1 text-lg">Shivaji nagar , sangvi road , Boradi</p>
-                <p className="my-1 text-lg">Order Request</p>
-            </div>
-            <div className="text-right">
-                <p>Date: {new Date(order.orderDate).toLocaleDateString()}</p>
-            </div>
-        </div>
-        <div className="mt-4">
-            <p className="text-lg"><strong>To Wholesaler:</strong> {order.wholesalerName}</p>
-        </div>
-      </header>
-      
-      <main>
-        <table className="w-full border-collapse text-lg">
-            <thead>
-                <tr className="border-b-2 border-black">
-                    <th className="text-left p-2 w-16">Sr. No.</th>
-                    <th className="text-left p-2">Item Name</th>
-                    <th className="text-left p-2">Category</th>
-                    <th className="text-left p-2 w-48">Required Quantity</th>
-                </tr>
-            </thead>
-            <tbody>
-                {order.items.map((item, index) => (
-                    <tr key={item.id} className="border-b border-gray-300">
-                        <td className="p-3 font-medium text-center">{index + 1}.</td>
-                        <td className="p-3 font-semibold">{item.name}</td>
-                        <td className="p-3">{item.category}</td>
-                        <td className="p-3 font-medium">{getDisplayQuantity(item)}</td>
-                    </tr>
-                ))}
-                 {order.items.length < 20 && Array.from({ length: 20 - order.items.length }).map((_, i) => (
-                     <tr key={`empty-${i}`} className="border-b border-gray-200 h-12">
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                     </tr>
-                 ))}
-            </tbody>
-        </table>
-      </main>
-
-      <footer className="text-center mt-12 pt-4 border-t border-dashed border-black text-sm text-gray-600">
-        <p>Please supply the above-mentioned items.</p>
-        <p>Thank you!</p>
-      </footer>
-    </div>
-  );
+{
+  "name": "nextn",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "NODE_ENV=production next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^4.1.3",
+    "@radix-ui/react-accordion": "^1.2.3",
+    "@radix-ui/react-alert-dialog": "^1.1.6",
+    "@radix-ui/react-avatar": "^1.1.3",
+    "@radix-ui/react-checkbox": "^1.1.4",
+    "@radix-ui/react-collapsible": "^1.1.11",
+    "@radix-ui/react-dialog": "^1.1.6",
+    "@radix-ui/react-dropdown-menu": "^2.1.6",
+    "@radix-ui/react-label": "^2.1.2",
+    "@radix-ui/react-menubar": "^1.1.6",
+    "@radix-ui/react-popover": "^1.1.6",
+    "@radix-ui/react-progress": "^1.1.2",
+    "@radix-ui/react-radio-group": "^1.2.3",
+    "@radix-ui/react-scroll-area": "^1.2.3",
+    "@radix-ui/react-select": "^2.1.6",
+    "@radix-ui/react-separator": "^1.1.2",
+    "@radix-ui/react-slider": "^1.2.3",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.1.3",
+    "@radix-ui/react-tabs": "^1.1.3",
+    "@radix-ui/react-toast": "^1.2.6",
+    "@radix-ui/react-tooltip": "^1.1.8",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.0.0",
+    "date-fns": "^3.6.0",
+    "embla-carousel-react": "^8.6.0",
+    "lucide-react": "^0.475.0",
+    "next": "15.3.3",
+    "patch-package": "^8.0.0",
+    "react": "^18.3.1",
+    "react-day-picker": "^8.10.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.54.2",
+    "recharts": "^2.15.1",
+    "tailwind-merge": "^3.0.1",
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
 }

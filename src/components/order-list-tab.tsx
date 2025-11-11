@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
@@ -6,10 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2, Download, ClipboardList, Info, History, PackagePlus, CheckCircle2, MapPin, X } from 'lucide-react';
-import * as htmlToImage from 'html-to-image';
+import { PlusCircle, Trash2, ClipboardList, Info, History, PackagePlus, CheckCircle2, MapPin, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { PrintableOrderList } from './printable-order-list';
 import { type Medicine, type OrderItem, type WholesalerOrder, type Wholesaler } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -272,14 +269,12 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
     
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const [showSuggestions, setShowSuggestions] = useState(false);
-    const orderListRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
     const itemNameInputRef = useRef<HTMLInputElement>(null);
     
     const [pendingItem, setPendingItem] = useState<Partial<OrderItem> | null>(null);
     const [clarificationPrompt, setClarificationPrompt] = useState<{ title: string; label: string } | null>(null);
     const [unitsPerPackInput, setUnitsPerPackInput] = useState('');
-    const [orderForPrint, setOrderForPrint] = useState<WholesalerOrder | null>(null);
     
     const [mergeOrder, setMergeOrder] = useState<WholesalerOrder | null>(null);
     const [selectedItemsToMerge, setSelectedItemsToMerge] = useState<string[]>([]);
@@ -470,33 +465,6 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
         }
     };
 
-    useEffect(() => {
-        if (orderForPrint && orderListRef.current) {
-            const downloadImage = async () => {
-                try {
-                    const dataUrl = await htmlToImage.toPng(orderListRef.current!, {
-                        quality: 1,
-                        backgroundColor: '#ffffff',
-                        pixelRatio: 2,
-                        skipFonts: true,
-                    });
-                    const link = document.createElement('a');
-                    link.download = `${orderForPrint.wholesalerName.replace(/\s+/g, '-')}-Order-${new Date(orderForPrint.orderDate).toISOString().split('T')[0]}.png`;
-                    link.href = dataUrl;
-                    link.click();
-                    toast({ title: 'Order Saved & Downloaded', description: `Order for ${orderForPrint.wholesalerName} has been saved.` });
-                } catch (error) {
-                    console.error("Failed to download image", error);
-                    toast({ variant: 'destructive', title: 'Download Failed', description: 'Could not generate the order image.' });
-                } finally {
-                    setOrderForPrint(null); // Reset after attempting download
-                }
-            };
-            // A short delay to ensure the component has rendered fully before capturing
-            setTimeout(downloadImage, 100);
-        }
-    }, [orderForPrint, toast]);
-
     const handleSaveOrder = async () => {
         if (items.length === 0) {
             toast({ variant: 'destructive', title: 'Empty Order', description: 'Please add items to the list before saving.' });
@@ -513,9 +481,9 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
         });
 
         setOrders(currentOrders => [newOrder, ...currentOrders]);
-        
-        setOrderForPrint(newOrder);
 
+        toast({ title: 'Order Saved', description: `Order for ${newOrder.wholesalerName} has been saved.` });
+        
         setItems([]);
         setWholesalerName('');
     };
@@ -528,14 +496,6 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
 
     return (
         <>
-            <div className="fixed -left-[9999px] top-0">
-                 {orderForPrint && (
-                    <div ref={orderListRef} className="bg-white p-4">
-                        <PrintableOrderList order={orderForPrint} />
-                    </div>
-                )}
-            </div>
-            
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -672,7 +632,7 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
                 </CardContent>
                 <CardFooter className="flex-wrap gap-2">
                     <Button onClick={handleSaveOrder} disabled={items.length === 0 || !wholesalerName.trim()} className="w-full sm:w-auto">
-                        <Download className="mr-2" /> Save & Download Order
+                        Save Order
                     </Button>
                     <OrderHistoryDialog orders={orders} onMerge={startMergeProcess} onClearHistory={handleClearOrderHistory} />
                     <WholesalerManager wholesalers={wholesalers} setWholesalers={setWholesalers} />
