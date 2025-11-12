@@ -10,7 +10,7 @@ import type { AppSettings } from '@/lib/types';
 import { Textarea } from './ui/textarea';
 
 interface SettingsDialogProps {
-  appSettings: AppSettings | null;
+  appSettings: AppSettings;
   setAppSettings: (settings: AppSettings) => void;
   disabled?: boolean;
 }
@@ -29,11 +29,12 @@ export function SettingsDialog({ appSettings, setAppSettings, disabled }: Settin
   const { toast } = useToast();
 
   const handleOpen = () => {
+    if (disabled) return;
     // Reset local state when opening
     setAdminPin(appSettings?.pinSettings?.adminPin || '');
     setStaffPin(appSettings?.pinSettings?.staffPin || '');
-    setLicenseLine1(appSettings?.licenseInfo.line1 || '');
-    setLicenseLine2(appSettings?.licenseInfo.line2 || '');
+    setLicenseLine1(appSettings?.licenseInfo?.line1 || '');
+    setLicenseLine2(appSettings?.licenseInfo?.line2 || '');
     setLicenseInput('');
     if (appSettings?.licenseKey) {
         setDialogState('request_license');
