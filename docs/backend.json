@@ -1,0 +1,199 @@
+{
+  "entities": {
+    "Medicine": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Medicine",
+      "type": "object",
+      "description": "Represents a medicine in the inventory.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Medicine entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the medicine."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the medicine (e.g., Tablet, Syrup)."
+        },
+        "location": {
+          "type": "string",
+          "description": "Storage location of the medicine."
+        },
+        "expiryDate": {
+          "type": "string",
+          "description": "Expiry date of the medicine.",
+          "format": "date-time"
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the medicine."
+        },
+        "stock": {
+          "type": "number",
+          "description": "Current stock level of the medicine."
+        },
+        "strips": {
+          "type": "number",
+          "description": "Number of strips for tablet medicines."
+        },
+        "looseTablets": {
+          "type": "number",
+          "description": "Number of loose tablets for tablet medicines."
+        },
+        "tabletsPerStrip": {
+          "type": "number",
+          "description": "Number of tablets per strip for tablet medicines."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "category",
+        "location",
+        "expiryDate",
+        "price",
+        "stock"
+      ]
+    },
+    "SaleRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SaleRecord",
+      "type": "object",
+      "description": "Represents a record of a sale.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the SaleRecord entity."
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Name of the customer."
+        },
+        "saleDate": {
+          "type": "string",
+          "description": "Date of the sale.",
+          "format": "date-time"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total amount of the sale."
+        },
+        "saleItemIds": {
+          "type": "array",
+          "description": "References to SaleItems. (Relationship: SaleRecord 1:N SaleItem)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "customerName",
+        "saleDate",
+        "totalAmount",
+        "saleItemIds"
+      ]
+    },
+    "SaleItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SaleItem",
+      "type": "object",
+      "description": "Represents an item in a sale.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the SaleItem entity."
+        },
+        "medicineId": {
+          "type": "string",
+          "description": "Reference to Medicine. (Relationship: Medicine 1:N SaleItem)"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity of the medicine sold."
+        },
+        "pricePerUnit": {
+          "type": "number",
+          "description": "Price per unit of the medicine."
+        },
+        "total": {
+          "type": "number",
+          "description": "Total price for this item (quantity * pricePerUnit)."
+        }
+      },
+      "required": [
+        "id",
+        "medicineId",
+        "quantity",
+        "pricePerUnit",
+        "total"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/medicines/{medicineId}",
+        "definition": {
+          "entityName": "Medicine",
+          "schema": {
+            "$ref": "#/backend/entities/Medicine"
+          },
+          "description": "Stores all medicine data. No denormalized authorization fields required as application uses local storage.",
+          "params": [
+            {
+              "name": "medicineId",
+              "description": "Unique identifier for the medicine."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/sales/{saleRecordId}",
+        "definition": {
+          "entityName": "SaleRecord",
+          "schema": {
+            "$ref": "#/backend/entities/SaleRecord"
+          },
+          "description": "Stores all sale records. No denormalized authorization fields required as application uses local storage.",
+          "params": [
+            {
+              "name": "saleRecordId",
+              "description": "Unique identifier for the sale record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/sales/{saleRecordId}/saleItems/{saleItemId}",
+        "definition": {
+          "entityName": "SaleItem",
+          "schema": {
+            "$ref": "#/backend/entities/SaleItem"
+          },
+          "description": "Stores sale items associated with a specific sale record. No denormalized authorization fields required as application uses local storage.",
+          "params": [
+            {
+              "name": "saleRecordId",
+              "description": "Unique identifier for the sale record."
+            },
+            {
+              "name": "saleItemId",
+              "description": "Unique identifier for the sale item."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "Given the requirement for local storage persistence and the absence of user-based authorization (beyond anonymous), the data structure focuses on simplicity and direct access to data collections.\n\n1.  **Single Collection for Medicines:** All medicine data will reside in a single `/medicines` collection. Since authorization isn't based on user roles, there is no need for segregation. This allows for straightforward listing and filtering of medicines as required by the inventory tab.\n2.  **Single Collection for Sale Records:** Similarly, all sales records will reside in a single `/sales` collection. The related `SaleItems` will be stored as subcollections under each `SaleRecord` to maintain data locality and facilitate querying sales items for a particular sale. This avoids having to query a top-level `SaleItems` collection and filter, supporting the QAP that rules are not filters. Since there is no role based access, all users can read, write, and delete medicine data.\n\nAuthorization Independence: Since this is a local storage-based application with anonymous authentication, authorization independence isn't strictly applicable in the context of database security rules. However, the structure is designed to easily accommodate future integration with user-based authentication. If user roles are introduced, the `medicines` and `sales` collections could be adapted to include membership maps or ownership fields, enabling rule-based access control without relying on `get()` calls.\n\nQAPs: The structure supports secure `list` operations by segregating different data types into separate collections.  The use of subcollections for `SaleItems` enhances data locality and query efficiency without compromising security."
+  }
+}
