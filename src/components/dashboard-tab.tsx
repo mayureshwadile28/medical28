@@ -217,7 +217,7 @@ export default function DashboardTab({ sales, medicines }: { sales: SaleRecord[]
                     <CardContent>
                         <ul className="space-y-4">
                             {topSellingData.map(item => (
-                                <li key={item.name} className="flex items-center">
+                                <li key={`${item.name}-${item.category}`} className="flex items-center">
                                     <div className="p-2 bg-muted rounded-md mr-4">
                                         {item.category === 'Tablet' || item.category === 'Capsule' ? <Pill className="h-5 w-5 text-primary"/> : <Package className="h-5 w-5 text-primary"/>}
                                     </div>
