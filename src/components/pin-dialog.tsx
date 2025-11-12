@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -7,45 +6,46 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { KeyRound, ShieldCheck, Unlock } from 'lucide-react';
-import type { PinSettings, UserRole } from '@/lib/types';
+import type { PinSettings, UserRole, AppSettings } from '@/lib/types';
+import { useUser, initiateAnonymousSignIn, useAuth } from '@/firebase';
 
 // This is the hardcoded MASTER password.
 const MASTER_PASSWORD = 'MAYURESH-VINOD-WADILE-2009';
 
-type DialogState = 'request_license' | 'request_master_password' | 'create_license' | 'pin_entry' | 'awaiting_pin_setup';
+type DialogState = 'request_license' | 'request_master_password' | 'create_license' | 'pin_entry' | 'awaiting_pin_setup' | 'authenticating';
 
 export function PinDialog({
   onPinSuccess,
-  pinSettings,
-  setPinSettings,
-  licenseKey,
-  setLicenseKey,
+  appSettings,
+  setAppSettings,
 }: {
   onPinSuccess: (role: UserRole) => void;
-  pinSettings: PinSettings | null;
-  setPinSettings: (settings: PinSettings | null) => void;
-  licenseKey: string | null;
-  setLicenseKey: (key: string | null) => void;
+  appSettings: AppSettings | null;
+  setAppSettings: (settings: AppSettings) => void;
 }) {
-  const [dialogState, setDialogState] = useState<DialogState>('pin_entry');
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+  const [dialogState, setDialogState] = useState<DialogState>('authenticating');
   const [input, setInput] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
-    if (licenseKey && pinSettings) {
-      setDialogState('pin_entry');
-    } else if (licenseKey && !pinSettings) {
-      // If there's a license but no PINs, admin needs to create them via Settings
-      toast({ title: 'Setup Required', description: 'Admin access required. Please use Settings to create your Admin and Staff PINs.'});
-      // We go to a waiting state, which effectively unlocks the app for the admin to use the settings dialog
-      setDialogState('awaiting_pin_setup');
-      // The admin is logged in implicitly to perform setup
-      onPinSuccess('Admin');
-    } else {
-      // First time setup: no license, no pins
-      setDialogState('request_master_password');
+    if (!isUserLoading && !user) {
+        initiateAnonymousSignIn(auth);
+    } else if (!isUserLoading && user) {
+        if (appSettings) {
+            if (appSettings.pinSettings?.adminPin && appSettings.pinSettings?.staffPin) {
+                setDialogState('pin_entry');
+            } else {
+                setDialogState('awaiting_pin_setup');
+                onPinSuccess('Admin');
+            }
+        } else {
+             setDialogState('request_master_password');
+        }
     }
-  }, [licenseKey, pinSettings]);
+  }, [user, isUserLoading, appSettings, auth, onPinSuccess]);
+
 
   const handleMasterPasswordSubmit = () => {
     if (input === MASTER_PASSWORD) {
@@ -74,25 +74,31 @@ export function PinDialog({
       return;
     }
     const newLicenseKey = input.trim();
-    setLicenseKey(newLicenseKey);
+    const newSettings: AppSettings = {
+        licenseKey: newLicenseKey,
+        pinSettings: { adminPin: '', staffPin: '' },
+        licenseInfo: { line1: 'Lic. No.: 12345, 67890', line2: 'Lic. No.: 54321' },
+        doctorNames: [],
+    };
+    setAppSettings(newSettings);
     toast({
       title: 'License Key Created!',
-      description: 'The application is now licensed. Please set up your PINs.',
+      description: 'The application is now licensed. Please set up your PINs in Settings.',
     });
     // This will trigger the useEffect to move to 'awaiting_pin_setup' state
   };
 
   const handlePinEntry = () => {
-    if (!pinSettings) {
+    if (!appSettings?.pinSettings) {
       toast({ variant: 'destructive', title: 'Setup Error', description: 'PINs have not been set up yet.' });
       setDialogState('request_master_password');
       return;
     }
 
-    if (input === pinSettings.adminPin) {
+    if (input === appSettings.pinSettings.adminPin) {
       toast({ title: 'Admin Access Granted', description: 'Welcome, Admin!' });
       onPinSuccess('Admin');
-    } else if (input === pinSettings.staffPin) {
+    } else if (input === appSettings.pinSettings.staffPin) {
       toast({ title: 'Staff Access Granted', description: 'Welcome!' });
       onPinSuccess('Staff');
     } else {
@@ -103,6 +109,15 @@ export function PinDialog({
 
   const renderContent = () => {
     switch (dialogState) {
+      case 'authenticating':
+        return (
+             <DialogHeader>
+              <DialogTitle>Authenticating...</DialogTitle>
+              <DialogDescription>
+                Connecting to the service. Please wait.
+              </DialogDescription>
+            </DialogHeader>
+        );
       case 'request_master_password':
         return (
           <>
@@ -193,8 +208,6 @@ export function PinDialog({
     }
   };
 
-  // If the state is 'awaiting_pin_setup', the dialog's purpose is complete for the initial setup.
-  // The parent component `AppPage` will now be active, and the admin can use the Settings dialog.
   const isDialogOpen = dialogState !== 'awaiting_pin_setup';
 
   return (

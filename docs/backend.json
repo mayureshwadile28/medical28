@@ -14,6 +14,10 @@
           "type": "string",
           "description": "Name of the medicine."
         },
+        "company": {
+            "type": "string",
+            "description": "Manufacturing company of the medicine."
+        },
         "category": {
           "type": "string",
           "description": "Category of the medicine (e.g., Tablet, Syrup)."
@@ -22,30 +26,40 @@
           "type": "string",
           "description": "Storage location of the medicine."
         },
-        "expiryDate": {
-          "type": "string",
-          "description": "Expiry date of the medicine.",
-          "format": "date-time"
+        "description": {
+          "type": "object",
+          "properties": {
+              "patientType": { "type": "string", "enum": ["Human", "Animal"] },
+              "minAge": { "type": "number" },
+              "maxAge": { "type": "number" },
+              "gender": { "type": "string", "enum": ["Male", "Female", "Both"] },
+              "illness": { "type": "string" }
+          }
         },
-        "price": {
-          "type": "number",
-          "description": "Price of the medicine."
-        },
-        "stock": {
-          "type": "number",
-          "description": "Current stock level of the medicine."
-        },
-        "strips": {
-          "type": "number",
-          "description": "Number of strips for tablet medicines."
-        },
-        "looseTablets": {
-          "type": "number",
-          "description": "Number of loose tablets for tablet medicines."
+        "batches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "batchNumber": { "type": "string" },
+              "stock": { 
+                  "type": "object",
+                  "properties": {
+                      "tablets": { "type": "number" },
+                      "quantity": { "type": "number" }
+                  }
+               },
+              "mfg": { "type": "string", "format": "date-time" },
+              "expiry": { "type": "string", "format": "date-time" },
+              "price": { "type": "number" },
+              "purchasePrice": { "type": "number" }
+            },
+            "required": ["id", "batchNumber", "stock", "expiry", "price"]
+          }
         },
         "tabletsPerStrip": {
-          "type": "number",
-          "description": "Number of tablets per strip for tablet medicines."
+          "type": "number"
         }
       },
       "required": [
@@ -53,9 +67,7 @@
         "name",
         "category",
         "location",
-        "expiryDate",
-        "price",
-        "stock"
+        "batches"
       ]
     },
     "SaleRecord": {
@@ -64,78 +76,107 @@
       "type": "object",
       "description": "Represents a record of a sale.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the SaleRecord entity."
-        },
-        "customerName": {
-          "type": "string",
-          "description": "Name of the customer."
-        },
-        "saleDate": {
-          "type": "string",
-          "description": "Date of the sale.",
-          "format": "date-time"
-        },
-        "totalAmount": {
-          "type": "number",
-          "description": "Total amount of the sale."
-        },
-        "saleItemIds": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string" },
+        "doctorName": { "type": "string" },
+        "saleDate": { "type": "string", "format": "date-time" },
+        "items": {
           "type": "array",
-          "description": "References to SaleItems. (Relationship: SaleRecord 1:N SaleItem)",
           "items": {
-            "type": "string"
+              "type": "object",
+              "properties": {
+                  "medicineId": { "type": "string" },
+                  "name": { "type": "string" },
+                  "company": { "type": "string" },
+                  "category": { "type": "string" },
+                  "batchNumber": { "type": "string" },
+                  "mfgDate": { "type": "string", "format": "date-time" },
+                  "expiryDate": { "type": "string", "format": "date-time" },
+                  "quantity": { "type": "number" },
+                  "pricePerUnit": { "type": "number" },
+                  "purchasePricePerUnit": { "type": "number" },
+                  "total": { "type": "number" }
+              }
           }
-        }
+        },
+        "totalAmount": { "type": "number" },
+        "discountPercentage": { "type": "number" },
+        "paymentMode": { "type": "string" },
+        "paymentSettledDate": { "type": "string", "format": "date-time" }
       },
       "required": [
         "id",
         "customerName",
         "saleDate",
         "totalAmount",
-        "saleItemIds"
+        "items"
       ]
     },
-    "SaleItem": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "SaleItem",
-      "type": "object",
-      "description": "Represents an item in a sale.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the SaleItem entity."
-        },
-        "medicineId": {
-          "type": "string",
-          "description": "Reference to Medicine. (Relationship: Medicine 1:N SaleItem)"
-        },
-        "quantity": {
-          "type": "number",
-          "description": "Quantity of the medicine sold."
-        },
-        "pricePerUnit": {
-          "type": "number",
-          "description": "Price per unit of the medicine."
-        },
-        "total": {
-          "type": "number",
-          "description": "Total price for this item (quantity * pricePerUnit)."
+    "WholesalerOrder": {
+        "title": "WholesalerOrder",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "wholesalerName": { "type": "string" },
+            "orderDate": { "type": "string", "format": "date-time" },
+            "items": { 
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": { "type": "string" },
+                        "name": { "type": "string" },
+                        "category": { "type": "string" },
+                        "quantity": { "type": "string" },
+                        "batchNumber": { "type": "string" },
+                        "unitsPerPack": { "type": "number" },
+                        "unitName": { "type": "string" },
+                        "status": { "type": "string", "enum": ["Pending", "Received"] }
+                    }
+                }
+            },
+            "status": { "type": "string", "enum": ["Pending", "Partially Received", "Completed", "Cancelled"]},
+            "receivedDate": { "type": "string", "format": "date-time" }
         }
-      },
-      "required": [
-        "id",
-        "medicineId",
-        "quantity",
-        "pricePerUnit",
-        "total"
-      ]
+    },
+    "Wholesaler": {
+        "title": "Wholesaler",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "contact": { "type": "string" },
+            "gstin": { "type": "string" }
+        }
+    },
+    "AppSettings": {
+        "title": "AppSettings",
+        "type": "object",
+        "properties": {
+            "pinSettings": {
+                "type": "object",
+                "properties": {
+                    "adminPin": { "type": "string" },
+                    "staffPin": { "type": "string" }
+                }
+            },
+            "licenseKey": { "type": "string" },
+            "licenseInfo": {
+                "type": "object",
+                "properties": {
+                    "line1": { "type": "string" },
+                    "line2": { "type": "string" }
+                }
+            },
+            "doctorNames": {
+                "type": "array",
+                "items": { "type": "string" }
+            }
+        }
     }
   },
   "auth": {
     "providers": [
-      "password",
       "anonymous"
     ]
   },
@@ -143,57 +184,24 @@
     "structure": [
       {
         "path": "/medicines/{medicineId}",
-        "definition": {
-          "entityName": "Medicine",
-          "schema": {
-            "$ref": "#/backend/entities/Medicine"
-          },
-          "description": "Stores all medicine data. No denormalized authorization fields required as application uses local storage.",
-          "params": [
-            {
-              "name": "medicineId",
-              "description": "Unique identifier for the medicine."
-            }
-          ]
-        }
+        "definition": { "schema": { "$ref": "#/entities/Medicine" } }
       },
       {
-        "path": "/sales/{saleRecordId}",
-        "definition": {
-          "entityName": "SaleRecord",
-          "schema": {
-            "$ref": "#/backend/entities/SaleRecord"
-          },
-          "description": "Stores all sale records. No denormalized authorization fields required as application uses local storage.",
-          "params": [
-            {
-              "name": "saleRecordId",
-              "description": "Unique identifier for the sale record."
-            }
-          ]
-        }
+        "path": "/sales/{saleId}",
+        "definition": { "schema": { "$ref": "#/entities/SaleRecord" } }
       },
       {
-        "path": "/sales/{saleRecordId}/saleItems/{saleItemId}",
-        "definition": {
-          "entityName": "SaleItem",
-          "schema": {
-            "$ref": "#/backend/entities/SaleItem"
-          },
-          "description": "Stores sale items associated with a specific sale record. No denormalized authorization fields required as application uses local storage.",
-          "params": [
-            {
-              "name": "saleRecordId",
-              "description": "Unique identifier for the sale record."
-            },
-            {
-              "name": "saleItemId",
-              "description": "Unique identifier for the sale item."
-            }
-          ]
-        }
+        "path": "/wholesalerOrders/{orderId}",
+        "definition": { "schema": { "$ref": "#/entities/WholesalerOrder" } }
+      },
+      {
+        "path": "/wholesalers/{wholesalerId}",
+        "definition": { "schema": { "$ref": "#/entities/Wholesaler" } }
+      },
+      {
+        "path": "/settings/app",
+        "definition": { "schema": { "$ref": "#/entities/AppSettings" } }
       }
-    ],
-    "reasoning": "Given the requirement for local storage persistence and the absence of user-based authorization (beyond anonymous), the data structure focuses on simplicity and direct access to data collections.\n\n1.  **Single Collection for Medicines:** All medicine data will reside in a single `/medicines` collection. Since authorization isn't based on user roles, there is no need for segregation. This allows for straightforward listing and filtering of medicines as required by the inventory tab.\n2.  **Single Collection for Sale Records:** Similarly, all sales records will reside in a single `/sales` collection. The related `SaleItems` will be stored as subcollections under each `SaleRecord` to maintain data locality and facilitate querying sales items for a particular sale. This avoids having to query a top-level `SaleItems` collection and filter, supporting the QAP that rules are not filters. Since there is no role based access, all users can read, write, and delete medicine data.\n\nAuthorization Independence: Since this is a local storage-based application with anonymous authentication, authorization independence isn't strictly applicable in the context of database security rules. However, the structure is designed to easily accommodate future integration with user-based authentication. If user roles are introduced, the `medicines` and `sales` collections could be adapted to include membership maps or ownership fields, enabling rule-based access control without relying on `get()` calls.\n\nQAPs: The structure supports secure `list` operations by segregating different data types into separate collections.  The use of subcollections for `SaleItems` enhances data locality and query efficiency without compromising security."
+    ]
   }
 }

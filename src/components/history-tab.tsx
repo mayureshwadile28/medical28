@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -28,7 +27,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
   Dialog,
@@ -63,6 +61,8 @@ import { useToast } from '@/hooks/use-toast';
 import { AppService } from '@/lib/service';
 import { PrintableBill } from './printable-bill';
 import html2canvas from 'html2canvas';
+import { Timestamp } from 'firebase/firestore';
+
 
 interface HistoryTabProps {
   sales: SaleRecord[];
@@ -71,6 +71,13 @@ interface HistoryTabProps {
 }
 
 type SortOption = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'amount_desc' | 'amount_asc';
+
+const getDateFromTimestamp = (timestamp: Timestamp | string): Date => {
+  if (timestamp instanceof Timestamp) {
+    return timestamp.toDate();
+  }
+  return new Date(timestamp);
+}
 
 function PrintBillDialog({ sale, licenseInfo }: { sale: SaleRecord, licenseInfo: LicenseInfo }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -187,9 +194,10 @@ function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: Sale
         const updatedSale: SaleRecord = {
             ...settlingSale,
             paymentMode: settlePaymentMode,
-            paymentSettledDate: new Date().toISOString(),
+            paymentSettledDate: Timestamp.now(),
         };
 
+        // @ts-ignore
         const savedSale = await service.saveSale(updatedSale);
         if (savedSale) {
             const allSales = await service.getSales();
@@ -237,7 +245,7 @@ function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: Sale
                                     <TableRow key={sale.id}>
                                         <TableCell className="font-semibold">{sale.customerName}</TableCell>
                                         <TableCell>{sale.id}</TableCell>
-                                        <TableCell>{new Date(sale.saleDate).toLocaleDateString()}</TableCell>
+                                        <TableCell>{getDateFromTimestamp(sale.saleDate).toLocaleDateString()}</TableCell>
                                         <TableCell className="text-right font-mono">{formatToINR(sale.totalAmount)}</TableCell>
                                         <TableCell className="text-right">
                                             <Button size="sm" onClick={() => setSettlingSale(sale)}>
@@ -330,22 +338,22 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
     let sortedSales = [...uniqueSales].filter(s => s.paymentMode !== 'Pending');
 
     sortedSales.sort((a, b) => {
-        const subtotalA = a.items.reduce((sum, item) => sum + item.total, 0);
-        const subtotalB = b.items.reduce((sum, item) => sum + item.total, 0);
+        const dateA = getDateFromTimestamp(a.saleDate).getTime();
+        const dateB = getDateFromTimestamp(b.saleDate).getTime();
         switch (sortOption) {
             case 'date_asc':
-                return new Date(a.saleDate).getTime() - new Date(b.saleDate).getTime();
+                return dateA - dateB;
             case 'name_asc':
                 return a.customerName.localeCompare(b.customerName);
             case 'name_desc':
                 return b.customerName.localeCompare(a.customerName);
             case 'amount_asc':
-                return subtotalA - subtotalB;
+                return a.totalAmount - b.totalAmount;
             case 'amount_desc':
-                return subtotalB - subtotalA;
+                return b.totalAmount - a.totalAmount;
             case 'date_desc':
             default:
-                return new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime();
+                return dateB - dateA;
         }
     });
 
@@ -355,7 +363,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
           if (!selectedDate) {
               return searchTermMatch;
           }
-          const saleDate = new Date(sale.saleDate);
+          const saleDate = getDateFromTimestamp(sale.saleDate);
           return searchTermMatch && saleDate.toDateString() === selectedDate.toDateString();
         });
   }, [uniqueSales, searchTerm, selectedDate, sortOption]);
@@ -385,11 +393,11 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
           sale.id,
           `"${sale.customerName.replace(/"/g, '""')}"`,
           `"${(sale.doctorName || '').replace(/"/g, '""')}"`,
-          sale.saleDate,
+          getDateFromTimestamp(sale.saleDate).toISOString(),
           sale.paymentMode,
           sale.discountPercentage || 0,
           sale.totalAmount,
-          sale.paymentSettledDate || '',
+          sale.paymentSettledDate ? getDateFromTimestamp(sale.paymentSettledDate).toISOString() : '',
           `"${item.name.replace(/"/g, '""')}"`,
           item.category,
           item.batchNumber,
@@ -536,6 +544,8 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
           <Accordion type="single" collapsible className="w-full">
             {filteredSales.map(sale => {
               const subtotal = sale.items.reduce((sum, item) => sum + item.pricePerUnit * item.quantity, 0);
+              const saleDate = getDateFromTimestamp(sale.saleDate);
+              const settledDate = sale.paymentSettledDate ? getDateFromTimestamp(sale.paymentSettledDate) : null;
               return (
               <AccordionItem value={sale.id} key={sale.id}>
                 <AccordionTrigger>
@@ -545,10 +555,10 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">Bill: {sale.id}</span>
                           {sale.doctorName && <span className="text-xs text-muted-foreground">Dr. {sale.doctorName}</span>}
-                          {sale.paymentSettledDate && (
+                          {settledDate && (
                             <ClientOnly>
                                 <Badge variant="outline" className="text-primary border-primary/50">
-                                    Paid: {new Date(sale.paymentSettledDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                                    Paid: {settledDate.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
                                 </Badge>
                             </ClientOnly>
                           )}
@@ -561,7 +571,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                     </div>
                     <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
                       <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
-                        <span className="text-muted-foreground">{new Date(sale.saleDate).toLocaleDateString(undefined, { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        <span className="text-muted-foreground">{saleDate.toLocaleDateString(undefined, { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })}</span>
                       </ClientOnly>
                       <Badge variant={sale.paymentMode === 'Pending' ? 'destructive' : 'secondary'}>{sale.paymentMode}</Badge>
                       <span className="font-mono text-right text-foreground">{formatToINR(sale.totalAmount)}</span>

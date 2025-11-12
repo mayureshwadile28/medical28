@@ -1,125 +1,103 @@
-import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type Wholesaler, type LicenseInfo } from './types';
+import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type Wholesaler, type LicenseInfo, AppSettings } from './types';
+import { Firestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, writeBatch, Timestamp } from 'firebase/firestore';
 
-// Helper to get all data from localStorage
-const getLocalStorageData = () => {
-    if (typeof window === 'undefined') {
-        return { medicines: [], sales: [], wholesalerOrders: [], wholesalers: [], licenseInfo: { line1: '', line2: '' } };
-    }
-    const medicines = JSON.parse(localStorage.getItem('medicines') || '[]');
-    const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-    const wholesalerOrders = JSON.parse(localStorage.getItem('wholesalerOrders') || '[]');
-    const wholesalers = JSON.parse(localStorage.getItem('wholesalers') || '[]');
-    const licenseInfo = JSON.parse(localStorage.getItem('vicky-medical-license-info') || '{"line1": "Lic. No.: 20-DHL-212349, 21-DHL-212351", "line2": "Lic. No.: 20-DHL-212350"}');
-    return { medicines, sales, wholesalerOrders, wholesalers, licenseInfo };
-};
-
-interface AppData {
-    medicines: Medicine[];
-    sales: SaleRecord[];
-    wholesalerOrders: WholesalerOrder[];
-    wholesalers: Wholesaler[];
-    licenseInfo: LicenseInfo;
-}
 export class AppService {
-    private medicines: Medicine[] = [];
-    private sales: SaleRecord[] = [];
-    private wholesalerOrders: WholesalerOrder[] = [];
-    private wholesalers: Wholesaler[] = [];
-    private licenseInfo: LicenseInfo = { line1: '', line2: ''};
+    private db: Firestore;
 
-    constructor() {
-        // Data is now initialized via the initialize method to ensure it's in sync with React state
-    }
-    
-    // This method is called from AppPage to pass the current state from useLocalStorage
-    initialize(data: AppData): void {
-        this.medicines = data.medicines;
-        this.sales = data.sales;
-        this.wholesalerOrders = data.wholesalerOrders;
-        this.wholesalers = data.wholesalers;
-        this.licenseInfo = data.licenseInfo;
+    constructor(db: Firestore) {
+        this.db = db;
     }
 
-    private async simulateLatency<T>(data: T): Promise<T> {
-      // await new Promise(resolve => setTimeout(resolve, 50));
-      return data;
+    private medicinesCol = collection(this.db, 'medicines');
+    private salesCol = collection(this.db, 'sales');
+    private wholesalersCol = collection(this.db, 'wholesalers');
+    private wholesalerOrdersCol = collection(this.db, 'wholesalerOrders');
+    private settingsDoc = doc(this.db, 'settings', 'app');
+
+    // --- Settings Management ---
+    async getAppSettings(): Promise<AppSettings | null> {
+        const docSnap = await getDoc(this.settingsDoc);
+        return docSnap.exists() ? docSnap.data() as AppSettings : null;
     }
-    
-    private async simulateLatencyVoid(): Promise<void> {
-        // await new Promise(resolve => setTimeout(resolve, 50));
+
+    async saveAppSettings(settings: AppSettings): Promise<void> {
+        await setDoc(this.settingsDoc, settings, { merge: true });
     }
 
     // --- Medicine Management ---
     async getMedicines(): Promise<Medicine[]> {
-        return this.simulateLatency(this.medicines);
+        const snapshot = await getDocs(this.medicinesCol);
+        return snapshot.docs.map(doc => doc.data() as Medicine);
     }
 
     async saveMedicine(medicine: Medicine): Promise<Medicine> {
-        let savedMedicine: Medicine;
-        const isEditing = this.medicines.some(m => m.id === medicine.id);
-        
-        if (isEditing) {
-            savedMedicine = medicine;
-            this.medicines = this.medicines.map(m => m.id === medicine.id ? savedMedicine : m);
-        } else {
-            savedMedicine = { ...medicine, id: new Date().toISOString() + Math.random() };
-            this.medicines = [...this.medicines, savedMedicine];
-        }
-        
-        localStorage.setItem('medicines', JSON.stringify(this.medicines));
-        return this.simulateLatency(savedMedicine);
+        const docRef = doc(this.medicinesCol, medicine.id);
+        await setDoc(docRef, medicine);
+        return medicine;
     }
     
     async saveAllMedicines(medicines: Medicine[]): Promise<void> {
-        this.medicines = medicines;
-        localStorage.setItem('medicines', JSON.stringify(this.medicines));
-        await this.simulateLatencyVoid();
+        const batch = writeBatch(this.db);
+        medicines.forEach(med => {
+            const docRef = doc(this.medicinesCol, med.id);
+            batch.set(docRef, med);
+        });
+        await batch.commit();
     }
 
     async deleteMedicine(id: string): Promise<string> {
-        this.medicines = this.medicines.filter(m => m.id !== id);
-        localStorage.setItem('medicines', JSON.stringify(this.medicines));
-        return this.simulateLatency(id);
+        await deleteDoc(doc(this.medicinesCol, id));
+        return id;
     }
 
     // --- Sales Management ---
     async getSales(): Promise<SaleRecord[]> {
-        return this.simulateLatency(this.sales);
+        const snapshot = await getDocs(this.salesCol);
+        return snapshot.docs.map(doc => doc.data() as SaleRecord);
     }
 
-    async saveSale(sale: SaleRecord): Promise<SaleRecord> {
-        const isEditing = this.sales.some(s => s.id === sale.id);
-        if (isEditing) {
-            this.sales = this.sales.map(s => s.id === sale.id ? sale : s);
-        } else {
-            this.sales.push(sale);
-        }
-        localStorage.setItem('sales', JSON.stringify(this.sales));
-        return this.simulateLatency(sale);
+    async saveSale(sale: Omit<SaleRecord, 'saleDate'> & { saleDate: string | Timestamp }): Promise<SaleRecord> {
+        const saleToSave = {
+            ...sale,
+            saleDate: Timestamp.now(),
+            items: sale.items.map(item => ({ ...item, quantity: Number(item.quantity) }))
+        };
+        const docRef = doc(this.salesCol, sale.id);
+        await setDoc(docRef, saleToSave);
+        return saleToSave;
     }
     
     async saveAllSales(sales: SaleRecord[]): Promise<void> {
-        this.sales = sales;
-        localStorage.setItem('sales', JSON.stringify(this.sales));
-        await this.simulateLatencyVoid();
+        const batch = writeBatch(this.db);
+        sales.forEach(sale => {
+            const docRef = doc(this.salesCol, sale.id);
+            batch.set(docRef, sale);
+        });
+        await batch.commit();
     }
     
     async deleteAllSales(): Promise<void> {
-        this.sales = [];
-        localStorage.setItem('sales', JSON.stringify(this.sales));
-        await this.simulateLatencyVoid();
+        const snapshot = await getDocs(this.salesCol);
+        const batch = writeBatch(this.db);
+        snapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
     }
 
     // --- Wholesaler Order Management ---
     async getWholesalerOrders(): Promise<WholesalerOrder[]> {
-        return this.simulateLatency(this.wholesalerOrders);
+        const snapshot = await getDocs(this.wholesalerOrdersCol);
+        return snapshot.docs.map(doc => doc.data() as WholesalerOrder);
     }
     
     async updateWholesalerOrderItemStatus(orderId: string, itemId: string, status: 'Received'): Promise<WholesalerOrder | null> {
-        const orderIndex = this.wholesalerOrders.findIndex(o => o.id === orderId);
-        if (orderIndex === -1) return null;
+        const orderRef = doc(this.wholesalerOrdersCol, orderId);
+        const orderSnap = await getDoc(orderRef);
+        if (!orderSnap.exists()) return null;
 
-        const order = { ...this.wholesalerOrders[orderIndex] };
+        const order = orderSnap.data() as WholesalerOrder;
+        
         const itemIndex = order.items.findIndex(i => i.id === itemId);
         if (itemIndex > -1) {
             order.items[itemIndex].status = status;
@@ -133,52 +111,59 @@ export class AppService {
         }
         
         if (order.status === 'Completed' || order.status === 'Partially Received') {
-            order.receivedDate = new Date().toISOString();
+            order.receivedDate = Timestamp.now();
         }
         
-        this.wholesalerOrders[orderIndex] = order;
-        localStorage.setItem('wholesalerOrders', JSON.stringify(this.wholesalerOrders));
-        return this.simulateLatency(order);
+        await setDoc(orderRef, order);
+        return order;
     }
 
     async saveWholesalerOrder(order: WholesalerOrder): Promise<WholesalerOrder> {
-        this.wholesalerOrders = this.wholesalerOrders.map(o => o.id === order.id ? order : o);
-        localStorage.setItem('wholesalerOrders', JSON.stringify(this.wholesalerOrders));
-        return this.simulateLatency(order);
+        const docRef = doc(this.wholesalerOrdersCol, order.id);
+        await setDoc(docRef, order);
+        return order;
     }
 
     async addWholesalerOrder(data: { wholesalerName: string, items: Omit<OrderItem, 'id' | 'status'>[] }): Promise<WholesalerOrder> {
         const newOrder: WholesalerOrder = {
             id: new Date().toISOString(),
             wholesalerName: data.wholesalerName.trim(),
-            orderDate: new Date().toISOString(),
+            orderDate: Timestamp.now(),
             items: data.items.map(item => ({ ...item, id: `${new Date().toISOString()}-${Math.random()}`, status: 'Pending' })),
             status: 'Pending',
         };
-        this.wholesalerOrders = [newOrder, ...this.wholesalerOrders];
-        localStorage.setItem('wholesalerOrders', JSON.stringify(this.wholesalerOrders));
-        return this.simulateLatency(newOrder);
+        const docRef = doc(this.wholesalerOrdersCol, newOrder.id);
+        await setDoc(docRef, newOrder);
+        return newOrder;
     }
 
     async deleteAllWholesalerOrders(): Promise<void> {
-        this.wholesalerOrders = [];
-        localStorage.setItem('wholesalerOrders', JSON.stringify(this.wholesalerOrders));
-        await this.simulateLatencyVoid();
+        const snapshot = await getDocs(this.wholesalerOrdersCol);
+        const batch = writeBatch(this.db);
+        snapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
     }
     
     // --- Wholesaler (Supplier) Management ---
     async getWholesalers(): Promise<Wholesaler[]> {
-        return this.simulateLatency(this.wholesalers);
+        const snapshot = await getDocs(this.wholesalersCol);
+        return snapshot.docs.map(doc => doc.data() as Wholesaler);
     }
     
     async saveAllWholesalers(wholesalers: Wholesaler[]): Promise<void> {
-        this.wholesalers = wholesalers;
-        localStorage.setItem('wholesalers', JSON.stringify(this.wholesalers));
-        await this.simulateLatencyVoid();
+        const batch = writeBatch(this.db);
+        wholesalers.forEach(w => {
+            const docRef = doc(this.wholesalersCol, w.id);
+            batch.set(docRef, w);
+        });
+        await batch.commit();
     }
-    
+
     // --- License Info Management ---
     async getLicenseInfo(): Promise<LicenseInfo> {
-        return this.simulateLatency(this.licenseInfo);
+        const settings = await this.getAppSettings();
+        return settings?.licenseInfo ?? { line1: '', line2: '' };
     }
 }

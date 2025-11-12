@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useLocalStorage } from '@/lib/hooks';
-import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type UserRole, type PinSettings, type Wholesaler, type LicenseInfo } from '@/lib/types';
+import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type UserRole, type PinSettings, type Wholesaler, type LicenseInfo, type AppSettings } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, ShoppingCart, History, ClipboardList, LayoutDashboard, Settings, KeyRound, Users, LineChart } from 'lucide-react';
+import { Package, ShoppingCart, History, ClipboardList, LayoutDashboard, Settings, KeyRound, Users, LineChart, Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 import PosTab from '@/components/pos-tab';
@@ -22,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useFirebase, useUser } from '@/firebase';
 
 function AdminAuthDialog({ open, onOpenChange, pinSettings, onVerified }: { open: boolean, onOpenChange: (open: boolean) => void, pinSettings: PinSettings | null, onVerified: () => void }) {
     const [pin, setPin] = useState('');
@@ -70,21 +70,47 @@ function AdminAuthDialog({ open, onOpenChange, pinSettings, onVerified }: { open
     );
 }
 
+function FullScreenLoader() {
+    return (
+        <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background">
+            <div className="flex flex-col items-center gap-4">
+                <div className="flex items-center gap-3">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-10 w-10 text-primary animate-pulse"
+                    >
+                        <path d="M14.5 10.5A3.5 3.5 0 0 0 11 7a3.5 3.5 0 0 0-3.5 3.5.95.95 0 0 0 .95.95h5.1a.95.95 0 0 0 .95-.95Z" />
+                        <path d="M20.5 10.5a8.5 8.5 0 1 0-17 0" />
+                    </svg>
+                    <h1 className="text-3xl font-bold font-headline text-foreground">Vicky Medical</h1>
+                </div>
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-muted-foreground">Loading your pharmacy...</p>
+            </div>
+        </div>
+    );
+}
+
 
 export default function AppPage() {
-  const [service] = useState(() => new AppService());
-  const [medicines, setMedicines, medicinesLoading] = useLocalStorage<Medicine[]>('medicines', []);
-  const [sales, setSales, salesLoading] = useLocalStorage<SaleRecord[]>('sales', []);
-  const [wholesalerOrders, setWholesalerOrders, ordersLoading] = useLocalStorage<WholesalerOrder[]>('wholesalerOrders', []);
-  const [wholesalers, setWholesalers, wholesalersLoading] = useLocalStorage<Wholesaler[]>('wholesalers', []);
-
-  const [pinSettings, setPinSettings, pinsLoading] = useLocalStorage<PinSettings | null>('vicky-medical-pins', null);
-  const [licenseKey, setLicenseKey, licenseLoading] = useLocalStorage<string | null>('vicky-medical-license', null);
-  const [licenseInfo, setLicenseInfo, licenseInfoLoading] = useLocalStorage<LicenseInfo>('vicky-medical-license-info', {
-    line1: 'Lic. No.: 20-DHL-212349, 21-DHL-212351',
-    line2: 'Lic. No.: 20-DHL-212350'
-  });
+  const { firestore } = useFirebase();
+  const [service, setService] = useState(() => new AppService(firestore));
   
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [sales, setSales] = useState<SaleRecord[]>([]);
+  const [wholesalerOrders, setWholesalerOrders] = useState<WholesalerOrder[]>([]);
+  const [wholesalers, setWholesalers] = useState<Wholesaler[]>([]);
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
   const [activeRole, setActiveRole] = useState<UserRole | null>(null);
   
   const searchParams = useSearchParams();
@@ -96,15 +122,31 @@ export default function AppPage() {
   const [isAwaitingAdminPin, setIsAwaitingAdminPin] = useState(false);
   const [pendingTab, setPendingTab] = useState('');
   
+  const [orderItemToProcess, setOrderItemToProcess] = useState<{orderId: string, item: OrderItem, existingMedicine?: Medicine } | null>(null);
+
   useEffect(() => {
-    service.initialize({
-      medicines,
-      sales,
-      wholesalerOrders,
-      wholesalers,
-      licenseInfo,
-    });
-  }, [service, medicines, sales, wholesalerOrders, wholesalers, licenseInfo]);
+    setService(new AppService(firestore));
+  }, [firestore]);
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+        setIsLoading(true);
+        const [medicines, sales, orders, wholesalers, settings] = await Promise.all([
+            service.getMedicines(),
+            service.getSales(),
+            service.getWholesalerOrders(),
+            service.getWholesalers(),
+            service.getAppSettings()
+        ]);
+        setMedicines(medicines);
+        setSales(sales);
+        setWholesalerOrders(orders);
+        setWholesalers(wholesalers);
+        setAppSettings(settings);
+        setIsLoading(false);
+    };
+    fetchInitialData();
+  }, [service]);
 
   useEffect(() => {
     if (openRestockId) {
@@ -119,18 +161,14 @@ export default function AppPage() {
       }
   }, [openOrderTab, router]);
   
-  const [orderItemToProcess, setOrderItemToProcess] = useState<{orderId: string, item: OrderItem, existingMedicine?: Medicine } | null>(null);
-
   useEffect(() => {
     if (orderItemToProcess) {
       setActiveTab('inventory');
     }
   }, [orderItemToProcess]);
-
-  const isLoading = medicinesLoading || salesLoading || ordersLoading || licenseLoading || pinsLoading || wholesalersLoading || licenseInfoLoading;
   
   if (isLoading) {
-    return null; // Return nothing while loading to prevent flash of content
+    return <FullScreenLoader />;
   }
   
   const onRestockComplete = () => {
@@ -152,19 +190,15 @@ export default function AppPage() {
   }
 
   const handleSaveMedicine = async (medicine: Medicine) => {
-    const savedMedicine = await service.saveMedicine(medicine);
-    setMedicines(prevMeds => {
-        const isEditing = prevMeds.some(m => m.id === savedMedicine.id);
-        if (isEditing) {
-            return prevMeds.map(m => m.id === savedMedicine.id ? savedMedicine : m);
-        }
-        return [...prevMeds, savedMedicine];
-    });
+    await service.saveMedicine(medicine);
+    const newMedicines = await service.getMedicines();
+    setMedicines(newMedicines);
   };
 
   const handleDeleteMedicine = async (id: string) => {
     await service.deleteMedicine(id);
-    setMedicines(prevMeds => prevMeds.filter(m => m.id !== id));
+    const newMedicines = await service.getMedicines();
+    setMedicines(newMedicines);
   };
   
   const handleSaveAllMedicines = async (allMedicines: Medicine[]) => {
@@ -181,28 +215,30 @@ export default function AppPage() {
       await service.saveAllSales(allSales);
       setSales(allSales);
   }
+  
+  const handleSaveAppSettings = async (settings: AppSettings) => {
+    await service.saveAppSettings(settings);
+    setAppSettings(settings);
+  }
 
   const handleItemProcessed = async (medicine: Medicine | null) => {
     if (orderItemToProcess) {
       const { orderId, item } = orderItemToProcess;
-      let orderToUpdate: WholesalerOrder | null = null;
       
       if (medicine && medicine.id) {
-          orderToUpdate = await service.updateWholesalerOrderItemStatus(orderId, item.id, 'Received');
-      }
-
-      if (orderToUpdate) {
-        setWholesalerOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate!.id ? orderToUpdate! : o));
-        
-        const hasMorePending = orderToUpdate.items.some(i => i.status === 'Pending');
-        if (hasMorePending) {
-            // Re-trigger the merge process for the next item in the same order
-            // Using a timeout to allow React state to settle before dispatching a new event
-            setTimeout(() => {
-                const event = new CustomEvent('continue-merge', { detail: orderToUpdate });
-                window.dispatchEvent(event);
-            }, 100);
-        }
+          const orderToUpdate = await service.updateWholesalerOrderItemStatus(orderId, item.id, 'Received');
+          if (orderToUpdate) {
+            setWholesalerOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate!.id ? orderToUpdate! : o));
+            
+            const hasMorePending = orderToUpdate.items.some(i => i.status === 'Pending');
+            if (hasMorePending) {
+                // Re-trigger the merge process for the next item in the same order
+                setTimeout(() => {
+                    const event = new CustomEvent('continue-merge', { detail: orderToUpdate });
+                    window.dispatchEvent(event);
+                }, 100);
+            }
+          }
       }
       
       setOrderItemToProcess(null);
@@ -237,17 +273,15 @@ export default function AppPage() {
       {!activeRole && (
         <PinDialog
             onPinSuccess={handlePinSuccess}
-            pinSettings={pinSettings}
-            setPinSettings={setPinSettings}
-            licenseKey={licenseKey}
-            setLicenseKey={setLicenseKey}
+            appSettings={appSettings}
+            setAppSettings={handleSaveAppSettings}
         />
       )}
 
       <AdminAuthDialog 
         open={isAwaitingAdminPin}
         onOpenChange={setIsAwaitingAdminPin}
-        pinSettings={pinSettings}
+        pinSettings={appSettings?.pinSettings ?? null}
         onVerified={handleAdminPinVerified}
       />
 
@@ -280,11 +314,8 @@ export default function AppPage() {
                     </Button>
                 </div>
                 <SettingsDialog 
-                    licenseKey={licenseKey}
-                    pinSettings={pinSettings}
-                    setPinSettings={setPinSettings}
-                    licenseInfo={licenseInfo}
-                    setLicenseInfo={setLicenseInfo}
+                    appSettings={appSettings}
+                    setAppSettings={handleSaveAppSettings}
                     disabled={activeRole !== 'Admin'}
                 />
             </div>
@@ -327,6 +358,8 @@ export default function AppPage() {
                   sales={sales}
                   setSales={setSales}
                   service={service}
+                  appSettings={appSettings}
+                  onSaveAppSettings={handleSaveAppSettings}
                 />
               </TabsContent>
               <TabsContent value="inventory" className="mt-0">

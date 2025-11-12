@@ -1,26 +1,23 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Settings, KeyRound, ShieldCheck } from 'lucide-react';
-import type { PinSettings, LicenseInfo } from '@/lib/types';
+import type { AppSettings } from '@/lib/types';
 import { Textarea } from './ui/textarea';
 
 interface SettingsDialogProps {
-  licenseKey: string | null;
-  pinSettings: PinSettings | null;
-  setPinSettings: (settings: PinSettings | null) => void;
-  licenseInfo: LicenseInfo;
-  setLicenseInfo: (info: LicenseInfo) => void;
+  appSettings: AppSettings | null;
+  setAppSettings: (settings: AppSettings) => void;
   disabled?: boolean;
 }
 
 type DialogState = 'closed' | 'request_license' | 'manage_settings';
 
-export function SettingsDialog({ licenseKey, pinSettings, setPinSettings, licenseInfo, setLicenseInfo, disabled }: SettingsDialogProps) {
+export function SettingsDialog({ appSettings, setAppSettings, disabled }: SettingsDialogProps) {
   const [dialogState, setDialogState] = useState<DialogState>('closed');
   const [licenseInput, setLicenseInput] = useState('');
   
@@ -33,12 +30,16 @@ export function SettingsDialog({ licenseKey, pinSettings, setPinSettings, licens
 
   const handleOpen = () => {
     // Reset local state when opening
-    setAdminPin(pinSettings?.adminPin || '');
-    setStaffPin(pinSettings?.staffPin || '');
-    setLicenseLine1(licenseInfo.line1);
-    setLicenseLine2(licenseInfo.line2);
+    setAdminPin(appSettings?.pinSettings?.adminPin || '');
+    setStaffPin(appSettings?.pinSettings?.staffPin || '');
+    setLicenseLine1(appSettings?.licenseInfo.line1 || '');
+    setLicenseLine2(appSettings?.licenseInfo.line2 || '');
     setLicenseInput('');
-    setDialogState('request_license');
+    if (appSettings?.licenseKey) {
+        setDialogState('request_license');
+    } else {
+        toast({ variant: 'destructive', title: 'Setup Required', description: 'Master password setup is required first.'});
+    }
   };
 
   const handleClose = () => {
@@ -46,11 +47,11 @@ export function SettingsDialog({ licenseKey, pinSettings, setPinSettings, licens
   };
 
   const handleLicenseCheck = () => {
-    if (!licenseKey) {
+    if (!appSettings?.licenseKey) {
       toast({ variant: 'destructive', title: 'Setup Error', description: 'No license key has been created for this application yet.' });
       return;
     }
-    if (licenseInput === licenseKey) {
+    if (licenseInput === appSettings.licenseKey) {
       toast({ title: 'Access Granted', description: 'You can now manage settings.' });
       setDialogState('manage_settings');
     } else {
@@ -59,6 +60,10 @@ export function SettingsDialog({ licenseKey, pinSettings, setPinSettings, licens
   };
 
   const handleSave = () => {
+    if (!appSettings) {
+        toast({ variant: 'destructive', title: 'Error', description: 'App settings not loaded.' });
+        return;
+    }
     // PIN Validation
     if (adminPin.trim().length < 4 || staffPin.trim().length < 4) {
       toast({ variant: 'destructive', title: 'Invalid PIN', description: 'Both Admin and Staff PINs must be at least 4 characters long.' });
@@ -75,8 +80,13 @@ export function SettingsDialog({ licenseKey, pinSettings, setPinSettings, licens
         return;
     }
 
-    setPinSettings({ adminPin: adminPin.trim(), staffPin: staffPin.trim() });
-    setLicenseInfo({ line1: licenseLine1.trim(), line2: licenseLine2.trim() });
+    const newSettings: AppSettings = {
+        ...appSettings,
+        pinSettings: { adminPin: adminPin.trim(), staffPin: staffPin.trim() },
+        licenseInfo: { line1: licenseLine1.trim(), line2: licenseLine2.trim() },
+    };
+
+    setAppSettings(newSettings);
 
     toast({ title: 'Settings Updated Successfully!' });
     handleClose();

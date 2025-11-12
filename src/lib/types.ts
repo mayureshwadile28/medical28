@@ -1,3 +1,5 @@
+import { Timestamp } from 'firebase/firestore';
+
 export type Stock = {
   tablets?: number; // Total number of tablets/capsules
   quantity?: number; // for generic items
@@ -100,7 +102,7 @@ export interface SaleRecord {
   id: string;
   customerName: string;
   doctorName?: string;
-  saleDate: string; // ISO date string
+  saleDate: Timestamp;
   items: {
     medicineId: string;
     name: string;
@@ -117,7 +119,7 @@ export interface SaleRecord {
   totalAmount: number;
   discountPercentage?: number;
   paymentMode: PaymentMode;
-  paymentSettledDate?: string; // ISO date string, set when a 'Pending' payment is cleared
+  paymentSettledDate?: Timestamp; // ISO date string, set when a 'Pending' payment is cleared
 }
 
 export type SaleBillItem = Omit<SaleItem, 'quantity'> & {
@@ -139,10 +141,10 @@ export interface OrderItem {
 export interface WholesalerOrder {
     id: string;
     wholesalerName: string;
-    orderDate: string; // ISO date string
+    orderDate: Timestamp;
     items: OrderItem[];
     status: 'Pending' | 'Partially Received' | 'Completed' | 'Cancelled';
-    receivedDate?: string; // ISO date string
+    receivedDate?: Timestamp;
 }
 
 export interface Wholesaler {
@@ -163,4 +165,11 @@ export interface PinSettings {
 export interface LicenseInfo {
     line1: string;
     line2?: string;
+}
+
+export interface AppSettings {
+    pinSettings: PinSettings;
+    licenseKey: string;
+    licenseInfo: LicenseInfo;
+    doctorNames: string[];
 }

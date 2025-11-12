@@ -1,8 +1,7 @@
-
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { type Medicine, type SaleRecord, type PaymentMode, type SaleItem, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, getTotalStock, Batch, MedicineDescription } from '@/lib/types';
+import { type Medicine, type SaleRecord, type PaymentMode, type SaleItem, isTablet, getTotalStock, Batch, AppSettings } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -34,7 +33,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -43,16 +41,19 @@ import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
 import { Label } from '@/components/ui/label';
-import { useLocalStorage } from '@/lib/hooks';
 import { AppService } from '@/lib/service';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Timestamp } from 'firebase/firestore';
+
 
 interface PosTabProps {
   medicines: Medicine[];
   sales: SaleRecord[];
   setSales: (sales: SaleRecord[]) => void;
   service: AppService;
+  appSettings: AppSettings | null;
+  onSaveAppSettings: (settings: AppSettings) => void;
 }
 
 const generateNewBillNumber = (sales: SaleRecord[]): string => {
@@ -392,13 +393,12 @@ function BatchSelectorDialog({ medicine, onSelect, onCancel }: { medicine: Medic
     );
 }
 
-export default function PosTab({ medicines, sales, setSales, service }: PosTabProps) {
+export default function PosTab({ medicines, sales, setSales, service, appSettings, onSaveAppSettings }: PosTabProps) {
   const [isMedicinePopoverOpen, setIsMedicinePopoverOpen] = useState(false);
   const [isDoctorPopoverOpen, setIsDoctorPopoverOpen] = useState(false);
   const [selectedMedicineId, setSelectedMedicineId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [doctorName, setDoctorName] = useState('');
-  const [doctorNames, setDoctorNames] = useLocalStorage<string[]>('doctorNames', []);
   const [discount, setDiscount] = useState(0);
   
   const [pendingBatchSelection, setPendingBatchSelection] = useState<Medicine | null>(null);
@@ -409,6 +409,8 @@ export default function PosTab({ medicines, sales, setSales, service }: PosTabPr
 
   const [deletingDoctorName, setDeletingDoctorName] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+
+  const doctorNames = useMemo(() => appSettings?.doctorNames || [], [appSettings]);
 
 
   const availableMedicines = useMemo(() => {
@@ -569,28 +571,29 @@ export default function PosTab({ medicines, sales, setSales, service }: PosTabPr
 
     const trimmedDoctorName = doctorName.trim();
     if (trimmedDoctorName && !doctorNames.includes(trimmedDoctorName)) {
-        setDoctorNames([...doctorNames, trimmedDoctorName]);
+        if (appSettings) {
+            onSaveAppSettings({
+                ...appSettings,
+                doctorNames: [...doctorNames, trimmedDoctorName],
+            })
+        }
     }
 
-    const newSaleRecord: SaleRecord = {
+    const newSaleRecord = {
       id: generateNewBillNumber(sales),
       customerName: customerName.trim(),
       doctorName: trimmedDoctorName,
-      saleDate: new Date().toISOString(),
+      saleDate: Timestamp.now(),
       items: billItems.map(item => ({
           ...item, 
           quantity: Number(item.quantity), 
-          company: item.company,
-          category: item.category || '',
-          batchNumber: item.batchNumber,
-          mfgDate: item.mfgDate,
-          expiryDate: item.expiryDate,
       })),
       totalAmount: totalAmount,
       discountPercentage: discount,
       paymentMode: paymentMode,
     };
     
+    // @ts-ignore
     const savedSale = await service.saveSale(newSaleRecord);
     
     const latestSales = await service.getSales();
@@ -613,7 +616,12 @@ export default function PosTab({ medicines, sales, setSales, service }: PosTabPr
   };
 
   const handleDeleteDoctor = (nameToDelete: string) => {
-    setDoctorNames(doctorNames.filter(name => name !== nameToDelete));
+      if (appSettings) {
+          onSaveAppSettings({
+              ...appSettings,
+              doctorNames: doctorNames.filter(name => name !== nameToDelete),
+          });
+      }
     if (doctorName === nameToDelete) {
         setDoctorName('');
     }
