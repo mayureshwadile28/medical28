@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -319,7 +320,7 @@ export default function HistoryTab({ sales, setSales, licenseInfo }: HistoryTabP
   };
 
   const filteredSales = React.useMemo(() => {
-    let sortedSales = sales.filter(s => s.paymentMode !== 'Pending');
+    let sortedSales = [...(sales || [])].filter(s => s.paymentMode !== 'Pending');
 
     sortedSales.sort((a, b) => {
         const dateA = new Date(a.saleDate).getTime();
@@ -413,13 +414,13 @@ export default function HistoryTab({ sales, setSales, licenseInfo }: HistoryTabP
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Sales History</CardTitle>
           <div className="flex flex-wrap gap-2">
-            <PendingPaymentsDialog allSales={sales} setSales={setSales} />
-            <Button onClick={handleExportCSV} disabled={sales.length === 0}>
+            <PendingPaymentsDialog allSales={sales || []} setSales={setSales} />
+            <Button onClick={handleExportCSV} disabled={(sales || []).length === 0}>
               Export CSV
             </Button>
             <AlertDialog open={isClearHistoryOpen} onOpenChange={(open) => { setIsClearHistoryOpen(open); if (!open) setDeleteConfirmation(''); }}>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={sales.length === 0}>
+                <Button variant="destructive" disabled={(sales || []).length === 0}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Clear History
                 </Button>
@@ -606,3 +607,5 @@ export default function HistoryTab({ sales, setSales, licenseInfo }: HistoryTabP
     </Card>
   );
 }
+
+    

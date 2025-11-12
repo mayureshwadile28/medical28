@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -733,3 +734,5 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     </>
   );
 }
+
+    
