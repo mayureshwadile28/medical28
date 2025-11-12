@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
@@ -15,17 +14,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { AppService } from '@/lib/service';
 import { Checkbox } from '@/components/ui/checkbox';
 
 
 interface OrderListTabProps {
     medicines: Medicine[];
     orders: WholesalerOrder[];
-    setOrders: React.Dispatch<React.SetStateAction<WholesalerOrder[]>>;
+    setOrders: (value: WholesalerOrder[] | null | ((val: WholesalerOrder[]) => WholesalerOrder[] | null)) => void;
     wholesalers: Wholesaler[];
-    setWholesalers: React.Dispatch<React.SetStateAction<Wholesaler[]>>;
-    service: AppService;
+    setWholesalers: (value: Wholesaler[] | null | ((val: Wholesaler[]) => Wholesaler[] | null)) => void;
     onProcessOrderItem: (data: { orderId: string, item: any, existingMedicine?: Medicine }) => void;
 }
 
@@ -36,7 +33,7 @@ const getDisplayQuantity = (item: Partial<OrderItem>) => {
     return item.quantity;
 };
 
-function WholesalerManager({ wholesalers, setWholesalers }: { wholesalers: Wholesaler[], setWholesalers: (wholesalers: Wholesaler[]) => void }) {
+function WholesalerManager({ wholesalers, setWholesalers }: { wholesalers: Wholesaler[], setWholesalers: (value: Wholesaler[] | null | ((val: Wholesaler[]) => Wholesaler[] | null)) => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const [name, setName] = useState('');
     const [contact, setContact] = useState('');
@@ -54,14 +51,14 @@ function WholesalerManager({ wholesalers, setWholesalers }: { wholesalers: Whole
             contact: contact.trim(),
             gstin: gstin.trim(),
         };
-        setWholesalers([...wholesalers, newWholesaler]);
+        setWholesalers(current => [...(current || []), newWholesaler]);
         setName('');
         setContact('');
         setGstin('');
     };
 
     const handleRemoveWholesaler = (id: string) => {
-        setWholesalers(wholesalers.filter(w => w.id !== id));
+        setWholesalers(current => (current || []).filter(w => w.id !== id));
     };
 
     return (
@@ -260,7 +257,7 @@ const capitalizeWords = (str: string): string => {
     .join(' ');
 };
 
-export default function OrderListTab({ medicines, orders, setOrders, wholesalers, setWholesalers, service, onProcessOrderItem }: OrderListTabProps) {
+export default function OrderListTab({ medicines, orders, setOrders, wholesalers, setWholesalers, onProcessOrderItem }: OrderListTabProps) {
     const [items, setItems] = useState<Partial<OrderItem>[]>([]);
     const [itemName, setItemName] = useState('');
     const [itemCategory, setItemCategory] = useState('');
@@ -317,7 +314,7 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
         setSelectedItemsToMerge(pendingItemIds);
     };
     
-    const handleSelectiveMerge = async () => {
+    const handleSelectiveMerge = () => {
         if (!mergeOrder) return;
         
         const itemToProcessId = mergeOrder.items.find(item => 
@@ -346,20 +343,6 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
 
         setMergeOrder(null);
     };
-    
-    useEffect(() => {
-        const continueMergeHandler = (event: Event) => {
-             const order = (event as CustomEvent<WholesalerOrder>).detail;
-             if (order) {
-                startMergeProcess(order);
-             }
-        };
-        window.addEventListener('continue-merge', continueMergeHandler);
-        return () => {
-            window.removeEventListener('continue-merge', continueMergeHandler);
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [medicines, orders, service]);
 
     const finalizeAddItem = (item: Partial<OrderItem>) => {
         setItems(prevItems => [...prevItems, item]);
@@ -466,7 +449,7 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
         }
     };
 
-    const handleSaveOrder = async () => {
+    const handleSaveOrder = () => {
         if (items.length === 0) {
             toast({ variant: 'destructive', title: 'Empty Order', description: 'Please add items to the list before saving.' });
             return;
@@ -476,12 +459,15 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
             return;
         }
 
-        const newOrder = await service.addWholesalerOrder({
+        const newOrder: WholesalerOrder = {
+            id: new Date().toISOString(),
             wholesalerName: wholesalerName.trim(),
-            items: items as Omit<OrderItem, 'id' | 'status'>[],
-        });
+            orderDate: new Date().toISOString(),
+            items: items.map(item => ({ ...item, id: `${new Date().toISOString()}-${Math.random()}`, status: 'Pending' })) as OrderItem[],
+            status: 'Pending',
+        };
 
-        setOrders(currentOrders => [newOrder, ...currentOrders]);
+        setOrders(currentOrders => [newOrder, ...(currentOrders || [])]);
 
         toast({ title: 'Order Saved', description: `Order for ${newOrder.wholesalerName} has been saved.` });
         
@@ -489,9 +475,8 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
         setWholesalerName('');
     };
 
-    const handleClearOrderHistory = async () => {
-        await service.deleteAllWholesalerOrders();
-        setOrders([]);
+    const handleClearOrderHistory = () => {
+        setOrders(null);
         toast({ title: 'Wholesaler Order History Cleared' });
     }
 
@@ -716,7 +701,3 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
 
     
 }
-
-    
-
-    

@@ -7,12 +7,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { KeyRound, ShieldCheck, Unlock } from 'lucide-react';
 import type { PinSettings, UserRole, AppSettings } from '@/lib/types';
-import { useUser, initiateAnonymousSignIn, useAuth } from '@/firebase';
+import { useLocalStorage } from '@/lib/hooks';
 
 // This is the hardcoded MASTER password.
 const MASTER_PASSWORD = 'MAYURESH-VINOD-WADILE-2009';
 
-type DialogState = 'request_license' | 'request_master_password' | 'create_license' | 'pin_entry' | 'awaiting_pin_setup' | 'authenticating';
+type DialogState = 'request_license' | 'request_master_password' | 'create_license' | 'pin_entry' | 'awaiting_pin_setup';
 
 export function PinDialog({
   onPinSuccess,
@@ -21,30 +21,30 @@ export function PinDialog({
 }: {
   onPinSuccess: (role: UserRole) => void;
   appSettings: AppSettings | null;
-  setAppSettings: (settings: AppSettings) => void;
+  setAppSettings: (settings: AppSettings | null | ((val: AppSettings) => AppSettings | null)) => void;
 }) {
-  const auth = useAuth();
-  const { user, isUserLoading } = useUser();
-  const [dialogState, setDialogState] = useState<DialogState>('authenticating');
+  const [isMounted, setIsMounted] = useState(false);
+  const [dialogState, setDialogState] = useState<DialogState>('pin_entry');
   const [input, setInput] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!isUserLoading && !user) {
-        initiateAnonymousSignIn(auth);
-    } else if (!isUserLoading && user) {
-        if (appSettings) {
-            if (appSettings.pinSettings?.adminPin && appSettings.pinSettings?.staffPin) {
-                setDialogState('pin_entry');
-            } else {
-                setDialogState('awaiting_pin_setup');
-                onPinSuccess('Admin');
-            }
-        } else {
-             setDialogState('request_master_password');
-        }
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isMounted) {
+      if (!appSettings?.licenseKey) {
+        setDialogState('request_master_password');
+      } else if (!appSettings.pinSettings?.adminPin || !appSettings.pinSettings?.staffPin) {
+        setDialogState('awaiting_pin_setup');
+        // Automatically grant Admin access for initial setup
+        onPinSuccess('Admin');
+      } else {
+        setDialogState('pin_entry');
+      }
     }
-  }, [user, isUserLoading, appSettings, auth, onPinSuccess]);
+  }, [appSettings, isMounted, onPinSuccess]);
 
 
   const handleMasterPasswordSubmit = () => {
@@ -74,18 +74,16 @@ export function PinDialog({
       return;
     }
     const newLicenseKey = input.trim();
-    const newSettings: AppSettings = {
+    setAppSettings(prev => ({
+        ...(prev || { pinSettings: { adminPin: '', staffPin: '' }, doctorNames: [] }),
         licenseKey: newLicenseKey,
-        pinSettings: { adminPin: '', staffPin: '' },
-        licenseInfo: { line1: 'Lic. No.: 12345, 67890', line2: 'Lic. No.: 54321' },
-        doctorNames: [],
-    };
-    setAppSettings(newSettings);
+        licenseInfo: { line1: 'Lic. No.: 12345, 67890', line2: 'Lic. No.: 54321' }
+    }));
     toast({
       title: 'License Key Created!',
       description: 'The application is now licensed. Please set up your PINs in Settings.',
     });
-    // This will trigger the useEffect to move to 'awaiting_pin_setup' state
+    // The useEffect will catch this state change and move to 'awaiting_pin_setup'
   };
 
   const handlePinEntry = () => {
@@ -109,15 +107,6 @@ export function PinDialog({
 
   const renderContent = () => {
     switch (dialogState) {
-      case 'authenticating':
-        return (
-             <DialogHeader>
-              <DialogTitle>Authenticating...</DialogTitle>
-              <DialogDescription>
-                Connecting to the service. Please wait.
-              </DialogDescription>
-            </DialogHeader>
-        );
       case 'request_master_password':
         return (
           <>
@@ -208,7 +197,7 @@ export function PinDialog({
     }
   };
 
-  const isDialogOpen = dialogState !== 'awaiting_pin_setup';
+  const isDialogOpen = isMounted && dialogState !== 'awaiting_pin_setup';
 
   return (
     <Dialog open={isDialogOpen}>

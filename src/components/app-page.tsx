@@ -15,13 +15,12 @@ import CustomersTab from '@/components/customers-tab';
 import ReportsTab from '@/components/reports-tab';
 import { PinDialog } from '@/components/pin-dialog';
 import { SettingsDialog } from '@/components/settings-dialog';
-import { AppService } from '@/lib/service';
+import { useLocalStorage } from '@/lib/hooks';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, useUser } from '@/firebase';
 
 function AdminAuthDialog({ open, onOpenChange, pinSettings, onVerified }: { open: boolean, onOpenChange: (open: boolean) => void, pinSettings: PinSettings | null, onVerified: () => void }) {
     const [pin, setPin] = useState('');
@@ -70,56 +69,21 @@ function AdminAuthDialog({ open, onOpenChange, pinSettings, onVerified }: { open
     );
 }
 
-function FullScreenLoader() {
-    return (
-        <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background">
-            <div className="flex flex-col items-center gap-4">
-                <div className="flex items-center gap-3">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-10 w-10 text-primary animate-pulse"
-                    >
-                        <path d="M14.5 10.5A3.5 3.5 0 0 0 11 7a3.5 3.5 0 0 0-3.5 3.5.95.95 0 0 0 .95.95h5.1a.95.95 0 0 0 .95-.95Z" />
-                        <path d="M20.5 10.5a8.5 8.5 0 1 0-17 0" />
-                    </svg>
-                    <h1 className="text-3xl font-bold font-headline text-foreground">Vicky Medical</h1>
-                </div>
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-muted-foreground">Loading your pharmacy...</p>
-            </div>
-        </div>
-    );
-}
-
+const DEFAULT_SETTINGS: AppSettings = {
+    licenseKey: '',
+    pinSettings: { adminPin: '', staffPin: '' },
+    licenseInfo: { line1: 'Lic. No.: 12345, 67890', line2: 'Lic. No.: 54321' },
+    doctorNames: [],
+};
 
 export default function AppPage() {
-  const { firestore, areServicesAvailable } = useFirebase();
-  const { user, isUserLoading } = useUser();
-  
-  const service = useMemo(() => {
-    if (firestore) {
-      return new AppService(firestore);
-    }
-    return null;
-  }, [firestore]);
-  
-  const [medicines, setMedicines] = useState<Medicine[]>([]);
-  const [sales, setSales] = useState<SaleRecord[]>([]);
-  const [wholesalerOrders, setWholesalerOrders] = useState<WholesalerOrder[]>([]);
-  const [wholesalers, setWholesalers] = useState<Wholesaler[]>([]);
-  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+  const [medicines, setMedicines, isMedicinesLoading] = useLocalStorage<Medicine[]>('medicines', []);
+  const [sales, setSales, isSalesLoading] = useLocalStorage<SaleRecord[]>('sales', []);
+  const [wholesalerOrders, setWholesalerOrders, isOrdersLoading] = useLocalStorage<WholesalerOrder[]>('wholesaler_orders', []);
+  const [wholesalers, setWholesalers, isWholesalersLoading] = useLocalStorage<Wholesaler[]>('wholesalers', []);
+  const [appSettings, setAppSettings, isSettingsLoading] = useLocalStorage<AppSettings>('app_settings', DEFAULT_SETTINGS);
 
-  const [isDataLoading, setIsDataLoading] = useState(true);
   const [activeRole, setActiveRole] = useState<UserRole | null>(null);
-  
   const searchParams = useSearchParams();
   const router = useRouter();
   const openRestockId = searchParams.get('restock');
@@ -130,34 +94,6 @@ export default function AppPage() {
   const [pendingTab, setPendingTab] = useState('');
   
   const [orderItemToProcess, setOrderItemToProcess] = useState<{orderId: string, item: OrderItem, existingMedicine?: Medicine } | null>(null);
-
-  useEffect(() => {
-    if (!service || !user) return;
-
-    const fetchInitialData = async () => {
-        setIsDataLoading(true);
-        try {
-            const [medicines, sales, orders, wholesalers, settings] = await Promise.all([
-                service.getMedicines(),
-                service.getSales(),
-                service.getWholesalerOrders(),
-                service.getWholesalers(),
-                service.getAppSettings()
-            ]);
-            setMedicines(medicines);
-            setSales(sales);
-            setWholesalerOrders(orders);
-            setWholesalers(wholesalers);
-            setAppSettings(settings);
-        } catch (error) {
-            console.error("Failed to fetch initial data:", error);
-            // Optionally, show a toast or error message to the user
-        } finally {
-            setIsDataLoading(false);
-        }
-    };
-    fetchInitialData();
-  }, [service, user]);
 
   useEffect(() => {
     if (openRestockId) {
@@ -177,12 +113,6 @@ export default function AppPage() {
       setActiveTab('inventory');
     }
   }, [orderItemToProcess]);
-
-  const isLoading = isUserLoading || !areServicesAvailable || isDataLoading;
-  
-  if (isLoading) {
-    return <FullScreenLoader />;
-  }
   
   const onRestockComplete = () => {
     router.push('/', { scroll: false });
@@ -202,56 +132,44 @@ export default function AppPage() {
     setActiveTab('dashboard'); // Reset to a safe default
   }
 
-  const handleSaveMedicine = async (medicine: Medicine) => {
-    await service.saveMedicine(medicine);
-    const newMedicines = await service.getMedicines();
-    setMedicines(newMedicines);
+  const handleSaveMedicine = (medicine: Medicine) => {
+    setMedicines(prevMeds => {
+      const existingIndex = prevMeds.findIndex(m => m.id === medicine.id);
+      if (existingIndex > -1) {
+        const newMeds = [...prevMeds];
+        newMeds[existingIndex] = medicine;
+        return newMeds;
+      }
+      return [...prevMeds, medicine];
+    });
   };
 
-  const handleDeleteMedicine = async (id: string) => {
-    await service.deleteMedicine(id);
-    const newMedicines = await service.getMedicines();
-    setMedicines(newMedicines);
+  const handleDeleteMedicine = (id: string) => {
+    setMedicines(prevMeds => prevMeds.filter(m => m.id !== id));
   };
   
-  const handleSaveAllMedicines = async (allMedicines: Medicine[]) => {
-      await service.saveAllMedicines(allMedicines);
-      setMedicines(allMedicines);
-  }
-  
-  const handleSaveWholesalers = async (allWholesalers: Wholesaler[]) => {
-      await service.saveAllWholesalers(allWholesalers);
-      setWholesalers(allWholesalers);
-  }
-  
-  const handleSaveSales = async (allSales: SaleRecord[]) => {
-      await service.saveAllSales(allSales);
-      setSales(allSales);
-  }
-  
-  const handleSaveAppSettings = async (settings: AppSettings) => {
-    await service.saveAppSettings(settings);
-    setAppSettings(settings);
-  }
-
-  const handleItemProcessed = async (medicine: Medicine | null) => {
-    if (orderItemToProcess && service) {
+  const handleItemProcessed = (medicine: Medicine | null) => {
+    if (orderItemToProcess) {
       const { orderId, item } = orderItemToProcess;
       
       if (medicine && medicine.id) {
-          const orderToUpdate = await service.updateWholesalerOrderItemStatus(orderId, item.id, 'Received');
-          if (orderToUpdate) {
-            setWholesalerOrders(currentOrders => currentOrders.map(o => o.id === orderToUpdate!.id ? orderToUpdate! : o));
-            
-            const hasMorePending = orderToUpdate.items.some(i => i.status === 'Pending');
-            if (hasMorePending) {
-                // Re-trigger the merge process for the next item in the same order
-                setTimeout(() => {
-                    const event = new CustomEvent('continue-merge', { detail: orderToUpdate });
-                    window.dispatchEvent(event);
-                }, 100);
-            }
-          }
+        setWholesalerOrders(currentOrders => {
+            return currentOrders.map(order => {
+                if (order.id === orderId) {
+                    const updatedItems = order.items.map(i => 
+                        i.id === item.id ? { ...i, status: 'Received' as 'Received' } : i
+                    );
+                    const allReceived = updatedItems.every(i => i.status === 'Received');
+                    return { 
+                        ...order, 
+                        items: updatedItems,
+                        status: allReceived ? 'Completed' : 'Partially Received',
+                        receivedDate: allReceived ? new Date().toISOString() : order.receivedDate,
+                    };
+                }
+                return order;
+            });
+        });
       }
       
       setOrderItemToProcess(null);
@@ -281,13 +199,42 @@ export default function AppPage() {
     }
   };
   
+  if (isMedicinesLoading || isSalesLoading || isOrdersLoading || isWholesalersLoading || isSettingsLoading) {
+    return (
+      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center gap-3">
+             <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-10 w-10 text-primary animate-pulse"
+              >
+                <path d="M14.5 10.5A3.5 3.5 0 0 0 11 7a3.5 3.5 0 0 0-3.5 3.5.95.95 0 0 0 .95.95h5.1a.95.95 0 0 0 .95-.95Z" />
+                <path d="M20.5 10.5a8.5 8.5 0 1 0-17 0" />
+              </svg>
+            <h1 className="text-3xl font-bold font-headline text-foreground">Vicky Medical</h1>
+          </div>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading your pharmacy...</p>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <>
       {!activeRole && (
         <PinDialog
             onPinSuccess={handlePinSuccess}
             appSettings={appSettings}
-            setAppSettings={handleSaveAppSettings}
+            setAppSettings={setAppSettings}
         />
       )}
 
@@ -328,7 +275,7 @@ export default function AppPage() {
                 </div>
                 <SettingsDialog 
                     appSettings={appSettings}
-                    setAppSettings={handleSaveAppSettings}
+                    setAppSettings={setAppSettings}
                     disabled={activeRole !== 'Admin'}
                 />
             </div>
@@ -366,19 +313,19 @@ export default function AppPage() {
                 <DashboardTab sales={sales} medicines={medicines} />
               </TabsContent>
               <TabsContent value="pos" className="mt-0">
-                {service && <PosTab
+                <PosTab
                   medicines={medicines}
+                  setMedicines={setMedicines}
                   sales={sales}
                   setSales={setSales}
-                  service={service}
                   appSettings={appSettings}
-                  onSaveAppSettings={handleSaveAppSettings}
-                />}
+                  onSaveAppSettings={setAppSettings}
+                />
               </TabsContent>
               <TabsContent value="inventory" className="mt-0">
-                {service && <InventoryTab 
+                <InventoryTab 
                   medicines={medicines} 
-                  service={service}
+                  setMedicines={setMedicines}
                   restockId={openRestockId}
                   onRestockComplete={onRestockComplete}
                   orderItemToProcess={orderItemToProcess?.item}
@@ -386,25 +333,23 @@ export default function AppPage() {
                   onItemProcessed={handleItemProcessed}
                   onSaveMedicine={handleSaveMedicine}
                   onDeleteMedicine={handleDeleteMedicine}
-                  onSaveAllMedicines={handleSaveAllMedicines}
-                />}
+                />
               </TabsContent>
               <TabsContent value="customers" className="mt-0">
                   <CustomersTab sales={sales} />
               </TabsContent>
                <TabsContent value="order_list" className="mt-0">
-                {service && <OrderListTab 
+                <OrderListTab 
                   medicines={medicines}
                   orders={wholesalerOrders}
                   setOrders={setWholesalerOrders}
                   wholesalers={wholesalers}
                   setWholesalers={setWholesalers}
-                  service={service}
                   onProcessOrderItem={setOrderItemToProcess}
-                />}
+                />
               </TabsContent>
                <TabsContent value="history" className="mt-0">
-                {service && <HistoryTab sales={sales} setSales={handleSaveSales} service={service} />}
+                <HistoryTab sales={sales} setSales={setSales} licenseInfo={appSettings.licenseInfo} />
               </TabsContent>
               <TabsContent value="reports" className="mt-0">
                   <ReportsTab sales={sales} medicines={medicines} />

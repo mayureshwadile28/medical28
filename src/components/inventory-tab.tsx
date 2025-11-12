@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -46,7 +45,6 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { AppService } from '@/lib/service';
 
 interface ImportedMedicine {
     medicineName: string;
@@ -59,15 +57,14 @@ interface ImportedMedicine {
 
 interface InventoryTabProps {
   medicines: Medicine[];
-  service: AppService;
+  setMedicines: (value: Medicine[] | null | ((val: Medicine[]) => Medicine[] | null)) => void;
   restockId?: string | null;
   onRestockComplete?: () => void;
   orderItemToProcess?: OrderItem | null;
   existingMedicineToProcess?: Medicine | null;
   onItemProcessed?: (medicine: Medicine | null) => void;
-  onSaveMedicine: (medicine: Medicine) => Promise<void>;
-  onDeleteMedicine: (id: string) => Promise<void>;
-  onSaveAllMedicines: (medicines: Medicine[]) => Promise<void>;
+  onSaveMedicine: (medicine: Medicine) => void;
+  onDeleteMedicine: (id: string) => void;
 }
 
 type SortOption = 'name_asc' | 'expiry_asc' | 'expiry_desc';
@@ -95,7 +92,7 @@ const isOutOfStock = (med: Medicine) => {
     return getTotalStock(med) <= 0;
 }
 
-export default function InventoryTab({ medicines, service, restockId, onRestockComplete, orderItemToProcess, existingMedicineToProcess, onItemProcessed, onSaveMedicine, onDeleteMedicine, onSaveAllMedicines }: InventoryTabProps) {
+export default function InventoryTab({ medicines, setMedicines, restockId, onRestockComplete, orderItemToProcess, existingMedicineToProcess, onItemProcessed, onSaveMedicine, onDeleteMedicine }: InventoryTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -236,13 +233,10 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
       .filter(med => categoryFilters.length === 0 || (med.category && categoryFilters.includes(med.category)));
   }, [validMedicines, searchTerm, categoryFilters, sortOption]);
 
-  const proceedWithSave = async (medicine: Medicine) => {
-    const savedMedicine = await service.saveMedicine(medicine);
-    const newMedicines = await service.getMedicines();
-    onSaveAllMedicines(newMedicines);
-    
+  const proceedWithSave = (medicine: Medicine) => {
+    onSaveMedicine(medicine);
     if (onItemProcessed) {
-        onItemProcessed(savedMedicine);
+        onItemProcessed(medicine);
     }
   
     setEditingMedicine(null);
@@ -256,7 +250,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
     }
   };
 
-  const handleSaveMedicine = (medicine: Medicine) => {
+  const handleSaveWrapper = (medicine: Medicine) => {
     const isNew = !medicine.id || !validMedicines.some(m => m.id === medicine.id);
     if (isNew) {
       const existingMedicine = validMedicines.find(m => m.name.toLowerCase() === medicine.name.toLowerCase());
@@ -266,12 +260,6 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
       }
     }
     proceedWithSave(medicine);
-  };
-
-  const handleDeleteMedicine = async (id: string) => {
-    await onDeleteMedicine(id);
-    setDeletingMedicineId(null);
-    setDeleteConfirmation('');
   };
   
   const handleCancelForm = () => {
@@ -335,7 +323,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
   const processImportQueue = () => {
     if (importQueue.length === 0) {
         if (newInventoryState) {
-            onSaveAllMedicines(newInventoryState);
+            setMedicines(newInventoryState);
         }
         const { updated, new: newCount, skipped } = importStats.current;
         toast({
@@ -439,11 +427,10 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                          });
                      }
                  });
-                onSaveAllMedicines(newMedicines).then(() => {
-                    toast({ 
-                        title: 'Import Successful', 
-                        description: `Inventory replaced with ${newMedicines.length} medicine(s).`
-                    });
+                setMedicines(newMedicines);
+                toast({ 
+                    title: 'Import Successful', 
+                    description: `Inventory replaced with ${newMedicines.length} medicine(s).`
                 });
             } else { // 'merge'
                 importStats.current = { added: 0, updated: 0, skipped: 0, new: 0 };
@@ -488,7 +475,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                       <MedicineForm
                           medicines={validMedicines}
                           medicineToEdit={editingMedicine}
-                          onSave={handleSaveMedicine}
+                          onSave={handleSaveWrapper}
                           onCancel={handleCancelForm}
                           categories={categories}
                           isFromOrder={!!orderItemToProcess && !existingMedicineToProcess}
@@ -646,7 +633,7 @@ export default function InventoryTab({ medicines, service, restockId, onRestockC
                                       <AlertDialogFooter>
                                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                                       <AlertDialogAction 
-                                        onClick={() => handleDeleteMedicine(med.id)}
+                                        onClick={() => onDeleteMedicine(med.id)}
                                         disabled={deleteConfirmation.toLowerCase() !== 'delete'}
                                       >
                                           Delete

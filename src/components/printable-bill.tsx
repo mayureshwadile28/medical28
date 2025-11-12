@@ -2,24 +2,16 @@ import React from 'react';
 import { type SaleRecord, type LicenseInfo } from '@/lib/types';
 import { formatToINR } from '@/lib/currency';
 import { cn } from '@/lib/utils';
-import { Timestamp } from 'firebase/firestore';
 
 interface PrintableBillProps extends React.HTMLAttributes<HTMLDivElement> {
   sale: SaleRecord;
   licenseInfo: LicenseInfo;
 }
 
-const getDateFromTimestamp = (timestamp: Timestamp | string): Date => {
-  if (timestamp instanceof Timestamp) {
-    return timestamp.toDate();
-  }
-  return new Date(timestamp);
-}
-
 const PrintableBill = React.forwardRef<HTMLDivElement, PrintableBillProps>(({ sale, licenseInfo, className, ...props }, ref) => {
     const subtotal = sale.items.reduce((acc, item) => acc + item.total, 0);
     const discountAmount = (subtotal * (sale.discountPercentage || 0)) / 100;
-    const saleDate = getDateFromTimestamp(sale.saleDate);
+    const saleDate = new Date(sale.saleDate);
   
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'N/A';

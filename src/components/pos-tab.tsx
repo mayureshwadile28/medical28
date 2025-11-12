@@ -41,19 +41,17 @@ import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
 import { Label } from '@/components/ui/label';
-import { AppService } from '@/lib/service';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Timestamp } from 'firebase/firestore';
 
 
 interface PosTabProps {
   medicines: Medicine[];
+  setMedicines: (value: Medicine[] | null | ((val: Medicine[]) => Medicine[] | null)) => void;
   sales: SaleRecord[];
-  setSales: (sales: SaleRecord[]) => void;
-  service: AppService;
+  setSales: (value: SaleRecord[] | null | ((val: SaleRecord[]) => SaleRecord[] | null)) => void;
   appSettings: AppSettings | null;
-  onSaveAppSettings: (settings: AppSettings) => void;
+  onSaveAppSettings: (settings: AppSettings | null | ((val: AppSettings) => AppSettings | null)) => void;
 }
 
 const generateNewBillNumber = (sales: SaleRecord[]): string => {
@@ -393,7 +391,7 @@ function BatchSelectorDialog({ medicine, onSelect, onCancel }: { medicine: Medic
     );
 }
 
-export default function PosTab({ medicines, sales, setSales, service, appSettings, onSaveAppSettings }: PosTabProps) {
+export default function PosTab({ medicines, setMedicines, sales, setSales, appSettings, onSaveAppSettings }: PosTabProps) {
   const [isMedicinePopoverOpen, setIsMedicinePopoverOpen] = useState(false);
   const [isDoctorPopoverOpen, setIsDoctorPopoverOpen] = useState(false);
   const [selectedMedicineId, setSelectedMedicineId] = useState('');
@@ -534,7 +532,7 @@ export default function PosTab({ medicines, sales, setSales, service, appSetting
     return { subtotal: sub, discountAmount: discountValue, totalAmount: total };
   }, [billItems, discount]);
 
-  const completeSale = async () => {
+  const completeSale = () => {
     if (!customerName.trim()) {
         toast({ title: 'Customer Name Required', description: 'Please enter a name for the customer.', variant: "destructive" });
         return;
@@ -548,26 +546,29 @@ export default function PosTab({ medicines, sales, setSales, service, appSetting
         return;
     }
 
-    // No need to update medicines state here, service handles it
-    for (const item of billItems) {
-      const medIndex = medicines.findIndex(m => m.id === item.medicineId);
-      if (medIndex !== -1) {
-        const med = medicines[medIndex];
-        const batchIndex = med.batches.findIndex(b => b.batchNumber === item.batchNumber);
+    setMedicines(currentMeds => {
+        if (!currentMeds) return [];
+        const newMeds = [...currentMeds];
+        for (const item of billItems) {
+            const medIndex = newMeds.findIndex(m => m.id === item.medicineId);
+            if (medIndex !== -1) {
+                const med = newMeds[medIndex];
+                const batchIndex = med.batches.findIndex(b => b.batchNumber === item.batchNumber);
 
-        if (batchIndex !== -1) {
-            const batch = med.batches[batchIndex];
-            const quantitySold = Number(item.quantity);
+                if (batchIndex !== -1) {
+                    const batch = med.batches[batchIndex];
+                    const quantitySold = Number(item.quantity);
 
-            if (isTablet(med)) {
-                batch.stock.tablets = (batch.stock.tablets || 0) - quantitySold;
-            } else {
-                batch.stock.quantity = (batch.stock.quantity || 0) - quantitySold;
+                    if (isTablet(med)) {
+                        batch.stock.tablets = (batch.stock.tablets || 0) - quantitySold;
+                    } else {
+                        batch.stock.quantity = (batch.stock.quantity || 0) - quantitySold;
+                    }
+                }
             }
         }
-        await service.saveMedicine(med);
-      }
-    }
+        return newMeds;
+    });
 
     const trimmedDoctorName = doctorName.trim();
     if (trimmedDoctorName && !doctorNames.includes(trimmedDoctorName)) {
@@ -579,11 +580,11 @@ export default function PosTab({ medicines, sales, setSales, service, appSetting
         }
     }
 
-    const newSaleRecord = {
+    const newSaleRecord: SaleRecord = {
       id: generateNewBillNumber(sales),
       customerName: customerName.trim(),
       doctorName: trimmedDoctorName,
-      saleDate: Timestamp.now(),
+      saleDate: new Date().toISOString(),
       items: billItems.map(item => ({
           ...item, 
           quantity: Number(item.quantity), 
@@ -593,18 +594,14 @@ export default function PosTab({ medicines, sales, setSales, service, appSetting
       paymentMode: paymentMode,
     };
     
-    // @ts-ignore
-    const savedSale = await service.saveSale(newSaleRecord);
-    
-    const latestSales = await service.getSales();
-    setSales(latestSales);
+    setSales(currentSales => [newSaleRecord, ...(currentSales || [])]);
     
     setCustomerName('');
     setDoctorName('');
     setBillItems([]);
     setDiscount(0);
     setPaymentMode('Cash');
-    toast({ title: 'Sale Completed!', description: `Bill for ${savedSale.customerName} saved successfully.`});
+    toast({ title: 'Sale Completed!', description: `Bill for ${newSaleRecord.customerName} saved successfully.`});
   };
   
   const getStockStringForMedicine = (med: Medicine) => {

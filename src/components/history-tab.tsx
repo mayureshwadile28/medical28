@@ -58,26 +58,18 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { AppService } from '@/lib/service';
 import { PrintableBill } from './printable-bill';
 import html2canvas from 'html2canvas';
-import { Timestamp } from 'firebase/firestore';
 
 
 interface HistoryTabProps {
   sales: SaleRecord[];
-  setSales: (sales: SaleRecord[]) => void;
-  service: AppService;
+  setSales: (sales: SaleRecord[] | null | ((current: SaleRecord[]) => SaleRecord[] | null)) => void;
+  licenseInfo: LicenseInfo;
 }
 
 type SortOption = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'amount_desc' | 'amount_asc';
 
-const getDateFromTimestamp = (timestamp: Timestamp | string): Date => {
-  if (timestamp instanceof Timestamp) {
-    return timestamp.toDate();
-  }
-  return new Date(timestamp);
-}
 
 function PrintBillDialog({ sale, licenseInfo }: { sale: SaleRecord, licenseInfo: LicenseInfo }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -180,7 +172,7 @@ function PrintBillDialog({ sale, licenseInfo }: { sale: SaleRecord, licenseInfo:
     );
 }
 
-function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: SaleRecord[], setSales: (sales: SaleRecord[]) => void, service: AppService }) {
+function PendingPaymentsDialog({ allSales, setSales }: { allSales: SaleRecord[], setSales: (sales: SaleRecord[] | null | ((current: SaleRecord[]) => SaleRecord[] | null)) => void }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [settlingSale, setSettlingSale] = React.useState<SaleRecord | null>(null);
     const [settlePaymentMode, setSettlePaymentMode] = React.useState<PaymentMode>('Cash');
@@ -188,26 +180,27 @@ function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: Sale
 
     const pendingSales = allSales.filter(s => s.paymentMode === 'Pending');
 
-    const handleSettlePayment = async () => {
+    const handleSettlePayment = () => {
         if (!settlingSale) return;
 
-        const updatedSale: SaleRecord = {
-            ...settlingSale,
-            paymentMode: settlePaymentMode,
-            paymentSettledDate: Timestamp.now(),
-        };
-
-        // @ts-ignore
-        const savedSale = await service.saveSale(updatedSale);
-        if (savedSale) {
-            const allSales = await service.getSales();
-            setSales(allSales);
-
-            toast({
-                title: "Payment Settled",
-                description: `Bill ${settlingSale.id} for ${settlingSale.customerName} has been marked as paid.`,
+        setSales(currentSales => {
+            if (!currentSales) return [];
+            return currentSales.map(s => {
+                if (s.id === settlingSale.id) {
+                    return {
+                        ...s,
+                        paymentMode: settlePaymentMode,
+                        paymentSettledDate: new Date().toISOString(),
+                    };
+                }
+                return s;
             });
-        }
+        });
+
+        toast({
+            title: "Payment Settled",
+            description: `Bill ${settlingSale.id} for ${settlingSale.customerName} has been marked as paid.`,
+        });
 
         setSettlingSale(null);
     };
@@ -245,7 +238,7 @@ function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: Sale
                                     <TableRow key={sale.id}>
                                         <TableCell className="font-semibold">{sale.customerName}</TableCell>
                                         <TableCell>{sale.id}</TableCell>
-                                        <TableCell>{getDateFromTimestamp(sale.saleDate).toLocaleDateString()}</TableCell>
+                                        <TableCell>{new Date(sale.saleDate).toLocaleDateString()}</TableCell>
                                         <TableCell className="text-right font-mono">{formatToINR(sale.totalAmount)}</TableCell>
                                         <TableCell className="text-right">
                                             <Button size="sm" onClick={() => setSettlingSale(sale)}>
@@ -309,37 +302,27 @@ function PendingPaymentsDialog({ allSales, setSales, service }: { allSales: Sale
     );
 }
 
-export default function HistoryTab({ sales, setSales, service }: HistoryTabProps) {
+export default function HistoryTab({ sales, setSales, licenseInfo }: HistoryTabProps) {
   const [isClearHistoryOpen, setIsClearHistoryOpen] = React.useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [sortOption, setSortOption] = React.useState<SortOption>('date_desc');
-  const [licenseInfo, setLicenseInfo] = React.useState<LicenseInfo | null>(null);
   const { toast } = useToast();
 
-  React.useEffect(() => {
-    // Fetch licenseInfo from AppService or localStorage
-    const fetchLicenseInfo = async () => {
-      const info = await service.getLicenseInfo();
-      setLicenseInfo(info);
-    };
-    fetchLicenseInfo();
-  }, [service]);
-
-
-  const uniqueSales = React.useMemo(() => {
-    return sales.filter((sale, index, self) =>
-        index === self.findIndex((s) => s.id === sale.id)
-    );
-  }, [sales]);
+  const handleClearHistory = () => {
+    setSales(null);
+    setIsClearHistoryOpen(false);
+    setDeleteConfirmation('');
+    toast({ title: "History Cleared", description: "All sales records have been deleted." });
+  };
 
   const filteredSales = React.useMemo(() => {
-    let sortedSales = [...uniqueSales].filter(s => s.paymentMode !== 'Pending');
+    let sortedSales = sales.filter(s => s.paymentMode !== 'Pending');
 
     sortedSales.sort((a, b) => {
-        const dateA = getDateFromTimestamp(a.saleDate).getTime();
-        const dateB = getDateFromTimestamp(b.saleDate).getTime();
+        const dateA = new Date(a.saleDate).getTime();
+        const dateB = new Date(b.saleDate).getTime();
         switch (sortOption) {
             case 'date_asc':
                 return dateA - dateB;
@@ -363,10 +346,10 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
           if (!selectedDate) {
               return searchTermMatch;
           }
-          const saleDate = getDateFromTimestamp(sale.saleDate);
+          const saleDate = new Date(sale.saleDate);
           return searchTermMatch && saleDate.toDateString() === selectedDate.toDateString();
         });
-  }, [uniqueSales, searchTerm, selectedDate, sortOption]);
+  }, [sales, searchTerm, selectedDate, sortOption]);
 
   const dailySummary = React.useMemo(() => {
     if (!selectedDate || filteredSales.length === 0) return null;
@@ -393,11 +376,11 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
           sale.id,
           `"${sale.customerName.replace(/"/g, '""')}"`,
           `"${(sale.doctorName || '').replace(/"/g, '""')}"`,
-          getDateFromTimestamp(sale.saleDate).toISOString(),
+          new Date(sale.saleDate).toISOString(),
           sale.paymentMode,
           sale.discountPercentage || 0,
           sale.totalAmount,
-          sale.paymentSettledDate ? getDateFromTimestamp(sale.paymentSettledDate).toISOString() : '',
+          sale.paymentSettledDate ? new Date(sale.paymentSettledDate).toISOString() : '',
           `"${item.name.replace(/"/g, '""')}"`,
           item.category,
           item.batchNumber,
@@ -423,31 +406,19 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
     document.body.removeChild(link);
   };
 
-  const handleClearHistory = async () => {
-    await service.deleteAllSales();
-    setSales([]);
-    setIsClearHistoryOpen(false);
-    setDeleteConfirmation('');
-    toast({ title: "History Cleared", description: "All sales records have been deleted." });
-  };
-
-  if (!licenseInfo) {
-    return null; // or a loading state
-  }
-
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Sales History</CardTitle>
           <div className="flex flex-wrap gap-2">
-            <PendingPaymentsDialog allSales={uniqueSales} setSales={setSales} service={service} />
-            <Button onClick={handleExportCSV} disabled={uniqueSales.length === 0}>
+            <PendingPaymentsDialog allSales={sales} setSales={setSales} />
+            <Button onClick={handleExportCSV} disabled={sales.length === 0}>
               Export CSV
             </Button>
             <AlertDialog open={isClearHistoryOpen} onOpenChange={(open) => { setIsClearHistoryOpen(open); if (!open) setDeleteConfirmation(''); }}>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={uniqueSales.length === 0}>
+                <Button variant="destructive" disabled={sales.length === 0}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Clear History
                 </Button>
@@ -542,11 +513,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
         </div>
         {filteredSales.length > 0 ? (
           <Accordion type="single" collapsible className="w-full">
-            {filteredSales.map(sale => {
-              const subtotal = sale.items.reduce((sum, item) => sum + item.pricePerUnit * item.quantity, 0);
-              const saleDate = getDateFromTimestamp(sale.saleDate);
-              const settledDate = sale.paymentSettledDate ? getDateFromTimestamp(sale.paymentSettledDate) : null;
-              return (
+            {filteredSales.map(sale => (
               <AccordionItem value={sale.id} key={sale.id}>
                 <AccordionTrigger>
                   <div className="flex flex-col sm:flex-row w-full items-start sm:items-center justify-between pr-4 gap-2">
@@ -555,10 +522,10 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">Bill: {sale.id}</span>
                           {sale.doctorName && <span className="text-xs text-muted-foreground">Dr. {sale.doctorName}</span>}
-                          {settledDate && (
+                          {sale.paymentSettledDate && (
                             <ClientOnly>
                                 <Badge variant="outline" className="text-primary border-primary/50">
-                                    Paid: {settledDate.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                                    Paid: {new Date(sale.paymentSettledDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
                                 </Badge>
                             </ClientOnly>
                           )}
@@ -571,7 +538,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                     </div>
                     <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
                       <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
-                        <span className="text-muted-foreground">{saleDate.toLocaleDateString(undefined, { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        <span className="text-muted-foreground">{new Date(sale.saleDate).toLocaleDateString(undefined, { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })}</span>
                       </ClientOnly>
                       <Badge variant={sale.paymentMode === 'Pending' ? 'destructive' : 'secondary'}>{sale.paymentMode}</Badge>
                       <span className="font-mono text-right text-foreground">{formatToINR(sale.totalAmount)}</span>
@@ -610,8 +577,7 @@ export default function HistoryTab({ sales, setSales, service }: HistoryTabProps
                   </div>
                 </AccordionContent>
               </AccordionItem>
-              );
-            })}
+            ))}
           </Accordion>
         ) : (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-10 text-center">
