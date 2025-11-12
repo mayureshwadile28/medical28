@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type UserRole, type PinSettings, type Wholesaler, type LicenseInfo, type AppSettings } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, ShoppingCart, History, ClipboardList, LayoutDashboard, Settings, KeyRound, Users, LineChart, Loader2 } from 'lucide-react';
@@ -104,7 +104,13 @@ function FullScreenLoader() {
 export default function AppPage() {
   const { firestore, areServicesAvailable } = useFirebase();
   const { user } = useUser();
-  const [service, setService] = useState<AppService | null>(null);
+  
+  const service = useMemo(() => {
+    if (firestore) {
+      return new AppService(firestore);
+    }
+    return null;
+  }, [firestore]);
   
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [sales, setSales] = useState<SaleRecord[]>([]);
@@ -125,12 +131,6 @@ export default function AppPage() {
   const [pendingTab, setPendingTab] = useState('');
   
   const [orderItemToProcess, setOrderItemToProcess] = useState<{orderId: string, item: OrderItem, existingMedicine?: Medicine } | null>(null);
-
-  useEffect(() => {
-    if (areServicesAvailable && firestore) {
-      setService(new AppService(firestore));
-    }
-  }, [firestore, areServicesAvailable]);
 
   useEffect(() => {
     if (!service || !user) return;
