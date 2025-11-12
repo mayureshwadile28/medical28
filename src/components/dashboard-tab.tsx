@@ -76,13 +76,13 @@ export default function DashboardTab({ sales, medicines }: { sales: SaleRecord[]
     }, [periodSales]);
     
     const topSellingData = useMemo(() => {
-        const itemCounts: { [id: string]: { name: string, quantity: number, category: string } } = {};
+        const itemCounts: { [id: string]: { name: string; quantity: number; category: string, id: string } } = {};
         periodSales.forEach(sale => {
             sale.items.forEach(item => {
                 if (itemCounts[item.medicineId]) {
                     itemCounts[item.medicineId].quantity += item.quantity;
                 } else {
-                    itemCounts[item.medicineId] = { name: item.name, quantity: item.quantity, category: item.category };
+                    itemCounts[item.medicineId] = { name: item.name, quantity: item.quantity, category: item.category, id: item.medicineId };
                 }
             });
         });
@@ -217,7 +217,7 @@ export default function DashboardTab({ sales, medicines }: { sales: SaleRecord[]
                     <CardContent>
                         <ul className="space-y-4">
                             {topSellingData.map(item => (
-                                <li key={`${item.name}-${item.category}`} className="flex items-center">
+                                <li key={`${item.id}-${item.category}`} className="flex items-center">
                                     <div className="p-2 bg-muted rounded-md mr-4">
                                         {item.category === 'Tablet' || item.category === 'Capsule' ? <Pill className="h-5 w-5 text-primary"/> : <Package className="h-5 w-5 text-primary"/>}
                                     </div>
