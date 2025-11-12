@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
@@ -14,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, getDisplayQuantity } from '@/lib/utils';
 import { AppService } from '@/lib/service';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -28,13 +27,6 @@ interface OrderListTabProps {
     service: AppService;
     onProcessOrderItem: (data: { orderId: string, item: any, existingMedicine?: Medicine }) => void;
 }
-
-const getDisplayQuantity = (item: Partial<OrderItem>) => {
-    if (item.unitsPerPack && item.unitName) {
-        return `${item.quantity} (${item.unitsPerPack} ${item.unitName}/pack)`;
-    }
-    return item.quantity;
-};
 
 function WholesalerManager({ wholesalers, setWholesalers }: { wholesalers: Wholesaler[], setWholesalers: (wholesalers: Wholesaler[]) => void }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -716,5 +708,3 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
 
     
 }
-
-    

@@ -36,7 +36,7 @@ export function SettingsDialog({ licenseKey, pinSettings, setPinSettings, licens
     setAdminPin(pinSettings?.adminPin || '');
     setStaffPin(pinSettings?.staffPin || '');
     setLicenseLine1(licenseInfo.line1);
-    setLicenseLine2(licenseInfo.line2);
+    setLicenseLine2(licenseInfo.line2 || '');
     setLicenseInput('');
     setDialogState('request_license');
   };
