@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Settings, KeyRound, ShieldCheck } from 'lucide-react';
 import type { AppSettings } from '@/lib/types';
 import { Textarea } from './ui/textarea';
+import { ScrollArea } from './ui/scroll-area';
 
 interface SettingsDialogProps {
   appSettings: AppSettings;
@@ -100,7 +101,7 @@ export function SettingsDialog({ appSettings, setAppSettings, disabled }: Settin
           <Settings />
         </Button>
       </DialogTrigger>
-      <DialogContent onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
         {dialogState === 'request_license' && (
           <>
             <DialogHeader>
@@ -135,53 +136,55 @@ export function SettingsDialog({ appSettings, setAppSettings, disabled }: Settin
                 Update access PINs and the license numbers displayed on bills.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-6 py-4">
-               <div className="space-y-4 p-4 border rounded-lg">
-                 <h4 className="font-semibold text-lg">Access PINs</h4>
-                 <div className="space-y-2">
-                    <Label htmlFor="admin-pin">Admin PIN</Label>
-                    <Input
-                    id="admin-pin"
-                    type="password"
-                    value={adminPin}
-                    onChange={(e) => setAdminPin(e.target.value)}
-                    placeholder="Enter Admin PIN"
-                    />
+            <ScrollArea className="max-h-[60vh] p-1">
+                <div className="grid gap-6 py-4 px-4">
+                <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-semibold text-lg">Access PINs</h4>
+                    <div className="space-y-2">
+                        <Label htmlFor="admin-pin">Admin PIN</Label>
+                        <Input
+                        id="admin-pin"
+                        type="password"
+                        value={adminPin}
+                        onChange={(e) => setAdminPin(e.target.value)}
+                        placeholder="Enter Admin PIN"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="staff-pin">Staff PIN</Label>
+                        <Input
+                        id="staff-pin"
+                        type="password"
+                        value={staffPin}
+                        onChange={(e) => setStaffPin(e.target.value)}
+                        placeholder="Enter Staff PIN"
+                        />
+                    </div>
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="staff-pin">Staff PIN</Label>
-                    <Input
-                    id="staff-pin"
-                    type="password"
-                    value={staffPin}
-                    onChange={(e) => setStaffPin(e.target.value)}
-                    placeholder="Enter Staff PIN"
-                    />
-                </div>
-               </div>
 
-               <div className="space-y-4 p-4 border rounded-lg">
-                 <h4 className="font-semibold text-lg">Bill License Numbers</h4>
-                 <div className="space-y-2">
-                    <Label htmlFor="license-line-1">License Line 1</Label>
-                    <Textarea
-                    id="license-line-1"
-                    value={licenseLine1}
-                    onChange={(e) => setLicenseLine1(e.target.value)}
-                    placeholder="e.g., Lic. No.: 20-DHL-212349, 21-DHL-212351"
-                    />
+                <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-semibold text-lg">Bill License Numbers</h4>
+                    <div className="space-y-2">
+                        <Label htmlFor="license-line-1">License Line 1</Label>
+                        <Textarea
+                        id="license-line-1"
+                        value={licenseLine1}
+                        onChange={(e) => setLicenseLine1(e.target.value)}
+                        placeholder="e.g., Lic. No.: 20-DHL-212349, 21-DHL-212351"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="license-line-2">License Line 2 (Optional)</Label>
+                        <Textarea
+                        id="license-line-2"
+                        value={licenseLine2}
+                        onChange={(e) => setLicenseLine2(e.target.value)}
+                        placeholder="e.g., Lic. No.: 20-DHL-212350"
+                        />
+                    </div>
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="license-line-2">License Line 2 (Optional)</Label>
-                    <Textarea
-                    id="license-line-2"
-                    value={licenseLine2}
-                    onChange={(e) => setLicenseLine2(e.target.value)}
-                     placeholder="e.g., Lic. No.: 20-DHL-212350"
-                    />
                 </div>
-               </div>
-            </div>
+            </ScrollArea>
             <DialogFooter>
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
               <Button type="button" onClick={handleSave}>
