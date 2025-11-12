@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -103,7 +102,7 @@ function FullScreenLoader() {
 
 export default function AppPage() {
   const { firestore, areServicesAvailable } = useFirebase();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   
   const service = useMemo(() => {
     if (firestore) {
@@ -118,7 +117,7 @@ export default function AppPage() {
   const [wholesalers, setWholesalers] = useState<Wholesaler[]>([]);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const [activeRole, setActiveRole] = useState<UserRole | null>(null);
   
   const searchParams = useSearchParams();
@@ -136,20 +135,26 @@ export default function AppPage() {
     if (!service || !user) return;
 
     const fetchInitialData = async () => {
-        setIsLoading(true);
-        const [medicines, sales, orders, wholesalers, settings] = await Promise.all([
-            service.getMedicines(),
-            service.getSales(),
-            service.getWholesalerOrders(),
-            service.getWholesalers(),
-            service.getAppSettings()
-        ]);
-        setMedicines(medicines);
-        setSales(sales);
-        setWholesalerOrders(orders);
-        setWholesalers(wholesalers);
-        setAppSettings(settings);
-        setIsLoading(false);
+        setIsDataLoading(true);
+        try {
+            const [medicines, sales, orders, wholesalers, settings] = await Promise.all([
+                service.getMedicines(),
+                service.getSales(),
+                service.getWholesalerOrders(),
+                service.getWholesalers(),
+                service.getAppSettings()
+            ]);
+            setMedicines(medicines);
+            setSales(sales);
+            setWholesalerOrders(orders);
+            setWholesalers(wholesalers);
+            setAppSettings(settings);
+        } catch (error) {
+            console.error("Failed to fetch initial data:", error);
+            // Optionally, show a toast or error message to the user
+        } finally {
+            setIsDataLoading(false);
+        }
     };
     fetchInitialData();
   }, [service, user]);
@@ -172,8 +177,10 @@ export default function AppPage() {
       setActiveTab('inventory');
     }
   }, [orderItemToProcess]);
+
+  const isLoading = isUserLoading || !areServicesAvailable || isDataLoading;
   
-  if (isLoading || !service) {
+  if (isLoading) {
     return <FullScreenLoader />;
   }
   
@@ -228,7 +235,7 @@ export default function AppPage() {
   }
 
   const handleItemProcessed = async (medicine: Medicine | null) => {
-    if (orderItemToProcess) {
+    if (orderItemToProcess && service) {
       const { orderId, item } = orderItemToProcess;
       
       if (medicine && medicine.id) {
@@ -359,17 +366,17 @@ export default function AppPage() {
                 <DashboardTab sales={sales} medicines={medicines} />
               </TabsContent>
               <TabsContent value="pos" className="mt-0">
-                <PosTab
+                {service && <PosTab
                   medicines={medicines}
                   sales={sales}
                   setSales={setSales}
                   service={service}
                   appSettings={appSettings}
                   onSaveAppSettings={handleSaveAppSettings}
-                />
+                />}
               </TabsContent>
               <TabsContent value="inventory" className="mt-0">
-                <InventoryTab 
+                {service && <InventoryTab 
                   medicines={medicines} 
                   service={service}
                   restockId={openRestockId}
@@ -380,13 +387,13 @@ export default function AppPage() {
                   onSaveMedicine={handleSaveMedicine}
                   onDeleteMedicine={handleDeleteMedicine}
                   onSaveAllMedicines={handleSaveAllMedicines}
-                />
+                />}
               </TabsContent>
               <TabsContent value="customers" className="mt-0">
                   <CustomersTab sales={sales} />
               </TabsContent>
                <TabsContent value="order_list" className="mt-0">
-                <OrderListTab 
+                {service && <OrderListTab 
                   medicines={medicines}
                   orders={wholesalerOrders}
                   setOrders={setWholesalerOrders}
@@ -394,10 +401,10 @@ export default function AppPage() {
                   setWholesalers={setWholesalers}
                   service={service}
                   onProcessOrderItem={setOrderItemToProcess}
-                />
+                />}
               </TabsContent>
                <TabsContent value="history" className="mt-0">
-                <HistoryTab sales={sales} setSales={handleSaveSales} service={service} />
+                {service && <HistoryTab sales={sales} setSales={handleSaveSales} service={service} />}
               </TabsContent>
               <TabsContent value="reports" className="mt-0">
                   <ReportsTab sales={sales} medicines={medicines} />
