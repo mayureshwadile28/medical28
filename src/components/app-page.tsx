@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -101,8 +102,9 @@ function FullScreenLoader() {
 
 
 export default function AppPage() {
-  const { firestore } = useFirebase();
-  const [service, setService] = useState(() => new AppService(firestore));
+  const { firestore, areServicesAvailable } = useFirebase();
+  const { user } = useUser();
+  const [service, setService] = useState<AppService | null>(null);
   
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [sales, setSales] = useState<SaleRecord[]>([]);
@@ -125,10 +127,14 @@ export default function AppPage() {
   const [orderItemToProcess, setOrderItemToProcess] = useState<{orderId: string, item: OrderItem, existingMedicine?: Medicine } | null>(null);
 
   useEffect(() => {
-    setService(new AppService(firestore));
-  }, [firestore]);
+    if (areServicesAvailable && firestore) {
+      setService(new AppService(firestore));
+    }
+  }, [firestore, areServicesAvailable]);
 
   useEffect(() => {
+    if (!service || !user) return;
+
     const fetchInitialData = async () => {
         setIsLoading(true);
         const [medicines, sales, orders, wholesalers, settings] = await Promise.all([
@@ -146,7 +152,7 @@ export default function AppPage() {
         setIsLoading(false);
     };
     fetchInitialData();
-  }, [service]);
+  }, [service, user]);
 
   useEffect(() => {
     if (openRestockId) {
@@ -167,7 +173,7 @@ export default function AppPage() {
     }
   }, [orderItemToProcess]);
   
-  if (isLoading) {
+  if (isLoading || !service) {
     return <FullScreenLoader />;
   }
   
