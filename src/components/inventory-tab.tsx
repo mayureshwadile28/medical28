@@ -112,6 +112,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
 
   // State for sequential import with user prompts
   const [importQueue, setImportQueue] = useState<ImportedMedicine[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
   const importStats = useRef({ added: 0, updated: 0, skipped: 0, new: 0 });
   
   const validMedicines = useMemo(() => {
@@ -248,7 +249,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
 
     // After saving, continue import process if queue is not empty
     if (importQueue.length > 0) {
-        setTimeout(() => processImportQueue(false), 100); 
+        setTimeout(() => processImportQueue(), 100); 
     }
   };
 
@@ -256,7 +257,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     const isNew = !medicine.id || !validMedicines.some(m => m.id === medicine.id);
     if (isNew) {
       const existingMedicine = validMedicines.find(m => m.name.toLowerCase() === medicine.name.toLowerCase());
-      if (existingMedicine && importQueue.length === 0) { // Don't show for Mediscan import
+      if (existingMedicine && !isImporting) { // Don't show for Mediscan import
         setPendingMedicine(medicine);
         return; // Stop execution and wait for user confirmation
       }
@@ -265,7 +266,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
   };
   
   const handleCancelForm = () => {
-    const wasImport = importQueue.length > 0;
+    const wasImporting = isImporting;
 
     if (onItemProcessed && (orderItemToProcess || existingMedicineToProcess)) {
         onItemProcessed(null);
@@ -274,9 +275,9 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     setEditingMedicine(null);
     setIsFormOpen(false);
     
-    if (wasImport) {
+    if (wasImporting) {
         importStats.current.skipped++;
-        setTimeout(() => processImportQueue(false), 100);
+        setTimeout(() => processImportQueue(), 100);
     }
 
     setIsRestockMode(false);
@@ -324,19 +325,10 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     return `${year}-${paddedMonth}`;
   };
 
-  const processImportQueue = useCallback((isInitialCall: boolean) => {
-    if (isInitialCall) {
-        importStats.current = { added: 0, updated: 0, skipped: 0, new: 0 };
-    }
-    
+  const processImportQueue = useCallback(() => {
     setImportQueue(currentQueue => {
         if (currentQueue.length === 0) {
-            if (!isInitialCall) { // Only show toast at the very end
-                 toast({
-                    title: 'Import Complete',
-                    description: `${importStats.current.updated} batch(es) updated/added, ${importStats.current.new} new medicine(s) processed, ${importStats.current.skipped} item(s) skipped.`
-                });
-            }
+            setIsImporting(false); // Signal that the import process is finished
             return [];
         }
 
@@ -359,7 +351,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
             const batchExists = existingMed.batches.some(b => b.batchNumber === newBatchData.batchNumber);
             if (batchExists) {
                 importStats.current.skipped++;
-                setTimeout(() => processImportQueue(false), 50); // Skip and process next
+                setTimeout(() => processImportQueue(), 50); // Skip and process next
                 return remainingQueue;
             }
 
@@ -383,7 +375,23 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
         
         return remainingQueue;
     });
-  }, [validMedicines, toast]);
+  }, [validMedicines, parseImportedDate]);
+
+  useEffect(() => {
+    if (isImporting && importQueue.length === 0 && !isFormOpen) {
+      toast({
+        title: 'Import Complete',
+        description: `${importStats.current.updated} batch(es) updated/added, ${importStats.current.new} new medicine(s) processed, ${importStats.current.skipped} item(s) skipped.`
+      });
+      setIsImporting(false);
+    }
+  }, [isImporting, importQueue, isFormOpen, toast]);
+
+  useEffect(() => {
+      if (importQueue.length > 0 && isImporting && !isFormOpen) {
+          processImportQueue();
+      }
+  }, [importQueue, isImporting, isFormOpen, processImportQueue]);
   
   const handleImportInventory = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -399,7 +407,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
             if (!Array.isArray(importedData)) throw new Error("Invalid file format: must be a JSON array.");
             
             const firstItem = importedData[0];
-            if (!firstItem || !firstItem.medicineName || !firstItem.batchNumber || !firstItem.expDate) {
+            if (firstItem && (!firstItem.medicineName || !firstItem.batchNumber || !firstItem.expDate)) {
                 throw new Error("Invalid data structure in JSON file.");
             }
 
@@ -433,6 +441,8 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
                     description: `Inventory replaced with ${newMedicines.length} medicine(s).`
                 });
             } else { // 'merge'
+                setIsImporting(true);
+                importStats.current = { added: 0, updated: 0, skipped: 0, new: 0 };
                 setImportQueue(importedData);
             }
 
@@ -445,12 +455,6 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     };
     reader.readAsText(file);
   }
-    
-  useEffect(() => {
-      if (importQueue.length > 0 && !isFormOpen) {
-          processImportQueue(true);
-      }
-  }, [importQueue, isFormOpen, processImportQueue]);
 
     const handleMediscanImport = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -466,7 +470,9 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
                 if (!Array.isArray(importedData) || importedData.length === 0) {
                      throw new Error("File is empty or in an invalid format.");
                 }
-
+                
+                setIsImporting(true);
+                importStats.current = { added: 0, updated: 0, skipped: 0, new: 0 };
                 setImportQueue(importedData);
             } catch (error: any) {
                  toast({ variant: 'destructive', title: 'Import Error', description: error.message || 'Invalid or corrupted file.' });
@@ -512,7 +518,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
                       <DialogHeader>
                           <DialogTitle>{editingMedicine?.id ? (isRestockMode ? `Add New Stock: ${editingMedicine.name}` : 'Edit Medicine') : 'Add New Medicine'}</DialogTitle>
                           {orderItemToProcess && <DialogDescription>Please provide the batch details for the newly received item to add it to your inventory.</DialogDescription>}
-                          {importQueue.length > 0 && <DialogDescription>Processing item from Mediscan import. Please verify details and save.</DialogDescription>}
+                          {isImporting && <DialogDescription>Processing item from Mediscan import. Please verify details and save.</DialogDescription>}
                       </DialogHeader>
                       <MedicineForm
                           medicines={validMedicines}
