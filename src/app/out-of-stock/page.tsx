@@ -1,11 +1,23 @@
+
 'use client';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type Medicine, getTotalStock } from '@/lib/types';
+import { type Medicine, getTotalStock, isTablet } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Bell, Edit, Info, Loader2 } from 'lucide-react';
+
+const getStockString = (med: Medicine) => {
+    const stock = getTotalStock(med);
+    if (stock > 0) {
+      if (isTablet(med)) {
+          return `${stock} tabs`;
+      }
+      return `${stock} units`;
+    }
+    return 'Out of Stock';
+};
 
 export default function OutOfStockPage() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -75,12 +87,15 @@ export default function OutOfStockPage() {
                         <p className="font-semibold text-lg">{med.name}</p>
                         <p className="text-sm text-muted-foreground">{med.category} &middot; Location: <span className="font-medium text-foreground">{med.location}</span></p>
                       </div>
-                      <Button
-                        variant="secondary"
-                        onClick={() => handleRestock(med.id)}
-                      >
-                        <Edit className="mr-2 h-4 w-4" /> Restock
-                      </Button>
+                       <div className="flex items-center gap-4">
+                        <span className="font-mono text-sm font-semibold text-destructive">{getStockString(med)}</span>
+                        <Button
+                            variant="secondary"
+                            onClick={() => handleRestock(med.id)}
+                        >
+                            <Edit className="mr-2 h-4 w-4" /> Restock
+                        </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -98,3 +113,5 @@ export default function OutOfStockPage() {
     </main>
   );
 }
+
+    

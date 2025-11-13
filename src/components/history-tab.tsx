@@ -609,3 +609,5 @@ export default function HistoryTab({ sales, setSales, licenseInfo }: HistoryTabP
 }
 
     
+
+    

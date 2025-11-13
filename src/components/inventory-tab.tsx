@@ -257,7 +257,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     const isNew = !medicine.id || !validMedicines.some(m => m.id === medicine.id);
     if (isNew) {
       const existingMedicine = validMedicines.find(m => m.name.toLowerCase() === medicine.name.toLowerCase());
-      if (existingMedicine && !isImporting) { // Don't show for Mediscan import
+      if (existingMedicine) {
         setPendingMedicine(medicine);
         return; // Stop execution and wait for user confirmation
       }
@@ -317,11 +317,12 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
   };
   
   const parseImportedDate = (dateStr: string): string => {
-    if (!dateStr || !/^\d{2}\/\d{4}$/.test(dateStr)) return '';
+    if (!dateStr || !/^\d{1,2}\/\d{4}$/.test(dateStr)) return '';
     const [month, year] = dateStr.split('/');
     const paddedMonth = month.padStart(2, '0');
     const numericYear = parseInt(year, 10);
     if (isNaN(numericYear) || numericYear < 1970 || numericYear > 2100) return '';
+    // Return in "YYYY-MM" format for the input[type=month]
     return `${year}-${paddedMonth}`;
   };
 
@@ -385,13 +386,13 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
       });
       setIsImporting(false);
     }
-  }, [isImporting, importQueue, isFormOpen, toast]);
+  }, [isImporting, importQueue.length, isFormOpen, toast]);
 
   useEffect(() => {
       if (importQueue.length > 0 && isImporting && !isFormOpen) {
           processImportQueue();
       }
-  }, [importQueue, isImporting, isFormOpen, processImportQueue]);
+  }, [importQueue.length, isImporting, isFormOpen, processImportQueue]);
   
   const handleImportInventory = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -781,3 +782,6 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     </>
   );
 }
+
+
+    

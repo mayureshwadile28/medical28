@@ -294,7 +294,7 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
       const lowerCaseItemName = itemName.toLowerCase();
       return medicines
         .filter(med => med && med.name && med.name.toLowerCase().includes(lowerCaseItemName))
-        .map(med => ({ name: med.name, category: med.category }));
+        .map(med => ({ name: med.name, category: med.category, company: med.company }));
     }, [medicines, itemName]);
 
     useEffect(() => {
@@ -423,9 +423,19 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
         setItems(items.filter((_, i) => i !== index));
     };
 
-    const handleSuggestionClick = (suggestion: {name: string, category: string}) => {
+    const handleSuggestionClick = (suggestion: {name: string, category: string, company?: string}) => {
         setItemName(suggestion.name);
         setItemCategory(suggestion.category);
+        setItems(prevItems => [...prevItems, { 
+            name: suggestion.name, 
+            category: suggestion.category, 
+            company: suggestion.company,
+            quantity: '' // Let user fill this
+        }]);
+
+        // Reset fields after adding
+        setItemName('');
+        setItemCategory('');
         setShowSuggestions(false);
         setHighlightedIndex(-1);
     };
@@ -441,7 +451,12 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
             } else if (e.key === 'Enter') {
                 if (highlightedIndex > -1) {
                     e.preventDefault();
-                    handleSuggestionClick(suggestedMedicines[highlightedIndex]);
+                    // When enter is pressed on a suggestion, just fill the form, don't add to list yet
+                    const suggestion = suggestedMedicines[highlightedIndex];
+                    setItemName(suggestion.name);
+                    setItemCategory(suggestion.category);
+                    setShowSuggestions(false);
+                    setHighlightedIndex(-1);
                 }
             } else if (e.key === 'Escape') {
                 setShowSuggestions(false);
@@ -518,7 +533,12 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
                                         <li
                                             key={`${suggestion.name}-${suggestion.category}`}
                                             className={cn("px-3 py-2 cursor-pointer hover:bg-accent", highlightedIndex === index && 'bg-accent')}
-                                            onClick={() => handleSuggestionClick(suggestion)}
+                                            onClick={() => {
+                                                setItemName(suggestion.name);
+                                                setItemCategory(suggestion.category);
+                                                setShowSuggestions(false);
+                                                setHighlightedIndex(-1);
+                                            }}
                                             onMouseEnter={() => setHighlightedIndex(index)}
                                         >
                                             {suggestion.name} <span className="text-xs text-muted-foreground">({suggestion.category})</span>
@@ -702,5 +722,7 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
 
     
 }
+
+    
 
     
