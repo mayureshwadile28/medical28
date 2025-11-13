@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { type Medicine, isTablet, isGeneric, type TabletMedicine, type GenericMedicine, OrderItem, getTotalStock, getSoonestExpiry, getTotalStockInBatch, type Batch } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -324,65 +324,66 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     return `${year}-${paddedMonth}`;
   };
 
-  const processImportQueue = (isInitialCall: boolean) => {
+  const processImportQueue = useCallback((isInitialCall: boolean) => {
     if (isInitialCall) {
         importStats.current = { added: 0, updated: 0, skipped: 0, new: 0 };
     }
     
-    const currentQueue = importQueue;
-
-    if (currentQueue.length === 0) {
-        if (!isInitialCall) { // Only show toast at the very end
-             toast({
-                title: 'Import Complete',
-                description: `${importStats.current.updated} batch(es) updated/added, ${importStats.current.new} new medicine(s) processed, ${importStats.current.skipped} item(s) skipped.`
-            });
-        }
-        return;
-    }
-
-    const [importedMedData, ...remainingQueue] = currentQueue;
-    setImportQueue(remainingQueue);
-
-    const existingMed = validMedicines.find(
-        m => m.name.toLowerCase() === importedMedData.medicineName.toLowerCase()
-    );
-
-    const newBatchData: Partial<Batch> = {
-        id: new Date().toISOString() + Math.random(),
-        batchNumber: importedMedData.batchNumber,
-        mfg: parseImportedDate(importedMedData.mfgDate),
-        expiry: parseImportedDate(importedMedData.expDate),
-        price: parseFloat(importedMedData.mrp) || 0,
-        stock: { tablets: 0, quantity: 0 },
-    };
-
-    if (existingMed) {
-        const batchExists = existingMed.batches.some(b => b.batchNumber === newBatchData.batchNumber);
-        if (batchExists) {
-            importStats.current.skipped++;
-            setTimeout(() => processImportQueue(false), 50); // Skip and process next
-            return;
+    setImportQueue(currentQueue => {
+        if (currentQueue.length === 0) {
+            if (!isInitialCall) { // Only show toast at the very end
+                 toast({
+                    title: 'Import Complete',
+                    description: `${importStats.current.updated} batch(es) updated/added, ${importStats.current.new} new medicine(s) processed, ${importStats.current.skipped} item(s) skipped.`
+                });
+            }
+            return [];
         }
 
-        importStats.current.updated++;
-        setEditingMedicine({
-            ...existingMed,
-            batches: [...existingMed.batches, newBatchData as Batch]
-        });
-        setIsRestockMode(true); // To highlight the new batch
-        setIsFormOpen(true);
-    } else {
-        importStats.current.new++;
-        const newMedicine: Partial<Medicine> = {
-            name: importedMedData.medicineName,
-            batches: [newBatchData as Batch],
+        const [importedMedData, ...remainingQueue] = currentQueue;
+        
+        const existingMed = validMedicines.find(
+            m => m.name.toLowerCase() === importedMedData.medicineName.toLowerCase()
+        );
+
+        const newBatchData: Partial<Batch> = {
+            id: new Date().toISOString() + Math.random(),
+            batchNumber: importedMedData.batchNumber,
+            mfg: parseImportedDate(importedMedData.mfgDate),
+            expiry: parseImportedDate(importedMedData.expDate),
+            price: parseFloat(importedMedData.mrp) || 0,
+            stock: { tablets: 0, quantity: 0 },
         };
-        setEditingMedicine(newMedicine as Medicine);
-        setIsRestockMode(false);
-        setIsFormOpen(true);
-    }
-  };
+
+        if (existingMed) {
+            const batchExists = existingMed.batches.some(b => b.batchNumber === newBatchData.batchNumber);
+            if (batchExists) {
+                importStats.current.skipped++;
+                setTimeout(() => processImportQueue(false), 50); // Skip and process next
+                return remainingQueue;
+            }
+
+            importStats.current.updated++;
+            setEditingMedicine({
+                ...existingMed,
+                batches: [...existingMed.batches, newBatchData as Batch]
+            });
+            setIsRestockMode(true); // To highlight the new batch
+            setIsFormOpen(true);
+        } else {
+            importStats.current.new++;
+            const newMedicine: Partial<Medicine> = {
+                name: importedMedData.medicineName,
+                batches: [newBatchData as Batch],
+            };
+            setEditingMedicine(newMedicine as Medicine);
+            setIsRestockMode(false);
+            setIsFormOpen(true);
+        }
+        
+        return remainingQueue;
+    });
+  }, [validMedicines, toast]);
   
   const handleImportInventory = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -442,12 +443,14 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
             setIsImportAlertOpen(false);
         }
     };
+    reader.readAsText(file);
+  }
     
-    useEffect(() => {
-        if (importQueue.length > 0 && !isFormOpen) {
-            processImportQueue(true);
-        }
-    }, [importQueue, isFormOpen]);
+  useEffect(() => {
+      if (importQueue.length > 0 && !isFormOpen) {
+          processImportQueue(true);
+      }
+  }, [importQueue, isFormOpen, processImportQueue]);
 
     const handleMediscanImport = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -772,5 +775,3 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     </>
   );
 }
-
-    
