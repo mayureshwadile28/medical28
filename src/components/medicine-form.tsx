@@ -363,10 +363,10 @@ export function MedicineForm({
           expiry: getFormattedDate(b.expiry),
           price: b.price,
           purchasePrice: b.purchasePrice,
-          stock_strips: isTabletCategory
-            ? (b.stock.tablets || 0) / tabletsPerStrip
+          stock_strips: isTabletCategory && b.stock.tablets !== undefined
+            ? b.stock.tablets / tabletsPerStrip
             : 0,
-          stock_quantity: !isTabletCategory ? b.stock.quantity : 0,
+          stock_quantity: !isTabletCategory && b.stock.quantity !== undefined ? b.stock.quantity : 0,
         }
       }) || []
 
@@ -458,7 +458,7 @@ export function MedicineForm({
 
   useEffect(() => {
     form.reset(getInitialFormValues())
-  }, [medicineToEdit, startWithNewBatch, orderItem, medicines, form])
+  }, [medicineToEdit, startWithNewBatch, orderItem, medicines])
 
   const selectedCategory = form.watch("category")
   const patientType = form.watch("description_patientType")
@@ -572,7 +572,7 @@ export function MedicineForm({
                     <Input
                       placeholder={"e.g., Paracetamol 500mg"}
                       {...field}
-                      disabled={isFromOrder}
+                      disabled={isFromOrder || !!medicineToEdit?.id}
                     />
                   </FormControl>
                   <FormMessage />
@@ -1006,3 +1006,5 @@ export function MedicineForm({
     </>
   )
 }
+
+    

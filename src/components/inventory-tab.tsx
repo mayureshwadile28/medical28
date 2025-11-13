@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, ListFilter, Info, ArrowDownUp, Bell, Upload, Download, CalendarClock, ScanLine } from 'lucide-react';
 import { MedicineForm } from './medicine-form';
 import { ClientOnly } from './client-only';
 import { cn } from '@/lib/utils';
@@ -100,6 +100,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('expiry_asc');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediscanInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deletingMedicineId, setDeletingMedicineId] = useState<string | null>(null);
@@ -236,6 +237,10 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
 
   const proceedWithSave = (medicine: Medicine) => {
     onSaveMedicine(medicine);
+    
+    // Check if this save was part of a Mediscan import
+    const wasMediscanImport = importQueue.length > 0;
+    
     if (onItemProcessed) {
         onItemProcessed(medicine);
     }
@@ -246,8 +251,11 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     setPendingMedicine(null);
 
     // After saving, continue import process if queue is not empty
-    if (importQueue.length > 0) {
-        setTimeout(() => processImportQueue(), 100);
+    if (wasMediscanImport || importQueue.length > 0) {
+        setTimeout(() => processImportQueue(false), 100); // false because we just saved a new one
+    } else if (newInventoryState && importQueue.length === 0) {
+        // This handles the regular (non-Mediscan) import
+        setTimeout(() => processImportQueue(false), 100);
     }
   };
 
@@ -255,7 +263,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     const isNew = !medicine.id || !validMedicines.some(m => m.id === medicine.id);
     if (isNew) {
       const existingMedicine = validMedicines.find(m => m.name.toLowerCase() === medicine.name.toLowerCase());
-      if (existingMedicine) {
+      if (existingMedicine && importQueue.length === 0) { // Don't show for Mediscan import
         setPendingMedicine(medicine);
         return; // Stop execution and wait for user confirmation
       }
@@ -264,18 +272,23 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
   };
   
   const handleCancelForm = () => {
+    const wasMediscanImport = importQueue.length > 0;
+
     if (onItemProcessed && (orderItemToProcess || existingMedicineToProcess)) {
         onItemProcessed(null);
     }
-    if (importQueue.length > 0) {
+    
+    setEditingMedicine(null);
+    setIsFormOpen(false);
+    
+    if (wasMediscanImport) {
         importStats.current.skipped++;
-        setEditingMedicine(null);
-        setIsFormOpen(false);
-        setTimeout(() => processImportQueue(), 100);
-    } else {
-        setEditingMedicine(null);
-        setIsFormOpen(false);
+        setTimeout(() => processImportQueue(false), 100);
+    } else if (newInventoryState && importQueue.length > 0) {
+        importStats.current.skipped++;
+        setTimeout(() => processImportQueue(false), 100);
     }
+
     setIsRestockMode(false);
     if(onRestockComplete) onRestockComplete();
   }
@@ -321,17 +334,19 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     return `${year}-${paddedMonth}`;
   };
 
-  const processImportQueue = () => {
+  const processImportQueue = (isInitialCall: boolean) => {
+    if (isInitialCall) {
+        importStats.current = { added: 0, updated: 0, skipped: 0, new: 0 };
+    }
+    
     if (importQueue.length === 0) {
-        if (newInventoryState) {
-            setMedicines(newInventoryState);
-        }
         const { updated, new: newCount, skipped } = importStats.current;
-        toast({
-            title: 'Import Complete',
-            description: `${updated} batch(es) merged, ${newCount} new medicine(s) added, ${skipped} item(s) skipped.`
-        });
-        setNewInventoryState(null);
+        if (!isInitialCall) { // Only show toast at the very end
+             toast({
+                title: 'Import Complete',
+                description: `${updated} batch(es) updated/added, ${newCount} new medicine(s) processed, ${skipped} item(s) skipped.`
+            });
+        }
         return;
     }
 
@@ -339,46 +354,39 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     const importedMedData = queue.shift()!;
     setImportQueue(queue);
 
-    const currentInventory = newInventoryState || [...validMedicines];
-    const existingMedIndex = currentInventory.findIndex(
+    const existingMed = validMedicines.find(
         m => m.name.toLowerCase() === importedMedData.medicineName.toLowerCase()
     );
 
-    if (existingMedIndex > -1) {
-        const updatedMed = { ...currentInventory[existingMedIndex] };
-        const batchExists = updatedMed.batches.some(b => b.batchNumber === importedMedData.batchNumber);
+    const newBatchData: Partial<Batch> = {
+        id: new Date().toISOString() + Math.random(),
+        batchNumber: importedMedData.batchNumber,
+        mfg: parseImportedDate(importedMedData.mfgDate),
+        expiry: parseImportedDate(importedMedData.expDate),
+        price: parseFloat(importedMedData.mrp) || 0,
+        stock: { tablets: 0, quantity: 0 },
+    };
 
-        if (!batchExists) {
-            const newBatch: Batch = {
-                id: new Date().toISOString() + Math.random(),
-                batchNumber: importedMedData.batchNumber,
-                mfg: parseImportedDate(importedMedData.mfgDate),
-                expiry: parseImportedDate(importedMedData.expDate),
-                price: parseFloat(importedMedData.mrp) || 0,
-                stock: { tablets: 0, quantity: 0 },
-            };
-            updatedMed.batches.push(newBatch);
-            currentInventory[existingMedIndex] = updatedMed;
-            setNewInventoryState(currentInventory);
-            importStats.current.updated++;
-        } else {
+    if (existingMed) {
+        const batchExists = existingMed.batches.some(b => b.batchNumber === newBatchData.batchNumber);
+        if (batchExists) {
             importStats.current.skipped++;
+            setTimeout(() => processImportQueue(false), 50); // Skip and process next
+            return;
         }
-        setTimeout(() => processImportQueue(), 50);
 
+        importStats.current.updated++;
+        setEditingMedicine({
+            ...existingMed,
+            batches: [...existingMed.batches, newBatchData as Batch]
+        });
+        setIsRestockMode(true); // To highlight the new batch
+        setIsFormOpen(true);
     } else {
         importStats.current.new++;
-        const newBatch: Partial<Batch> = {
-            id: new Date().toISOString() + Math.random(),
-            batchNumber: importedMedData.batchNumber,
-            mfg: parseImportedDate(importedMedData.mfgDate),
-            expiry: parseImportedDate(importedMedData.expDate),
-            price: parseFloat(importedMedData.mrp) || 0,
-            stock: { tablets: 0, quantity: 0 },
-        };
         const newMedicine: Partial<Medicine> = {
             name: importedMedData.medicineName,
-            batches: [newBatch as Batch],
+            batches: [newBatchData as Batch],
         };
         setEditingMedicine(newMedicine as Medicine);
         setIsRestockMode(false);
@@ -434,10 +442,9 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
                     description: `Inventory replaced with ${newMedicines.length} medicine(s).`
                 });
             } else { // 'merge'
-                importStats.current = { added: 0, updated: 0, skipped: 0, new: 0 };
                 setNewInventoryState([...validMedicines]);
                 setImportQueue(importedData);
-                processImportQueue();
+                // The `useEffect` will now trigger the processing
             }
 
         } catch (error: any) {
@@ -447,12 +454,46 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
             setIsImportAlertOpen(false);
         }
     };
-    reader.readAsText(file);
-  };
+    
+    // This effect starts the import queue processing only when it's populated.
+    useEffect(() => {
+        if (importQueue.length > 0 && !isFormOpen) {
+            processImportQueue(true); // true because it's the initial call for this queue
+        }
+    }, [importQueue, isFormOpen]);
 
-  const triggerFileSelect = () => {
-    fileInputRef.current?.click();
-  };
+    const handleMediscanImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result;
+                if (typeof text !== 'string') throw new Error("Failed to read file.");
+                const importedData: ImportedMedicine[] = JSON.parse(text);
+                
+                if (!Array.isArray(importedData) || importedData.length === 0) {
+                     throw new Error("File is empty or in an invalid format.");
+                }
+
+                setImportQueue(importedData); // This will trigger the useEffect
+            } catch (error: any) {
+                 toast({ variant: 'destructive', title: 'Import Error', description: error.message || 'Invalid or corrupted file.' });
+            } finally {
+                if (mediscanInputRef.current) mediscanInputRef.current.value = '';
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const triggerFileSelect = () => {
+        fileInputRef.current?.click();
+    };
+
+    const triggerMediscanFileSelect = () => {
+        mediscanInputRef.current?.click();
+    }
   
   return (
     <>
@@ -461,6 +502,16 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Inventory ({validMedicines.length} items)</CardTitle>
             <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="file"
+                ref={mediscanInputRef}
+                accept="application/json"
+                onChange={handleMediscanImport}
+                className="hidden"
+              />
+              <Button onClick={triggerMediscanFileSelect} variant="secondary">
+                  <ScanLine className="mr-2 h-4 w-4" /> Import from Mediscan
+              </Button>
               <Dialog open={isFormOpen} onOpenChange={handleOpenChange}>
                   <DialogTrigger asChild>
                       <Button onClick={() => { setEditingMedicine(null); setIsRestockMode(false); setIsFormOpen(true); }}>
@@ -471,7 +522,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
                       <DialogHeader>
                           <DialogTitle>{editingMedicine?.id ? (isRestockMode ? `Add New Stock: ${editingMedicine.name}` : 'Edit Medicine') : 'Add New Medicine'}</DialogTitle>
                           {orderItemToProcess && <DialogDescription>Please provide the batch details for the newly received item to add it to your inventory.</DialogDescription>}
-                          {importQueue.length > 0 && <DialogDescription>This is a new medicine from your imported file. Please set a category and location.</DialogDescription>}
+                          {importQueue.length > 0 && <DialogDescription>Processing item from Mediscan import. Please verify details and save.</DialogDescription>}
                       </DialogHeader>
                       <MedicineForm
                           medicines={validMedicines}
