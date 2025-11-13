@@ -168,6 +168,7 @@ export interface LicenseInfo {
 export interface AppSettings {
     pinSettings: PinSettings;
     licenseKey: string;
+    masterPassword?: string;
     licenseInfo: LicenseInfo;
     doctorNames: string[];
 }

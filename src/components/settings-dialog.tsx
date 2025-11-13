@@ -16,11 +16,11 @@ interface SettingsDialogProps {
   disabled?: boolean;
 }
 
-type DialogState = 'closed' | 'request_license' | 'manage_settings';
+type DialogState = 'closed' | 'request_master_password' | 'manage_settings';
 
 export function SettingsDialog({ appSettings, setAppSettings, disabled }: SettingsDialogProps) {
   const [dialogState, setDialogState] = useState<DialogState>('closed');
-  const [licenseInput, setLicenseInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   
   const [adminPin, setAdminPin] = useState('');
   const [staffPin, setStaffPin] = useState('');
@@ -36,9 +36,9 @@ export function SettingsDialog({ appSettings, setAppSettings, disabled }: Settin
     setStaffPin(appSettings?.pinSettings?.staffPin || '');
     setLicenseLine1(appSettings?.licenseInfo?.line1 || '');
     setLicenseLine2(appSettings?.licenseInfo?.line2 || '');
-    setLicenseInput('');
-    if (appSettings?.licenseKey) {
-        setDialogState('request_license');
+    setPasswordInput('');
+    if (appSettings?.masterPassword) {
+        setDialogState('request_master_password');
     } else {
         toast({ variant: 'destructive', title: 'Setup Required', description: 'Master password setup is required first.'});
     }
@@ -48,16 +48,16 @@ export function SettingsDialog({ appSettings, setAppSettings, disabled }: Settin
     setDialogState('closed');
   };
 
-  const handleLicenseCheck = () => {
-    if (!appSettings?.licenseKey) {
-      toast({ variant: 'destructive', title: 'Setup Error', description: 'No license key has been created for this application yet.' });
+  const handleMasterPasswordCheck = () => {
+    if (!appSettings?.masterPassword) {
+      toast({ variant: 'destructive', title: 'Setup Error', description: 'No master password has been created for this application yet.' });
       return;
     }
-    if (licenseInput === appSettings.licenseKey) {
+    if (passwordInput === appSettings.masterPassword) {
       toast({ title: 'Access Granted', description: 'You can now manage settings.' });
       setDialogState('manage_settings');
     } else {
-      toast({ variant: 'destructive', title: 'Invalid License Key' });
+      toast({ variant: 'destructive', title: 'Invalid Master Password' });
     }
   };
 
@@ -102,27 +102,27 @@ export function SettingsDialog({ appSettings, setAppSettings, disabled }: Settin
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
-        {dialogState === 'request_license' && (
+        {dialogState === 'request_master_password' && (
           <>
             <DialogHeader>
-              <DialogTitle>Enter License Key</DialogTitle>
+              <DialogTitle>Enter Master Password</DialogTitle>
               <DialogDescription>
-                To access settings, please enter your software license key.
+                To access settings, please enter your master password.
               </DialogDescription>
             </DialogHeader>
             <div className="grid flex-1 gap-2 py-4">
-              <Label htmlFor="license-key-input">License Key</Label>
+              <Label htmlFor="master-password-input">Master Password</Label>
               <Input
-                id="license-key-input"
+                id="master-password-input"
                 type="password"
-                value={licenseInput}
-                onChange={(e) => setLicenseInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleLicenseCheck()}
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleMasterPasswordCheck()}
               />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
-              <Button type="button" onClick={handleLicenseCheck}>
+              <Button type="button" onClick={handleMasterPasswordCheck}>
                 <KeyRound className="mr-2" /> Unlock
               </Button>
             </DialogFooter>

@@ -9,10 +9,13 @@ import { KeyRound, ShieldCheck, Unlock } from 'lucide-react';
 import type { PinSettings, UserRole, AppSettings } from '@/lib/types';
 import { useLocalStorage } from '@/lib/hooks';
 
-// This is the hardcoded MASTER password.
-const MASTER_PASSWORD = 'MAYURESH-VINOD-WADILE-2009';
-
-type DialogState = 'request_license' | 'request_master_password' | 'create_license' | 'pin_entry' | 'awaiting_pin_setup';
+type DialogState =
+  | 'request_license'
+  | 'request_master_password'
+  | 'create_master_password'
+  | 'create_license'
+  | 'pin_entry'
+  | 'awaiting_pin_setup';
 
 export function PinDialog({
   onPinSuccess,
@@ -34,21 +37,46 @@ export function PinDialog({
 
   useEffect(() => {
     if (isMounted) {
-      if (!appSettings?.licenseKey) {
+      if (!appSettings?.masterPassword) {
+        setDialogState('create_master_password');
+      } else if (!appSettings?.licenseKey) {
         setDialogState('request_master_password');
       } else if (!appSettings.pinSettings?.adminPin || !appSettings.pinSettings?.staffPin) {
         setDialogState('awaiting_pin_setup');
-        // Automatically grant Admin access for initial setup
         onPinSuccess('Admin');
       } else {
         setDialogState('pin_entry');
       }
     }
-  }, [appSettings, isMounted, onPinSuccess]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMounted]);
 
+  const handleCreateMasterPassword = () => {
+    if (input.trim().length < 6) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Master Password',
+        description: 'The master password must be at least 6 characters long.',
+      });
+      return;
+    }
+    const newMasterPassword = input.trim();
+    setAppSettings(prev => ({
+      ...(prev || { pinSettings: { adminPin: '', staffPin: '' }, doctorNames: [] }),
+      masterPassword: newMasterPassword,
+      licenseKey: '', // Ensure license key is empty for the next step
+      licenseInfo: { line1: '', line2: '' }
+    }));
+    toast({
+      title: 'Master Password Created!',
+      description: 'You can now create a license key.',
+    });
+    setDialogState('create_license');
+    setInput('');
+  };
 
   const handleMasterPasswordSubmit = () => {
-    if (input === MASTER_PASSWORD) {
+    if (input === appSettings?.masterPassword) {
       toast({
         title: 'Master Password Verified!',
         description: 'You can now create a new license key.',
@@ -83,7 +111,8 @@ export function PinDialog({
       title: 'License Key Created!',
       description: 'The application is now licensed. Please set up your PINs in Settings.',
     });
-    // The useEffect will catch this state change and move to 'awaiting_pin_setup'
+    setDialogState('awaiting_pin_setup');
+    onPinSuccess('Admin');
   };
 
   const handlePinEntry = () => {
@@ -107,6 +136,33 @@ export function PinDialog({
 
   const renderContent = () => {
     switch (dialogState) {
+      case 'create_master_password':
+        return (
+          <>
+            <DialogHeader>
+              <DialogTitle>Welcome! Create a Master Password</DialogTitle>
+              <DialogDescription>
+                This password will be used to access critical settings. Store it safely.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid flex-1 gap-2">
+              <Label htmlFor="new-master-password">New Master Password</Label>
+              <Input
+                id="new-master-password"
+                type="password"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateMasterPassword()}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" onClick={handleCreateMasterPassword}>
+                <ShieldCheck className="mr-2" /> Create and Save
+              </Button>
+            </DialogFooter>
+          </>
+        );
+
       case 'request_master_password':
         return (
           <>
