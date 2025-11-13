@@ -112,7 +112,6 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
 
   // State for sequential import with user prompts
   const [importQueue, setImportQueue] = useState<ImportedMedicine[]>([]);
-  const [newInventoryState, setNewInventoryState] = useState<Medicine[] | null>(null);
   const importStats = useRef({ added: 0, updated: 0, skipped: 0, new: 0 });
   
   const validMedicines = useMemo(() => {
@@ -238,9 +237,6 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
   const proceedWithSave = (medicine: Medicine) => {
     onSaveMedicine(medicine);
     
-    // Check if this save was part of a Mediscan import
-    const wasMediscanImport = importQueue.length > 0;
-    
     if (onItemProcessed) {
         onItemProcessed(medicine);
     }
@@ -251,11 +247,8 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     setPendingMedicine(null);
 
     // After saving, continue import process if queue is not empty
-    if (wasMediscanImport || importQueue.length > 0) {
-        setTimeout(() => processImportQueue(false), 100); // false because we just saved a new one
-    } else if (newInventoryState && importQueue.length === 0) {
-        // This handles the regular (non-Mediscan) import
-        setTimeout(() => processImportQueue(false), 100);
+    if (importQueue.length > 0) {
+        setTimeout(() => processImportQueue(false), 100); 
     }
   };
 
@@ -272,7 +265,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
   };
   
   const handleCancelForm = () => {
-    const wasMediscanImport = importQueue.length > 0;
+    const wasImport = importQueue.length > 0;
 
     if (onItemProcessed && (orderItemToProcess || existingMedicineToProcess)) {
         onItemProcessed(null);
@@ -281,10 +274,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
     setEditingMedicine(null);
     setIsFormOpen(false);
     
-    if (wasMediscanImport) {
-        importStats.current.skipped++;
-        setTimeout(() => processImportQueue(false), 100);
-    } else if (newInventoryState && importQueue.length > 0) {
+    if (wasImport) {
         importStats.current.skipped++;
         setTimeout(() => processImportQueue(false), 100);
     }
@@ -339,20 +329,20 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
         importStats.current = { added: 0, updated: 0, skipped: 0, new: 0 };
     }
     
-    if (importQueue.length === 0) {
-        const { updated, new: newCount, skipped } = importStats.current;
+    const currentQueue = importQueue;
+
+    if (currentQueue.length === 0) {
         if (!isInitialCall) { // Only show toast at the very end
              toast({
                 title: 'Import Complete',
-                description: `${updated} batch(es) updated/added, ${newCount} new medicine(s) processed, ${skipped} item(s) skipped.`
+                description: `${importStats.current.updated} batch(es) updated/added, ${importStats.current.new} new medicine(s) processed, ${importStats.current.skipped} item(s) skipped.`
             });
         }
         return;
     }
 
-    const queue = [...importQueue];
-    const importedMedData = queue.shift()!;
-    setImportQueue(queue);
+    const [importedMedData, ...remainingQueue] = currentQueue;
+    setImportQueue(remainingQueue);
 
     const existingMed = validMedicines.find(
         m => m.name.toLowerCase() === importedMedData.medicineName.toLowerCase()
@@ -442,9 +432,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
                     description: `Inventory replaced with ${newMedicines.length} medicine(s).`
                 });
             } else { // 'merge'
-                setNewInventoryState([...validMedicines]);
                 setImportQueue(importedData);
-                // The `useEffect` will now trigger the processing
             }
 
         } catch (error: any) {
@@ -455,10 +443,9 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
         }
     };
     
-    // This effect starts the import queue processing only when it's populated.
     useEffect(() => {
         if (importQueue.length > 0 && !isFormOpen) {
-            processImportQueue(true); // true because it's the initial call for this queue
+            processImportQueue(true);
         }
     }, [importQueue, isFormOpen]);
 
@@ -477,7 +464,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
                      throw new Error("File is empty or in an invalid format.");
                 }
 
-                setImportQueue(importedData); // This will trigger the useEffect
+                setImportQueue(importedData);
             } catch (error: any) {
                  toast({ variant: 'destructive', title: 'Import Error', description: error.message || 'Invalid or corrupted file.' });
             } finally {
