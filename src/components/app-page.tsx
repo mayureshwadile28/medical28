@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardDescription } from './ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/card';
 
 type AppData = {
     medicines: Medicine[];
@@ -264,16 +264,16 @@ export default function AppPage() {
       return (
           <div className="flex min-h-screen w-full items-center justify-center bg-background">
               <Card className="w-[450px]">
-                  <DialogHeader className="p-6">
-                      <DialogTitle className="flex items-center gap-3 text-2xl">
+                  <CardHeader>
+                      <CardTitle className="flex items-center gap-3 text-2xl">
                           <FolderOpen className="h-8 w-8 text-primary" />
                           Welcome to Vicky Medical POS
-                      </DialogTitle>
-                      <DialogDescription>
+                      </CardTitle>
+                      <CardDescription>
                           To get started, please select your data file. If you're new, this will create one for you. Your data is saved locally on your computer.
-                      </DialogDescription>
-                  </DialogHeader>
-                  <DialogContent className="p-6 pt-0">
+                      </CardDescription>
+                  </CardHeader>
+                  <CardContent>
                        <div className="rounded-md border-l-4 border-amber-500 bg-amber-500/10 p-4 text-amber-700">
                           <div className="flex items-start gap-3">
                             <AlertTriangle className="h-5 w-5 flex-shrink-0" />
@@ -283,13 +283,13 @@ export default function AppPage() {
                             </div>
                           </div>
                        </div>
-                  </DialogContent>
-                  <DialogFooter className="p-6">
+                  </CardContent>
+                  <CardFooter>
                       <Button onClick={loadDataFile} className="w-full" size="lg">
                           <FolderOpen className="mr-2 h-5 w-5" />
                           Select or Create Data File
                       </Button>
-                  </DialogFooter>
+                  </CardFooter>
               </Card>
           </div>
       );
@@ -428,3 +428,5 @@ export default function AppPage() {
     </>
   );
 }
+
+    
