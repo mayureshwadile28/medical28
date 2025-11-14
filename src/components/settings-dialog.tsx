@@ -1,9 +1,10 @@
+
 'use client';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/lib/use-toast';
 import { Label } from '@/components/ui/label';
 import { Settings, KeyRound, ShieldCheck } from 'lucide-react';
 import type { AppSettings } from '@/lib/types';
@@ -197,3 +198,5 @@ export function SettingsDialog({ appSettings, setAppSettings, disabled }: Settin
     </Dialog>
   );
 }
+
+    

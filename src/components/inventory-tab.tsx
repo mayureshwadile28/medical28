@@ -43,7 +43,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatToINR } from '@/lib/currency';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/lib/use-toast';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
@@ -783,5 +783,7 @@ export default function InventoryTab({ medicines, setMedicines, restockId, onRes
   );
 }
 
+
+    
 
     
