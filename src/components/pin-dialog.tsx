@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -7,7 +8,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { KeyRound, ShieldCheck, Unlock } from 'lucide-react';
 import type { PinSettings, UserRole, AppSettings } from '@/lib/types';
-import { useLocalStorage } from '@/lib/hooks';
 
 // This is the hardcoded MASTER password.
 const MASTER_PASSWORD = 'MAYURESH-VINOD-WADILE-2009';
@@ -21,7 +21,7 @@ export function PinDialog({
 }: {
   onPinSuccess: (role: UserRole) => void;
   appSettings: AppSettings | null;
-  setAppSettings: (settings: AppSettings | null | ((val: AppSettings) => AppSettings | null)) => void;
+  setAppSettings: (updater: (settings: AppSettings) => AppSettings) => void;
 }) {
   const [isMounted, setIsMounted] = useState(false);
   const [dialogState, setDialogState] = useState<DialogState>('pin_entry');

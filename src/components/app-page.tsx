@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { type Medicine, type SaleRecord, type WholesalerOrder, type OrderItem, type UserRole, type PinSettings, type Wholesaler, type LicenseInfo, type AppSettings } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, ShoppingCart, History, ClipboardList, LayoutDashboard, Settings, KeyRound, Users, LineChart, Loader2 } from 'lucide-react';
+import { Package, ShoppingCart, History, ClipboardList, LayoutDashboard, Settings, KeyRound, Users, LineChart, Loader2, FolderOpen, AlertTriangle } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 import PosTab from '@/components/pos-tab';
@@ -15,12 +16,21 @@ import CustomersTab from '@/components/customers-tab';
 import ReportsTab from '@/components/reports-tab';
 import { PinDialog } from '@/components/pin-dialog';
 import { SettingsDialog } from '@/components/settings-dialog';
-import { useLocalStorage } from '@/lib/hooks';
+import { useFileSystemAccess } from '@/lib/hooks';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Card, CardDescription } from './ui/card';
+
+type AppData = {
+    medicines: Medicine[];
+    sales: SaleRecord[];
+    wholesalerOrders: WholesalerOrder[];
+    wholesalers: Wholesaler[];
+    appSettings: AppSettings;
+};
 
 function AdminAuthDialog({ open, onOpenChange, pinSettings, onVerified }: { open: boolean, onOpenChange: (open: boolean) => void, pinSettings: PinSettings | null, onVerified: () => void }) {
     const [pin, setPin] = useState('');
@@ -76,12 +86,34 @@ const DEFAULT_SETTINGS: AppSettings = {
     doctorNames: [],
 };
 
+const INITIAL_APP_DATA: AppData = {
+    medicines: [],
+    sales: [],
+    wholesalerOrders: [],
+    wholesalers: [],
+    appSettings: DEFAULT_SETTINGS,
+};
+
 export default function AppPage() {
-  const [medicines, setMedicines, isMedicinesLoading] = useLocalStorage<Medicine[]>('medicines', []);
-  const [sales, setSales, isSalesLoading] = useLocalStorage<SaleRecord[]>('sales', []);
-  const [wholesalerOrders, setWholesalerOrders, isOrdersLoading] = useLocalStorage<WholesalerOrder[]>('wholesaler_orders', []);
-  const [wholesalers, setWholesalers, isWholesalersLoading] = useLocalStorage<Wholesaler[]>('wholesalers', []);
-  const [appSettings, setAppSettings, isSettingsLoading] = useLocalStorage<AppSettings>('app_settings', DEFAULT_SETTINGS);
+  const [appData, setAppData, isDataLoading, loadDataFile, dataFileName] = useFileSystemAccess<AppData>('vicky-medical-data', INITIAL_APP_DATA);
+
+  const { medicines, sales, wholesalerOrders, wholesalers, appSettings } = appData;
+
+  const setMedicines = (updater: (prev: Medicine[]) => Medicine[]) => {
+    setAppData(d => ({ ...d, medicines: updater(d.medicines) }));
+  };
+  const setSales = (updater: (prev: SaleRecord[]) => SaleRecord[]) => {
+    setAppData(d => ({ ...d, sales: updater(d.sales) }));
+  };
+  const setWholesalerOrders = (updater: (prev: WholesalerOrder[]) => WholesalerOrder[]) => {
+    setAppData(d => ({ ...d, wholesalerOrders: updater(d.wholesalerOrders) }));
+  };
+  const setWholesalers = (updater: (prev: Wholesaler[]) => Wholesaler[]) => {
+    setAppData(d => ({ ...d, wholesalers: updater(d.wholesalers) }));
+  };
+  const setAppSettings = (updater: (prev: AppSettings) => AppSettings) => {
+    setAppData(d => ({ ...d, appSettings: updater(d.appSettings) }));
+  };
 
   const [activeRole, setActiveRole] = useState<UserRole | null>(null);
   const searchParams = useSearchParams();
@@ -199,7 +231,7 @@ export default function AppPage() {
     }
   };
   
-  if (isMedicinesLoading || isSalesLoading || isOrdersLoading || isWholesalersLoading || isSettingsLoading) {
+  if (isDataLoading) {
     return (
       <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -222,10 +254,45 @@ export default function AppPage() {
             <h1 className="text-3xl font-bold font-headline text-foreground">Vicky Medical</h1>
           </div>
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading your pharmacy...</p>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
+  }
+
+  if (!dataFileName) {
+      return (
+          <div className="flex min-h-screen w-full items-center justify-center bg-background">
+              <Card className="w-[450px]">
+                  <DialogHeader className="p-6">
+                      <DialogTitle className="flex items-center gap-3 text-2xl">
+                          <FolderOpen className="h-8 w-8 text-primary" />
+                          Welcome to Vicky Medical POS
+                      </DialogTitle>
+                      <DialogDescription>
+                          To get started, please select your data file. If you're new, this will create one for you. Your data is saved locally on your computer.
+                      </DialogDescription>
+                  </DialogHeader>
+                  <DialogContent className="p-6 pt-0">
+                       <div className="rounded-md border-l-4 border-amber-500 bg-amber-500/10 p-4 text-amber-700">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                            <div className="flex-1">
+                                <h4 className="font-semibold">Important!</h4>
+                                <p className="text-sm">Please choose a safe location for your data file. You will need to re-select this file every time you open the app in a new browser tab.</p>
+                            </div>
+                          </div>
+                       </div>
+                  </DialogContent>
+                  <DialogFooter className="p-6">
+                      <Button onClick={loadDataFile} className="w-full" size="lg">
+                          <FolderOpen className="mr-2 h-5 w-5" />
+                          Select or Create Data File
+                      </Button>
+                  </DialogFooter>
+              </Card>
+          </div>
+      );
   }
   
   return (
