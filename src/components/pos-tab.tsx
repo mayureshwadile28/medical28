@@ -40,7 +40,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, Dialog
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Check, ChevronsUpDown, XCircle, MapPin, ShoppingCart, Trash2, Search, RotateCcw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/lib/use-toast";
 import { formatToINR } from '@/lib/currency';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -49,11 +49,11 @@ import { Badge } from '@/components/ui/badge';
 
 interface PosTabProps {
   medicines: Medicine[];
-  setMedicines: (value: Medicine[] | null | ((val: Medicine[]) => Medicine[] | null)) => void;
+  setMedicines: (updater: (prev: Medicine[]) => Medicine[]) => void;
   sales: SaleRecord[];
-  setSales: (value: SaleRecord[] | null | ((val: SaleRecord[]) => SaleRecord[] | null)) => void;
+  setSales: (updater: (prev: SaleRecord[]) => SaleRecord[]) => void;
   appSettings: AppSettings | null;
-  onSaveAppSettings: (settings: AppSettings | null | ((val: AppSettings) => AppSettings | null)) => void;
+  onSaveAppSettings: (updater: (settings: AppSettings) => AppSettings) => void;
 }
 
 const generateNewBillNumber = (sales: SaleRecord[]): string => {
@@ -974,5 +974,3 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, appSe
     </>
   );
 }
-
-    

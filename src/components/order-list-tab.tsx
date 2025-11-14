@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle, Trash2, ClipboardList, Info, History, PackagePlus, CheckCircle2, MapPin, X } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/lib/use-toast';
 import { type Medicine, type OrderItem, type WholesalerOrder, type Wholesaler } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -21,9 +21,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 interface OrderListTabProps {
     medicines: Medicine[];
     orders: WholesalerOrder[];
-    setOrders: (value: WholesalerOrder[] | null | ((val: WholesalerOrder[]) => WholesalerOrder[] | null)) => void;
+    setOrders: (updater: (prev: WholesalerOrder[]) => WholesalerOrder[]) => void;
     wholesalers: Wholesaler[];
-    setWholesalers: (value: Wholesaler[] | null | ((val: Wholesaler[]) => Wholesaler[] | null)) => void;
+    setWholesalers: (updater: (prev: Wholesaler[]) => Wholesaler[]) => void;
     onProcessOrderItem: (data: { orderId: string, item: any, existingMedicine?: Medicine }) => void;
 }
 
@@ -34,7 +34,7 @@ const getDisplayQuantity = (item: Partial<OrderItem>) => {
     return item.quantity;
 };
 
-function WholesalerManager({ wholesalers, setWholesalers }: { wholesalers: Wholesaler[], setWholesalers: (value: Wholesaler[] | null | ((val: Wholesaler[]) => Wholesaler[] | null)) => void }) {
+function WholesalerManager({ wholesalers, setWholesalers }: { wholesalers: Wholesaler[], setWholesalers: (updater: (prev: Wholesaler[]) => Wholesaler[]) => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const [name, setName] = useState('');
     const [contact, setContact] = useState('');
@@ -379,10 +379,13 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
         const formattedName = capitalizeWords(itemName.trim());
         const formattedQuantity = quantity.trim().toLowerCase();
 
+        const existingMed = medicines.find(m => m.name.toLowerCase() === formattedName.toLowerCase());
+
         const newItem: Partial<OrderItem> = {
             name: formattedName,
             category: finalCategory,
             quantity: quantity.trim(),
+            company: existingMed?.company,
         };
 
         const isTabletOrCapsule = finalCategory === 'Tablet' || finalCategory === 'Capsule';
@@ -492,7 +495,7 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
     };
 
     const handleClearOrderHistory = () => {
-        setOrders(null);
+        setOrders(() => []);
         toast({ title: 'Wholesaler Order History Cleared' });
     }
 
@@ -722,7 +725,3 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
 
     
 }
-
-    
-
-    

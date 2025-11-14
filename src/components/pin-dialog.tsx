@@ -4,15 +4,15 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/lib/use-toast';
 import { Label } from '@/components/ui/label';
 import { KeyRound, ShieldCheck, Unlock } from 'lucide-react';
-import type { PinSettings, UserRole, AppSettings } from '@/lib/types';
+import type { UserRole, AppSettings } from '@/lib/types';
 
 // This is the hardcoded MASTER password.
 const MASTER_PASSWORD = 'MAYURESH-VINOD-WADILE-2009';
 
-type DialogState = 'request_license' | 'request_master_password' | 'create_license' | 'pin_entry' | 'awaiting_pin_setup';
+type DialogState = 'request_master_password' | 'create_license' | 'pin_entry' | 'awaiting_pin_setup';
 
 export function PinDialog({
   onPinSuccess,
@@ -33,8 +33,8 @@ export function PinDialog({
   }, []);
 
   useEffect(() => {
-    if (isMounted) {
-      if (!appSettings?.licenseKey) {
+    if (isMounted && appSettings) {
+      if (!appSettings.licenseKey) {
         setDialogState('request_master_password');
       } else if (!appSettings.pinSettings?.adminPin || !appSettings.pinSettings?.staffPin) {
         setDialogState('awaiting_pin_setup');
@@ -75,9 +75,8 @@ export function PinDialog({
     }
     const newLicenseKey = input.trim();
     setAppSettings(prev => ({
-        ...(prev || { pinSettings: { adminPin: '', staffPin: '' }, doctorNames: [] }),
+        ...(prev || { pinSettings: { adminPin: '', staffPin: '' }, doctorNames: [], licenseInfo: {line1: '', line2: ''} }),
         licenseKey: newLicenseKey,
-        licenseInfo: { line1: 'Lic. No.: 12345, 67890', line2: 'Lic. No.: 54321' }
     }));
     toast({
       title: 'License Key Created!',

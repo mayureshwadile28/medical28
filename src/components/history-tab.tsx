@@ -59,14 +59,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/lib/use-toast';
 import { PrintableBill } from './printable-bill';
 import html2canvas from 'html2canvas';
 
 
 interface HistoryTabProps {
   sales: SaleRecord[];
-  setSales: (sales: SaleRecord[] | null | ((current: SaleRecord[]) => SaleRecord[] | null)) => void;
+  setSales: (updater: (prev: SaleRecord[]) => SaleRecord[]) => void;
   licenseInfo: LicenseInfo;
 }
 
@@ -174,7 +174,7 @@ function PrintBillDialog({ sale, licenseInfo }: { sale: SaleRecord, licenseInfo:
     );
 }
 
-function PendingPaymentsDialog({ allSales, setSales }: { allSales: SaleRecord[], setSales: (sales: SaleRecord[] | null | ((current: SaleRecord[]) => SaleRecord[] | null)) => void }) {
+function PendingPaymentsDialog({ allSales, setSales }: { allSales: SaleRecord[], setSales: (updater: (prev: SaleRecord[]) => SaleRecord[]) => void }) {
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [settlingSale, setSettlingSale] = React.useState<SaleRecord | null>(null);
     const [settlePaymentMode, setSettlePaymentMode] = React.useState<PaymentMode>('Cash');
@@ -313,7 +313,7 @@ export default function HistoryTab({ sales, setSales, licenseInfo }: HistoryTabP
   const { toast } = useToast();
 
   const handleClearHistory = () => {
-    setSales(null);
+    setSales(() => []);
     setIsClearHistoryOpen(false);
     setDeleteConfirmation('');
     toast({ title: "History Cleared", description: "All sales records have been deleted." });
@@ -607,7 +607,3 @@ export default function HistoryTab({ sales, setSales, licenseInfo }: HistoryTabP
     </Card>
   );
 }
-
-    
-
-    
