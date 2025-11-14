@@ -12,11 +12,13 @@ import { formatToINR } from '@/lib/currency';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
+import { Timestamp } from 'firebase/firestore';
+
 type CustomerSummary = {
     name: string;
     totalSpent: number;
     pendingAmount: number;
-    lastPurchase: string;
+    lastPurchase: Timestamp;
     purchaseHistory: SaleRecord[];
 };
 
@@ -36,7 +38,7 @@ export default function CustomersTab({ sales }: { sales: SaleRecord[] }) {
                     name,
                     totalSpent: 0,
                     pendingAmount: 0,
-                    lastPurchase: '1970-01-01T00:00:00.000Z',
+                    lastPurchase: Timestamp.fromDate(new Date(0)),
                     purchaseHistory: [],
                 };
             }
@@ -49,7 +51,7 @@ export default function CustomersTab({ sales }: { sales: SaleRecord[] }) {
                 customerMap[name].pendingAmount += sale.totalAmount;
             }
 
-            if (new Date(sale.saleDate) > new Date(customerMap[name].lastPurchase)) {
+            if (sale.saleDate.toDate() > customerMap[name].lastPurchase.toDate()) {
                 customerMap[name].lastPurchase = sale.saleDate;
             }
         });
@@ -66,7 +68,7 @@ export default function CustomersTab({ sales }: { sales: SaleRecord[] }) {
                 case 'name_asc': return a.name.localeCompare(b.name);
                 case 'spent_desc': return b.totalSpent - a.totalSpent;
                 case 'pending_desc': return b.pendingAmount - a.pendingAmount;
-                case 'last_purchase_desc': return new Date(b.lastPurchase).getTime() - new Date(a.lastPurchase).getTime();
+                case 'last_purchase_desc': return b.lastPurchase.toDate().getTime() - a.lastPurchase.toDate().getTime();
             }
         });
         
@@ -123,7 +125,7 @@ export default function CustomersTab({ sales }: { sales: SaleRecord[] }) {
                                                 <Badge variant="destructive">Pending: {formatToINR(customer.pendingAmount)}</Badge>
                                             )}
                                             <span className="text-muted-foreground hidden md:inline">
-                                                Last seen: {new Date(customer.lastPurchase).toLocaleDateString()}
+                                                Last seen: {customer.lastPurchase.toDate().toLocaleDateString()}
                                             </span>
                                             <span className="font-mono text-base">{formatToINR(customer.totalSpent)}</span>
                                         </div>
@@ -142,10 +144,10 @@ export default function CustomersTab({ sales }: { sales: SaleRecord[] }) {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {customer.purchaseHistory.sort((a,b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime()).map(sale => (
+                                                {customer.purchaseHistory.sort((a,b) => b.saleDate.toDate().getTime() - a.saleDate.toDate().getTime()).map(sale => (
                                                     <TableRow key={sale.id}>
                                                         <TableCell className="font-mono">{sale.id}</TableCell>
-                                                        <TableCell>{new Date(sale.saleDate).toLocaleDateString()}</TableCell>
+                                                        <TableCell>{sale.saleDate.toDate().toLocaleDateString()}</TableCell>
                                                         <TableCell className="text-right font-mono">{formatToINR(sale.totalAmount)}</TableCell>
                                                         <TableCell className="text-right">
                                                             <Badge variant={sale.paymentMode === 'Pending' ? 'destructive' : 'secondary'}>

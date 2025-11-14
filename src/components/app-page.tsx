@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Timestamp } from 'firebase/firestore';
 
 function AdminAuthDialog({ open, onOpenChange, pinSettings, onVerified }: { open: boolean, onOpenChange: (open: boolean) => void, pinSettings: PinSettings | null, onVerified: () => void }) {
     const [pin, setPin] = useState('');
@@ -164,8 +165,8 @@ export default function AppPage() {
                         ...order, 
                         items: updatedItems,
                         status: allReceived ? 'Completed' : 'Partially Received',
-                        receivedDate: allReceived ? new Date().toISOString() : order.receivedDate,
-                    };
+                        receivedDate: allReceived ? Timestamp.now() : order.receivedDate,
+                    } as WholesalerOrder;
                 }
                 return order;
             });

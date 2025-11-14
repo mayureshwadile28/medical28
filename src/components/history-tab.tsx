@@ -62,6 +62,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { PrintableBill } from './printable-bill';
 import html2canvas from 'html2canvas';
+import { Timestamp } from 'firebase/firestore';
 
 
 interface HistoryTabProps {
@@ -192,8 +193,8 @@ function PendingPaymentsDialog({ allSales, setSales }: { allSales: SaleRecord[],
                     return {
                         ...s,
                         paymentMode: settlePaymentMode,
-                        paymentSettledDate: new Date().toISOString(),
-                    };
+                        paymentSettledDate: Timestamp.now(),
+                    } as SaleRecord;
                 }
                 return s;
             });
@@ -240,7 +241,7 @@ function PendingPaymentsDialog({ allSales, setSales }: { allSales: SaleRecord[],
                                     <TableRow key={sale.id}>
                                         <TableCell className="font-semibold">{sale.customerName}</TableCell>
                                         <TableCell>{sale.id}</TableCell>
-                                        <TableCell>{new Date(sale.saleDate).toLocaleDateString()}</TableCell>
+                                         <TableCell>{sale.saleDate.toDate().toLocaleDateString()}</TableCell>
                                         <TableCell className="text-right font-mono">{formatToINR(sale.totalAmount)}</TableCell>
                                         <TableCell className="text-right">
                                             <Button size="sm" onClick={() => setSettlingSale(sale)}>
@@ -323,8 +324,8 @@ export default function HistoryTab({ sales, setSales, licenseInfo }: HistoryTabP
     let sortedSales = [...(sales || [])].filter(s => s.paymentMode !== 'Pending');
 
     sortedSales.sort((a, b) => {
-        const dateA = new Date(a.saleDate).getTime();
-        const dateB = new Date(b.saleDate).getTime();
+        const dateA = a.saleDate.toDate().getTime();
+        const dateB = b.saleDate.toDate().getTime();
         switch (sortOption) {
             case 'date_asc':
                 return dateA - dateB;
@@ -348,7 +349,7 @@ export default function HistoryTab({ sales, setSales, licenseInfo }: HistoryTabP
           if (!selectedDate) {
               return searchTermMatch;
           }
-          const saleDate = new Date(sale.saleDate);
+          const saleDate = sale.saleDate.toDate();
           return searchTermMatch && saleDate.toDateString() === selectedDate.toDateString();
         });
   }, [sales, searchTerm, selectedDate, sortOption]);
@@ -378,11 +379,11 @@ export default function HistoryTab({ sales, setSales, licenseInfo }: HistoryTabP
           sale.id,
           `"${sale.customerName.replace(/"/g, '""')}"`,
           `"${(sale.doctorName || '').replace(/"/g, '""')}"`,
-          new Date(sale.saleDate).toISOString(),
+          sale.saleDate.toDate().toISOString(),
           sale.paymentMode,
           sale.discountPercentage || 0,
           sale.totalAmount,
-          sale.paymentSettledDate ? new Date(sale.paymentSettledDate).toISOString() : '',
+          sale.paymentSettledDate ? sale.paymentSettledDate.toDate().toISOString() : '',
           `"${item.name.replace(/"/g, '""')}"`,
           item.category,
           item.batchNumber,
@@ -527,7 +528,7 @@ export default function HistoryTab({ sales, setSales, licenseInfo }: HistoryTabP
                           {sale.paymentSettledDate && (
                             <ClientOnly>
                                 <Badge variant="outline" className="text-primary border-primary/50">
-                                    Paid: {new Date(sale.paymentSettledDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                                    Paid: {sale.paymentSettledDate.toDate().toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
                                 </Badge>
                             </ClientOnly>
                           )}
@@ -540,7 +541,7 @@ export default function HistoryTab({ sales, setSales, licenseInfo }: HistoryTabP
                     </div>
                     <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
                       <ClientOnly fallback={<span className="w-24 h-4 bg-muted animate-pulse rounded-md" />}>
-                        <span className="text-muted-foreground">{new Date(sale.saleDate).toLocaleDateString(undefined, { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        <span className="text-muted-foreground">{sale.saleDate.toDate().toLocaleDateString(undefined, { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })}</span>
                       </ClientOnly>
                       <Badge variant={sale.paymentMode === 'Pending' ? 'destructive' : 'secondary'}>{sale.paymentMode}</Badge>
                       <span className="font-mono text-right text-foreground">{formatToINR(sale.totalAmount)}</span>
