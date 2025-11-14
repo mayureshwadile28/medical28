@@ -43,6 +43,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import { formatToINR } from '@/lib/currency';
 import { Label } from '@/components/ui/label';
+import { Timestamp } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 
@@ -586,7 +587,7 @@ export default function PosTab({ medicines, setMedicines, sales, setSales, appSe
       id: generateNewBillNumber(sales),
       customerName: customerName.trim(),
       doctorName: trimmedDoctorName,
-      saleDate: new Date().toISOString(),
+      saleDate: Timestamp.now(),
       items: billItems.map(item => ({
           ...item, 
           quantity: Number(item.quantity), 

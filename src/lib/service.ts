@@ -3,16 +3,20 @@ import { Firestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, writeBa
 
 export class AppService {
     private db: Firestore;
+    private medicinesCol;
+    private salesCol;
+    private wholesalersCol;
+    private wholesalerOrdersCol;
+    private settingsDoc;
 
     constructor(db: Firestore) {
         this.db = db;
+        this.medicinesCol = collection(this.db, 'medicines');
+        this.salesCol = collection(this.db, 'sales');
+        this.wholesalersCol = collection(this.db, 'wholesalers');
+        this.wholesalerOrdersCol = collection(this.db, 'wholesalerOrders');
+        this.settingsDoc = doc(this.db, 'settings', 'app');
     }
-
-    private medicinesCol = collection(this.db, 'medicines');
-    private salesCol = collection(this.db, 'sales');
-    private wholesalersCol = collection(this.db, 'wholesalers');
-    private wholesalerOrdersCol = collection(this.db, 'wholesalerOrders');
-    private settingsDoc = doc(this.db, 'settings', 'app');
 
     // --- Settings Management ---
     async getAppSettings(): Promise<AppSettings | null> {

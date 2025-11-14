@@ -32,11 +32,11 @@ export default function DashboardTab({ sales, medicines }: { sales: SaleRecord[]
     const startDate = subDays(todayStart, periodDays -1);
 
     const periodSales = useMemo(() => {
-        return sales.filter(s => new Date(s.saleDate) >= startDate && s.paymentMode !== 'Pending');
+        return sales.filter(s => s.saleDate.toDate() >= startDate && s.paymentMode !== 'Pending');
     }, [sales, startDate]);
 
     const todaySales = useMemo(() => {
-        return sales.filter(s => new Date(s.saleDate) >= todayStart && s.paymentMode !== 'Pending');
+        return sales.filter(s => s.saleDate.toDate() >= todayStart && s.paymentMode !== 'Pending');
     }, [sales, todayStart]);
 
     const stats = useMemo(() => {
@@ -56,7 +56,7 @@ export default function DashboardTab({ sales, medicines }: { sales: SaleRecord[]
         }
 
         periodSales.forEach(sale => {
-            const formattedDate = format(new Date(sale.saleDate), 'MMM d');
+            const formattedDate = format(sale.saleDate.toDate(), 'MMM d');
             if (dailyData.hasOwnProperty(formattedDate)) {
                 dailyData[formattedDate] += sale.totalAmount;
             }

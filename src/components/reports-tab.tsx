@@ -18,14 +18,14 @@ export default function ReportsTab({ sales, medicines }: { sales: SaleRecord[], 
         if (period === 'all') return sales.filter(s => s.paymentMode !== 'Pending');
         const periodDays = parseInt(period, 10);
         const startDate = subDays(startOfDay(new Date()), periodDays - 1);
-        return sales.filter(s => new Date(s.saleDate) >= startDate && s.paymentMode !== 'Pending');
+        return sales.filter(s => s.saleDate.toDate() >= startDate && s.paymentMode !== 'Pending');
     }, [sales, period]);
 
     const profitData = useMemo(() => {
         const dailyData: { [key: string]: { revenue: number, cost: number, profit: number } } = {};
 
         filteredSales.forEach(sale => {
-            const date = new Date(sale.saleDate).toISOString().split('T')[0];
+            const date = sale.saleDate.toDate().toISOString().split('T')[0];
             if (!dailyData[date]) {
                 dailyData[date] = { revenue: 0, cost: 0, profit: 0 };
             }

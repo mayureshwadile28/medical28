@@ -16,6 +16,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Timestamp } from 'firebase/firestore';
 
 
 interface OrderListTabProps {
@@ -197,9 +198,9 @@ function OrderHistoryDialog({ orders, onMerge, onClearHistory }: { orders: Whole
                                             <div className="flex flex-col text-left flex-1">
                                                 <span className="font-semibold">{order.wholesalerName}</span>
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                     <span className="text-xs text-muted-foreground">{new Date(order.orderDate).toLocaleDateString()}</span>
+                                                     <span className="text-xs text-muted-foreground">{order.orderDate.toDate().toLocaleDateString()}</span>
                                                     {order.receivedDate && <Badge variant="outline" className="text-xs">
-                                                        Received: {new Date(order.receivedDate).toLocaleDateString()}
+                                                        Received: {order.receivedDate.toDate().toLocaleDateString()}
                                                     </Badge>}
                                                 </div>
                                             </div>
@@ -478,7 +479,7 @@ export default function OrderListTab({ medicines, orders, setOrders, wholesalers
         const newOrder: WholesalerOrder = {
             id: new Date().toISOString(),
             wholesalerName: wholesalerName.trim(),
-            orderDate: new Date().toISOString(),
+            orderDate: Timestamp.now(),
             items: items.map(item => ({ ...item, id: `${new Date().toISOString()}-${Math.random()}`, status: 'Pending' })) as OrderItem[],
             status: 'Pending',
         };

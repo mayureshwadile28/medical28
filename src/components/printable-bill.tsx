@@ -11,7 +11,7 @@ interface PrintableBillProps extends React.HTMLAttributes<HTMLDivElement> {
 const PrintableBill = React.forwardRef<HTMLDivElement, PrintableBillProps>(({ sale, licenseInfo, className, ...props }, ref) => {
     const subtotal = sale.items.reduce((acc, item) => acc + item.total, 0);
     const discountAmount = (subtotal * (sale.discountPercentage || 0)) / 100;
-    const saleDate = new Date(sale.saleDate);
+    const saleDate = sale.saleDate.toDate();
   
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'N/A';
