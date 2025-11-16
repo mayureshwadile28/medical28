@@ -13,7 +13,7 @@ import { ScrollArea } from './ui/scroll-area';
 
 interface SettingsDialogProps {
   appSettings: AppSettings;
-  setAppSettings: (settings: AppSettings) => void;
+  setAppSettings: (value: AppSettings | null | ((val: AppSettings) => AppSettings | null)) => void;
   disabled?: boolean;
 }
 
