@@ -440,7 +440,7 @@ export function MedicineForm({
     }
   }
 
-  const formSchema = useMemo(() => createFormSchema(medicines, medicineToEdit?.id), [medicines, medicineToEdit?.id]);
+  const formSchema = createFormSchema(medicines, medicineToEdit?.id)
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
